@@ -12,7 +12,20 @@ from sentinel.cli import scan as scan_cmd
 from sentinel.cli import sweep as sweep_cmd
 
 
+def _reconfigure_stdio_to_utf8() -> None:
+    # Windows default is cp1252 which cannot encode e.g. ∩ (U+2229) that
+    # appears legitimately in statistics source code. Reconfigure once at
+    # entry so every subcommand's print() is safe. Silently skip if stdout
+    # has been replaced (e.g. test capture with StringIO).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _reconfigure_stdio_to_utf8()
     parser = argparse.ArgumentParser(prog="sentinel")
     sub = parser.add_subparsers(dest="command", required=True)
     scan_cmd.add_subparser(sub)
