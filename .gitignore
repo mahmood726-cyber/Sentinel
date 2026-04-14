@@ -9,6 +9,15 @@ PROGRESS.md
 # Sentinel runtime logs (created at runtime, not committed)
 logs/
 
+# Sentinel self-scan output (written by scan CLI; would create a feedback loop
+# if committed and rescanned)
+STUCK_FAILURES.md
+review-findings.md
+/tests/fixtures/**/STUCK_FAILURES.md
+
+# Generated dashboard output
+dashboard/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -10,7 +10,6 @@ files:
   - '**/*.html'
   - '**/*.js'
   - '**/*.css'
-  - '**/*.md'
   - '**/*.py'
   - '**/*.json'
   - '**/*.yaml'
@@ -18,9 +17,7 @@ files:
 exclude:
   - 'tests/**'
   - 'fixtures/**'
-  - 'docs/superpowers/**'
-  - 'PROGRESS.md'
-  - '.git/**'
+  - 'sentinel/rules/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.

@@ -11,7 +11,7 @@ import os
 import stat
 from pathlib import Path
 
-from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER
+from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
 
 
 class HookInstallError(Exception):
@@ -28,7 +28,14 @@ def is_sentinel_hook(hook_path: Path) -> bool:
     return SENTINEL_MARKER in content
 
 
-def install_hook(repo_root: Path) -> None:
+def install_hook(repo_root: Path, mode: str = "block") -> None:
+    """Install the Sentinel pre-push hook.
+
+    mode='block' (default): BLOCK verdicts abort push. Fail-safe default for
+    single-repo installs (e.g. developer opting-in to protection).
+    mode='warn': BLOCK verdicts recorded but push proceeds. Safer default for
+    portfolio-wide rollout where false-positive triage hasn't finished.
+    """
     git_dir = repo_root / ".git"
     if not git_dir.is_dir():
         raise HookInstallError(f"not a git repository: {repo_root}")
@@ -42,7 +49,7 @@ def install_hook(repo_root: Path) -> None:
             backup.write_bytes(hook.read_bytes())
             _chmod_exec(backup)
 
-    hook.write_text(HOOK_SCRIPT, encoding="utf-8")
+    hook.write_text(make_hook_script(mode), encoding="utf-8")
     _chmod_exec(hook)
 
 

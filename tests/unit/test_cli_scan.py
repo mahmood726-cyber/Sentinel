@@ -14,9 +14,14 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     )
 
 
+def _git_init(path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+
+
 def test_scan_repo_mode_exits_zero_on_clean_repo(tmp_path: Path):
     clean = tmp_path / "clean"
     clean.mkdir()
+    _git_init(clean)
     (clean / "hello.txt").write_text("hello", encoding="utf-8")
     res = _run("scan", "--repo", str(clean))
     assert res.returncode == 0, f"stderr: {res.stderr}"
@@ -25,6 +30,7 @@ def test_scan_repo_mode_exits_zero_on_clean_repo(tmp_path: Path):
 def test_scan_repo_mode_exits_one_on_placeholder_hmac(tmp_path: Path):
     bad = tmp_path / "bad"
     bad.mkdir()
+    _git_init(bad)
     (bad / "cert.json").write_text(
         '{"sig":"SIG_RSA_SHA256_x"}', encoding="utf-8"
     )
@@ -37,6 +43,7 @@ def test_scan_repo_mode_exits_one_on_placeholder_hmac(tmp_path: Path):
 def test_scan_json_output_contains_verdicts(tmp_path: Path):
     bad = tmp_path / "bad"
     bad.mkdir()
+    _git_init(bad)
     (bad / "cert.json").write_text(
         '{"sig":"SIG_RSA_SHA256_x"}', encoding="utf-8"
     )

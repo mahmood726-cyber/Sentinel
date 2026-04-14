@@ -32,9 +32,30 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
 
 def _run(args: argparse.Namespace) -> int:
     if args.repo:
+        if not args.repo.is_dir():
+            print(
+                f"[Sentinel] error: --repo path does not exist or is not a "
+                f"directory: {args.repo}",
+                file=sys.stderr,
+            )
+            return 2
+        if not (args.repo / ".git").is_dir():
+            print(
+                f"[Sentinel] error: --repo is not a git repository "
+                f"(no .git/ dir): {args.repo}",
+                file=sys.stderr,
+            )
+            return 2
         ctx = RepoContext(repo_root=args.repo, mode=ScanMode.REPO)
         write_root = args.repo
     else:
+        if not args.project_index.is_dir():
+            print(
+                f"[Sentinel] error: --project-index path does not exist: "
+                f"{args.project_index}",
+                file=sys.stderr,
+            )
+            return 2
         ctx = RepoContext(
             repo_root=args.project_index,
             mode=ScanMode.PORTFOLIO,
