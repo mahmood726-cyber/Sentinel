@@ -1,0 +1,5 @@
+{
+  "cert_id": "TC-2026-0001",
+  "signature_placeholder": "SIG_RSA_SHA256_REPLACE_ME",
+  "payload": {"claim": "x"}
+}

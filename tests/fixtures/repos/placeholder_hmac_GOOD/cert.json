@@ -1,0 +1,6 @@
+{
+  "cert_id": "TC-2026-0002",
+  "signature": "7c9bfa0e3d21b84a1f5e7c2a4d8b9e6f3c1a2b4d5e6f7a8b9c0d1e2f3a4b5c6d",
+  "signature_algo": "HMAC-SHA256",
+  "payload": {"claim": "x"}
+}

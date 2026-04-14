@@ -1,0 +1,21 @@
+id: P0-placeholder-hmac
+severity: BLOCK
+scope: repo
+description: >
+  Placeholder HMAC signatures shipping as real crypto. Any string
+  matching SIG_RSA_SHA256_ or signature_placeholder indicates an
+  unreplaced TruthCert scaffold.
+pattern: 'SIG_RSA_SHA256_|signature_placeholder'
+files:
+  - '**/*.json'
+  - '**/*.py'
+  - '**/*.md'
+exclude:
+  - 'tests/**'
+  - 'fixtures/**'
+  - 'docs/superpowers/specs/**'
+  - 'docs/superpowers/plans/**'
+fix_hint: >
+  Replace with a real HMAC computed from env TRUTHCERT_HMAC_KEY.
+  See lessons.md#cryptography-signing.
+source: lessons.md#cryptography-signing
