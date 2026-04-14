@@ -40,8 +40,24 @@ if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   exit 0
 fi
 
-python -m sentinel scan --repo "$(git rev-parse --show-toplevel)"
+output="$(python -m sentinel scan --repo "$(git rev-parse --show-toplevel)" 2>&1)"
 rc=$?
+printf '%s\\n' "$output"
+
+# If Sentinel did not print a verdicts summary, scan crashed BEFORE producing
+# a verdict (ImportError, SyntaxError, broken package, wrong Python, etc.).
+# Exit code alone is unreliable — Python returns 1 for ImportError, which
+# warn mode would silence. Require the verdicts marker as proof-of-run.
+if ! printf '%s' "$output" | grep -qE '(\\[Sentinel\\] verdicts:|"verdicts":)'; then
+  echo "[Sentinel] scan did NOT produce verdicts — it CRASHED. Push BLOCKED for safety. Fix Sentinel or use SENTINEL_BYPASS=1." >&2
+  exit 1
+fi
+
+# Sentinel internal error (try/except in scan CLI) — ALWAYS fail-closed.
+if [ $rc -ge 10 ]; then
+  echo "[Sentinel] scan returned internal-error (exit $rc). Push BLOCKED — fix Sentinel or use SENTINEL_BYPASS=1." >&2
+  exit 1
+fi
 
 if [ "$MODE" = "warn" ] && [ "$rc" = "1" ]; then
   echo "[Sentinel] warn mode: findings recorded but push allowed (see STUCK_FAILURES.md)" >&2

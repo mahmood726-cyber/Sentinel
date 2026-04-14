@@ -1,8 +1,20 @@
-"""`sentinel scan` subcommand."""
+"""`sentinel scan` subcommand.
+
+Exit code contract (contract with hook/payload.py):
+  0   clean — no BLOCK verdicts
+  1   findings — at least one BLOCK verdict
+  2   user error — missing/non-git repo, bad CLI args
+  10  internal error — scan itself crashed (ImportError, uncaught exception).
+       Hook MUST fail-closed on this, regardless of warn/block mode.
+       Rationale: a crashed scan has NOT validated the push. Treating it as
+       "clean" (exit 0) or "findings" (warn-able) lets broken Sentinel silently
+       stop enforcing across the portfolio.
+"""
 from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from pathlib import Path
 from typing import List
 
@@ -11,6 +23,7 @@ from sentinel.io import write_findings
 from sentinel.registry.registry import Registry
 
 RULES_ROOT = Path(__file__).parent.parent / "rules"
+EXIT_INTERNAL_ERROR = 10
 
 
 def add_subparser(sub: argparse._SubParsersAction) -> None:
@@ -31,6 +44,25 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
+    try:
+        return _run_inner(args)
+    except Exception as e:
+        print(
+            f"[Sentinel] INTERNAL ERROR: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+        print("--- traceback ---", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        print(
+            f"[Sentinel] scan crashed (exit {EXIT_INTERNAL_ERROR}). Fix Sentinel "
+            f"before next push, or use SENTINEL_BYPASS=1 to push anyway. "
+            f"This is NOT a clean scan — no verdicts were produced.",
+            file=sys.stderr,
+        )
+        return EXIT_INTERNAL_ERROR
+
+
+def _run_inner(args: argparse.Namespace) -> int:
     if args.repo:
         if not args.repo.is_dir():
             print(
