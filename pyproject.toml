@@ -28,7 +28,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["sentinel/core", "sentinel/registry"]
+source = ["sentinel.core", "sentinel.registry"]
 branch = true
 
 [tool.coverage.report]
