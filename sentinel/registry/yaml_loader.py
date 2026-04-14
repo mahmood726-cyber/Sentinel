@@ -21,9 +21,13 @@ GLOBAL_EXCLUDES = (
     "__pycache__/**",
     "**/__pycache__/**",
     "STUCK_FAILURES.md",
+    "STUCK_FAILURES.jsonl",
     "review-findings.md",
+    "review-findings.jsonl",
     "**/STUCK_FAILURES.md",
+    "**/STUCK_FAILURES.jsonl",
     "**/review-findings.md",
+    "**/review-findings.jsonl",
 )
 
 

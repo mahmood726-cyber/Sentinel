@@ -12,8 +12,11 @@ logs/
 # Sentinel self-scan output (written by scan CLI; would create a feedback loop
 # if committed and rescanned)
 STUCK_FAILURES.md
+STUCK_FAILURES.jsonl
 review-findings.md
+review-findings.jsonl
 /tests/fixtures/**/STUCK_FAILURES.md
+/tests/fixtures/**/STUCK_FAILURES.jsonl
 
 # Generated dashboard output
 dashboard/

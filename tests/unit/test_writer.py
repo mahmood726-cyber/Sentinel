@@ -46,3 +46,46 @@ def test_appends_to_existing_review_findings(tmp_path: Path):
     content = (tmp_path / "review-findings.md").read_text(encoding="utf-8")
     assert "# existing" in content
     assert "R-warn" in content
+
+
+def test_jsonl_mirrors_md_block_output(tmp_path: Path):
+    """Each BLOCK verdict written to MD is also appended to STUCK_FAILURES.jsonl
+    as a machine-readable line. Aggregators should prefer JSONL over regex-
+    parsing MD."""
+    import json
+    verdicts = [_v(Severity.BLOCK, "R-block-1"), _v(Severity.BLOCK, "R-block-2")]
+    write_findings(tmp_path, verdicts)
+
+    jsonl_path = tmp_path / "STUCK_FAILURES.jsonl"
+    assert jsonl_path.exists()
+    lines = jsonl_path.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 2
+    parsed = [json.loads(line) for line in lines]
+    assert parsed[0]["rule_id"] == "R-block-1"
+    assert parsed[0]["severity"] == "BLOCK"
+    assert parsed[0]["file"] == "a.py"
+    assert parsed[0]["line"] == 1
+    assert parsed[0]["timestamp"] == "2026-04-14T00:00:00+00:00"
+    assert parsed[1]["rule_id"] == "R-block-2"
+
+
+def test_jsonl_mirrors_md_warn_output(tmp_path: Path):
+    import json
+    write_findings(tmp_path, [_v(Severity.WARN, "R-warn")])
+    lines = (tmp_path / "review-findings.jsonl").read_text(encoding="utf-8").strip().split("\n")
+    assert json.loads(lines[0])["rule_id"] == "R-warn"
+    assert json.loads(lines[0])["severity"] == "WARN"
+
+
+def test_jsonl_appends_across_runs(tmp_path: Path):
+    """Two separate write_findings calls produce two lines in JSONL."""
+    write_findings(tmp_path, [_v(Severity.BLOCK, "R-first")])
+    write_findings(tmp_path, [_v(Severity.BLOCK, "R-second")])
+    lines = (tmp_path / "STUCK_FAILURES.jsonl").read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 2
+
+
+def test_jsonl_not_created_when_no_matching_severity(tmp_path: Path):
+    write_findings(tmp_path, [_v(Severity.INFO, "R-info")])
+    assert not (tmp_path / "STUCK_FAILURES.jsonl").exists()
+    assert not (tmp_path / "review-findings.jsonl").exists()
