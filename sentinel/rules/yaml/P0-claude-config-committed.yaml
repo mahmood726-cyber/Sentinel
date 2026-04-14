@@ -1,0 +1,16 @@
+id: P0-claude-config-committed
+severity: BLOCK
+scope: repo
+description: >
+  Agent tool configuration directories (.claude/, .gemini/, .codex/) must
+  never be committed to public repos per CLAUDE.md#config-safety.
+pattern: '.'
+files:
+  - '.claude/**'
+  - '.gemini/**'
+  - '.codex/**'
+exclude: []
+fix_hint: >
+  Add .claude/, .gemini/, .codex/ to .gitignore and remove tracked files
+  with `git rm -r --cached .claude/ .gemini/ .codex/`.
+source: CLAUDE.md#config-safety
