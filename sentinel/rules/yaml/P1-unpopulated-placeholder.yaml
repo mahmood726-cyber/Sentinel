@@ -1,0 +1,23 @@
+id: P1-unpopulated-placeholder
+severity: WARN
+scope: repo
+description: >
+  Unpopulated template placeholders (Jinja braces, REPLACE_ME, TBD markers)
+  should not ship in built assets per html-apps.md#safety-checks.
+pattern: '\{\{[^}]+\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
+files:
+  - '**/*.html'
+  - '**/*.md'
+  - '**/*.js'
+  - '**/*.py'
+exclude:
+  - 'tests/**'
+  - 'fixtures/**'
+  - 'docs/superpowers/**'
+  - 'templates/**'
+  - '.git/**'
+fix_hint: >
+  Populate the placeholder or escape it before shipping. If the braces are
+  intentional template syntax in a non-template file, exclude the file path
+  via the rule's exclude list.
+source: html-apps.md#safety-checks
