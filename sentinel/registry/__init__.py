@@ -3,6 +3,7 @@ from sentinel.registry.plugin_loader import (
     PluginRuleLoadError,
     load_plugin_rule,
 )
+from sentinel.registry.registry import EmptyRegistryError, Registry
 from sentinel.registry.yaml_loader import (
     YamlRule,
     YamlRuleLoadError,
@@ -10,8 +11,10 @@ from sentinel.registry.yaml_loader import (
 )
 
 __all__ = [
+    "EmptyRegistryError",
     "PluginRule",
     "PluginRuleLoadError",
+    "Registry",
     "YamlRule",
     "YamlRuleLoadError",
     "load_plugin_rule",
