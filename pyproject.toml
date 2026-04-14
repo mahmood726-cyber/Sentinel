@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Portfolio fail-closed integrity engine"
+requires-python = ">=3.13"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+
+[project.scripts]
+sentinel = "sentinel.cli.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["sentinel*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "contract: contract tests between modules",
+    "regression: non-regression guarantee tests",
+]
+
+[tool.coverage.run]
+source = ["sentinel/core", "sentinel/registry"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
