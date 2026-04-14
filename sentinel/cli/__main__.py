@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from sentinel.cli import explain as explain_cmd
+from sentinel.cli import install_hook as install_hook_cmd
 from sentinel.cli import list_rules as list_rules_cmd
 from sentinel.cli import scan as scan_cmd
 
@@ -14,6 +15,8 @@ def main(argv: list[str] | None = None) -> int:
     scan_cmd.add_subparser(sub)
     list_rules_cmd.add_subparser(sub)
     explain_cmd.add_subparser(sub)
+    install_hook_cmd.add_install_subparser(sub)
+    install_hook_cmd.add_uninstall_subparser(sub)
     args = parser.parse_args(argv)
     return args.func(args)
 
