@@ -1,17 +1,17 @@
-"""Temporary CLI stub — replaced in Task 14 (scan) / Task 15 (list-rules, explain)."""
+"""Entry point: `python -m sentinel ...` or `sentinel ...`."""
 from __future__ import annotations
+import argparse
 import sys
+
+from sentinel.cli import scan as scan_cmd
 
 
 def main(argv: list[str] | None = None) -> int:
-    print(
-        "sentinel CLI stub — not yet implemented in M1.\n"
-        "This stub exists so the [project.scripts] entry point does not crash "
-        "while Tasks 2-13 build the core library. The real CLI arrives in "
-        "Task 14 (scan) and Task 15 (list-rules, explain).",
-        file=sys.stderr,
-    )
-    return 0
+    parser = argparse.ArgumentParser(prog="sentinel")
+    sub = parser.add_subparsers(dest="command", required=True)
+    scan_cmd.add_subparser(sub)
+    args = parser.parse_args(argv)
+    return args.func(args)
 
 
 if __name__ == "__main__":
