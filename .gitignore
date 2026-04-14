@@ -1,0 +1,24 @@
+# Session state — per CLAUDE.md#session-recovery
+PROGRESS.md
+
+# Agent / tool config — per CLAUDE.md#config-safety
+.claude/
+.gemini/
+.codex/
+
+# Sentinel runtime logs (created at runtime, not committed)
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
