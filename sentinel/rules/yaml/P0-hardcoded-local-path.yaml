@@ -1,0 +1,27 @@
+id: P0-hardcoded-local-path
+severity: BLOCK
+scope: repo
+description: >
+  Shipped code must not contain absolute local paths like `C:\Users\...` or
+  `/home/<user>/...` per lessons.md#code-quality. These leak developer
+  environment details and break portability.
+pattern: '(C:[\\/]Users[\\/][^\s\"\\/]+|/home/[a-z_][a-z0-9_-]*)'
+files:
+  - '**/*.html'
+  - '**/*.js'
+  - '**/*.css'
+  - '**/*.md'
+  - '**/*.py'
+  - '**/*.json'
+  - '**/*.yaml'
+  - '**/*.yml'
+exclude:
+  - 'tests/**'
+  - 'fixtures/**'
+  - 'docs/superpowers/**'
+  - 'PROGRESS.md'
+  - '.git/**'
+fix_hint: >
+  Replace absolute paths with relative paths, config-driven roots, or
+  environment variables. Use candidate-root discovery for data snapshots.
+source: lessons.md#code-quality
