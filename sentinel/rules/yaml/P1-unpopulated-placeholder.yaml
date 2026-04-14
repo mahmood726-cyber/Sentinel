@@ -4,7 +4,7 @@ scope: repo
 description: >
   Unpopulated template placeholders (Jinja braces, REPLACE_ME, TBD markers)
   should not ship in built assets per html-apps.md#safety-checks.
-pattern: '\{\{[^}]+\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
+pattern: '\{\{\s*[A-Za-z_][\w.-]*\s*\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
 files:
   - '**/*.html'
   - '**/*.md'
@@ -12,7 +12,9 @@ files:
   - '**/*.py'
 exclude:
   - 'tests/**'
+  - '**/tests/**'
   - 'fixtures/**'
+  - '**/fixtures/**'
   - 'docs/superpowers/**'
   - 'templates/**'
   - '.git/**'

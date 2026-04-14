@@ -16,7 +16,9 @@ files:
   - '**/*.yml'
 exclude:
   - 'tests/**'
+  - '**/tests/**'
   - 'fixtures/**'
+  - '**/fixtures/**'
   - 'sentinel/rules/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
