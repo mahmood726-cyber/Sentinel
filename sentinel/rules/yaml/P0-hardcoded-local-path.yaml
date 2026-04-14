@@ -33,6 +33,8 @@ exclude:
   - 'fixtures/**'
   - '**/fixtures/**'
   - 'sentinel/rules/**'
+  - 'docs/superpowers/specs/**'
+  - 'docs/superpowers/plans/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.
