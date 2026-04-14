@@ -1,0 +1,20 @@
+id: P1-script-in-template-literal
+severity: WARN
+scope: repo
+description: >
+  Literal "</script>" appearing inside a .html / .js file usually indicates
+  an unescaped closer inside a template literal or comment per
+  lessons.md#javascript-html. Escape with `${'<'}/script>` to be safe.
+pattern: '<\/script>'
+files:
+  - '**/*.html'
+  - '**/*.js'
+exclude:
+  - 'tests/**'
+  - 'fixtures/**'
+  - '.git/**'
+fix_hint: >
+  Replace `</script>` inside template literals or comments with
+  `${'<'}/script>` to prevent the HTML parser from terminating the
+  surrounding script block.
+source: lessons.md#javascript-html
