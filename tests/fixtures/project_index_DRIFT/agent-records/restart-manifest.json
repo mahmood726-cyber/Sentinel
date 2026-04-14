@@ -1,0 +1,6 @@
+{
+  "overview": {"projectCount": 1},
+  "projects": [
+    {"name": "ghost_project", "path": "C:/this/does/not/exist"}
+  ]
+}
