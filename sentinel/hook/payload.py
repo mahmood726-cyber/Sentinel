@@ -8,11 +8,13 @@ SENTINEL_MARKER = "# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ==
 
 HOOK_SCRIPT = f"""#!/bin/sh
 {SENTINEL_MARKER}
-# Sentinel runs first; on exit 0 we chain to any prior hook saved as
-# pre-push.sentinel-backup. Bypass with SENTINEL_BYPASS=1.
-
 if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
-  echo "[Sentinel] bypass requested via SENTINEL_BYPASS=1" >&2
+  log_path="${{SENTINEL_BYPASS_LOG:-$HOME/.sentinel-logs/bypass.log}}"
+  mkdir -p "$(dirname "$log_path")"
+  repo="$(git rev-parse --show-toplevel 2>/dev/null || echo unknown)"
+  user="$(git config user.name 2>/dev/null || echo unknown)"
+  printf '%s\\t%s\\t%s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user" >> "$log_path"
+  echo "[Sentinel] bypass logged to $log_path" >&2
   hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
   if [ -x "$hook_backup" ]; then
     exec "$hook_backup" "$@"
