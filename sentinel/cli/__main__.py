@@ -8,6 +8,7 @@ from sentinel.cli import explain as explain_cmd
 from sentinel.cli import install_hook as install_hook_cmd
 from sentinel.cli import list_rules as list_rules_cmd
 from sentinel.cli import scan as scan_cmd
+from sentinel.cli import sweep as sweep_cmd
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     install_hook_cmd.add_install_subparser(sub)
     install_hook_cmd.add_uninstall_subparser(sub)
     bypass_log_cmd.add_subparser(sub)
+    sweep_cmd.add_subparser(sub)
     args = parser.parse_args(argv)
     return args.func(args)
 
