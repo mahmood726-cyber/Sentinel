@@ -193,6 +193,48 @@ def test_excludes_apply_under_real_git_tracked_set(tmp_path: Path):
     )
 
 
+def test_wiki_dir_excluded(tmp_path: Path):
+    """Auto-generated portfolio wiki entries (Overmind writes
+    wiki/<project>.md with `**Path:** C:\\...` lines describing where
+    each project lives on disk) are DATA, not code. Excluded to drain
+    ~80 false-positive BLOCKs from Overmind's STUCK_FAILURES.md."""
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "some-project.md").write_text(
+        "# some-project\n"
+        "- **Path:** C:\\Users\\user\\Projects\\some-project\n"
+        "- **Verdict:** PASS\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "wiki/** must be excluded (auto-gen portfolio data)"
+
+
+def test_nested_wiki_dir_excluded(tmp_path: Path):
+    """Wiki directories at any depth are excluded (e.g. docs/wiki/,
+    overmind/wiki/)."""
+    nested = tmp_path / "tools" / "overmind" / "wiki"
+    nested.mkdir(parents=True)
+    (nested / "entry.md").write_text(
+        "**Path:** C:\\Users\\user\\Projects\\x\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "nested wiki/** must also be excluded"
+
+
+def test_non_wiki_dir_still_fires(tmp_path: Path):
+    """Negative control: a dir called `wikipedia` or `wiki-docs` must
+    still fire — the exclude is on `wiki` as a path segment only."""
+    other = tmp_path / "wiki-docs"
+    other.mkdir()
+    (other / "entry.md").write_text(
+        "**Path:** C:\\Users\\user\\Projects\\x\n",
+        encoding="utf-8",
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1
+    assert verdicts[0].file == "wiki-docs/entry.md"
+
+
 def test_docs_other_path_still_fires(tmp_path: Path):
     """Negative control: docs/ outside superpowers/specs|plans/ is NOT
     excluded — catches regressions that broaden the exclude too far."""
