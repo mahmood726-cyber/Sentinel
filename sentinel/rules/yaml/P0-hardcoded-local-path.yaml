@@ -49,6 +49,8 @@ exclude:
   - '**/data/artifacts/**'
   - 'data/real_project_smoke/**'
   - '**/data/real_project_smoke/**'
+  - 'data/baseline_probes/**'
+  - '**/data/baseline_probes/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.

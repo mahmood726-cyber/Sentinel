@@ -310,6 +310,23 @@ def test_data_artifacts_excluded(tmp_path: Path):
     assert _scan(tmp_path) == [], "data/artifacts/** must be excluded"
 
 
+def test_data_baseline_probes_excluded(tmp_path: Path):
+    """Overmind's data/baseline_probes/ contains per-project TODO tables
+    and probe scripts that cite project paths as data about which projects
+    to verify — not hardcoded-in-code. Excluded as auto-gen registry."""
+    probes = tmp_path / "data" / "baseline_probes"
+    probes.mkdir(parents=True)
+    (probes / "TODO.md").write_text(
+        "| 1 | foo | `foo` | `C:\\Users\\user\\Projects\\foo` | cmd |\n",
+        encoding="utf-8",
+    )
+    (probes / "probe_foo.py").write_text(
+        'import sys\nsys.path.insert(0, r"C:\\Projects\\foo")\n',
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "data/baseline_probes/** must be excluded"
+
+
 def test_data_real_project_smoke_excluded(tmp_path: Path):
     """Overmind's real_project_smoke checkpoints record the scanned
     project's absolute path. Excluded."""
