@@ -193,6 +193,56 @@ def test_excludes_apply_under_real_git_tracked_set(tmp_path: Path):
     )
 
 
+def test_skip_marker_in_markdown_excludes_file(tmp_path: Path):
+    """A file with `<!-- sentinel:skip-file -->` in the first 1KB is
+    skipped by all rules. Used for rule-doc files that legitimately
+    quote the patterns Sentinel flags (dogfooding)."""
+    (tmp_path / "lessons.md").write_text(
+        "# Rules doc\n"
+        "<!-- sentinel:skip-file — this file documents the patterns we flag -->\n"
+        "- Never ship `C:\\Users\\user\\data.py` paths.\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "file with skip marker must be excluded"
+
+
+def test_skip_marker_in_python_comment_works(tmp_path: Path):
+    """`# sentinel:skip-file` in a Python file also works — we do
+    substring match, not syntax-aware parsing."""
+    (tmp_path / "rule_test_fixture.py").write_text(
+        "# sentinel:skip-file — fixture for testing rule patterns\n"
+        'BAD_PATH = "C:\\\\Users\\\\user\\\\data.py"\n',
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "python file with skip marker must be excluded"
+
+
+def test_skip_marker_must_be_in_first_1kb(tmp_path: Path):
+    """The marker check scans only the first SKIP_MARKER_SCAN_BYTES (1KB).
+    A marker deep in a large file does NOT skip — otherwise a malicious
+    file could embed the marker in the middle and bypass all rules."""
+    padding = "x" * 2000
+    (tmp_path / "sneaky.md").write_text(
+        f"# innocent header\n{padding}\n"
+        "<!-- sentinel:skip-file -->\n"
+        "**Path:** C:\\Users\\user\\data.py\n",
+        encoding="utf-8",
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1, "marker beyond 1KB must not skip the file"
+
+
+def test_no_skip_marker_still_fires(tmp_path: Path):
+    """Negative control: a file WITHOUT the marker still gets scanned."""
+    (tmp_path / "normal.md").write_text(
+        "# Normal doc\n"
+        "Source: `C:/Users/user/project.py`\n",
+        encoding="utf-8",
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1
+
+
 def test_wiki_dir_excluded(tmp_path: Path):
     """Auto-generated portfolio wiki entries (Overmind writes
     wiki/<project>.md with `**Path:** C:\\...` lines describing where

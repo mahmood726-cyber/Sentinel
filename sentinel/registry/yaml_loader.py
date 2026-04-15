@@ -18,6 +18,14 @@ REQUIRED_FIELDS = ("id", "severity", "description", "pattern", "source", "fix_hi
 
 MAX_SCAN_BYTES = 5 * 1024 * 1024
 
+# Files whose first ~1KB contains this marker are skipped by all rules.
+# Intended for auto-generated files (e.g. Overmind wiki entries) and for
+# files that document the very patterns Sentinel flags (rule-doc dogfooding).
+# Placement: first non-frontmatter line, any comment syntax works because
+# we do a literal substring match.
+SKIP_FILE_MARKER = "sentinel:skip-file"
+SKIP_MARKER_SCAN_BYTES = 1024
+
 COMMON_EXCLUDES = (
     "tests/**",
     "**/tests/**",
@@ -92,6 +100,8 @@ class YamlRule:
                     continue
             except OSError:
                 continue
+            if _file_has_skip_marker(file_path):
+                continue
             try:
                 text = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError:
@@ -112,6 +122,28 @@ class YamlRule:
                         )
                     )
         return verdicts
+
+
+def _file_has_skip_marker(file_path: Path) -> bool:
+    """Return True if the file's first SKIP_MARKER_SCAN_BYTES contain the
+    literal SKIP_FILE_MARKER string ('sentinel:skip-file'). Any comment
+    syntax works — we do a substring match, not parsing.
+
+    Intended uses:
+      - auto-generated files (Overmind wiki entries, nightly reports)
+      - files that document the very patterns Sentinel flags (rule
+        documentation — dogfooding false positives)
+    """
+    try:
+        with file_path.open("rb") as f:
+            head = f.read(SKIP_MARKER_SCAN_BYTES)
+    except OSError:
+        return False
+    try:
+        text = head.decode("utf-8", errors="replace")
+    except UnicodeDecodeError:
+        return False
+    return SKIP_FILE_MARKER in text
 
 
 def _git_tracked_files(root: Path) -> Optional[Set[str]]:
