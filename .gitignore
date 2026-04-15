@@ -10,11 +10,18 @@ PROGRESS.md
 logs/
 
 # Sentinel self-scan output (written by scan CLI; would create a feedback loop
-# if committed and rescanned)
+# if committed and rescanned). WARN output was renamed from review-findings.md
+# to sentinel-findings.md to avoid collision with the /review skill.
 STUCK_FAILURES.md
 STUCK_FAILURES.jsonl
+sentinel-findings.md
+sentinel-findings.jsonl
+# Legacy WARN output name — kept gitignored so pre-rename artifacts don't
+# get committed, and so /review skill output (same filename) stays local.
 review-findings.md
 review-findings.jsonl
+# Multi-persona code review reports (local artifacts, not shipping output)
+code-review-findings-*.md
 /tests/fixtures/**/STUCK_FAILURES.md
 /tests/fixtures/**/STUCK_FAILURES.jsonl
 

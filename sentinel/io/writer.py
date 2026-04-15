@@ -1,12 +1,16 @@
 """Writes findings into the target repo.
 
 Two parallel outputs per severity:
-  - `.md`    human-readable append log (STUCK_FAILURES.md, review-findings.md)
+  - `.md`    human-readable append log (STUCK_FAILURES.md, sentinel-findings.md)
   - `.jsonl` machine-readable append log with same per-run semantics
 
 JSONL is the canonical machine-readable source; downstream aggregators
 (Overmind nightly verifier, dashboards, portfolio reports) should prefer
 it over MD-regex parsing, which is fragile against heading format changes.
+
+Filenames live in `sentinel.io.paths` — import from there; do not
+duplicate literals. WARN output is `sentinel-findings.md` (not
+`review-findings.md`) to avoid colliding with the `/review` skill.
 """
 from __future__ import annotations
 import json
@@ -14,10 +18,11 @@ from pathlib import Path
 from typing import Sequence
 
 from sentinel.core import Severity, Verdict
+from sentinel.io.paths import BLOCK_MD, BLOCK_JSONL, WARN_MD, WARN_JSONL
 
 
-STUCK_HEADER = "# STUCK_FAILURES.md\n\n*Written by Sentinel — BLOCK-tier violations.*\n"
-REVIEW_HEADER = "# review-findings.md\n\n*Written by Sentinel — WARN-tier findings.*\n"
+STUCK_HEADER = f"# {BLOCK_MD}\n\n*Written by Sentinel — BLOCK-tier violations.*\n"
+REVIEW_HEADER = f"# {WARN_MD}\n\n*Written by Sentinel — WARN-tier findings.*\n"
 
 
 def _format_verdict(v: Verdict) -> str:
@@ -39,23 +44,27 @@ def _append_jsonl(path: Path, verdicts: Sequence[Verdict]) -> None:
 
 
 def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
+    # MD and JSONL appends are not wrapped in a single atomic transaction:
+    # a crash between them leaves the pair out of sync by one entry.
+    # Reruns recover (both files append further); downstream consumers
+    # that require exact parity should treat JSONL as canonical.
     blocks = [v for v in verdicts if v.severity == Severity.BLOCK]
     warns = [v for v in verdicts if v.severity == Severity.WARN]
 
     if blocks:
-        md_path = repo_root / "STUCK_FAILURES.md"
+        md_path = repo_root / BLOCK_MD
         if not md_path.exists():
             md_path.write_text(STUCK_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:
             for v in blocks:
                 f.write(_format_verdict(v))
-        _append_jsonl(repo_root / "STUCK_FAILURES.jsonl", blocks)
+        _append_jsonl(repo_root / BLOCK_JSONL, blocks)
 
     if warns:
-        md_path = repo_root / "review-findings.md"
+        md_path = repo_root / WARN_MD
         if not md_path.exists():
             md_path.write_text(REVIEW_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:
             for v in warns:
                 f.write(_format_verdict(v))
-        _append_jsonl(repo_root / "review-findings.jsonl", warns)
+        _append_jsonl(repo_root / WARN_JSONL, warns)

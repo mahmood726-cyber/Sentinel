@@ -13,8 +13,8 @@ executable rules that run pre-push.
 python -m pip install -e ".[dev]"
 python -m pytest
 python -m sentinel list-rules
-python -m sentinel scan --repo C:/Projects/shifaa
-python -m sentinel scan --portfolio --project-index C:/ProjectIndex
+python -m sentinel scan --repo /path/to/your/repo
+python -m sentinel scan --portfolio --project-index /path/to/ProjectIndex
 python -m sentinel explain P0-placeholder-hmac
 ```
 
@@ -22,7 +22,7 @@ python -m sentinel explain P0-placeholder-hmac
 
 - [ ] `sentinel list-rules` prints all three P0 rules.
 - [ ] `sentinel scan --repo <clean>` exits 0 with no output to
-      `review-findings.md` or `STUCK_FAILURES.md`.
+      `sentinel-findings.md` or `STUCK_FAILURES.md`.
 - [ ] `sentinel scan --repo <with-placeholder-hmac>` exits 1 and writes
       `STUCK_FAILURES.md`.
 - [ ] `sentinel scan --portfolio --project-index <fixture-DRIFT>` exits 1
@@ -34,7 +34,8 @@ python -m sentinel explain P0-placeholder-hmac
 ## Rule Authoring
 
 - **YAML rules** — drop a `<id>.yaml` into `sentinel/rules/yaml/`.
-  Required fields: `id`, `severity`, `description`, `pattern`, `source`.
+  Required fields: `id`, `severity`, `description`, `pattern`, `source`,
+  `fix_hint`.
 - **Plugin rules** — drop a `<name>.py` into `sentinel/rules/plugins/`.
   Required attrs: `ID`, `SEVERITY`, `SOURCE`, `check(ctx) -> list[Verdict]`.
   Optional: `SCOPE` (default `"repo"`; use `"portfolio"` for

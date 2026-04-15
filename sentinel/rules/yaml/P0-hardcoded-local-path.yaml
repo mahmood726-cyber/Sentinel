@@ -5,7 +5,7 @@ description: >
   Shipped code must not contain absolute local paths like `C:\Users\...` or
   `/home/<user>/...` per lessons.md#code-quality. These leak developer
   environment details and break portability.
-pattern: '(C:[\\/]Users[\\/][^\s\"\\/]+|/home/[a-z_][a-z0-9_-]*)'
+pattern: '(?i)([A-Z]:[\\/](Users|projects|ProgramData|OneDrive)[\\/][^\s\"\\/]+|/Users/[a-z_][\w-]*|/home/[a-z_][a-z0-9_-]*)'
 files:
   - '**/*.html'
   - '**/*.js'
@@ -27,11 +27,9 @@ files:
   - '**/*.bat'
   - '**/*.ps1'
   - '**/*.ts'
+# tests/**, **/tests/**, fixtures/**, **/fixtures/**, conftest.py, and
+# **/conftest.py are covered by COMMON_EXCLUDES in sentinel/registry/yaml_loader.py.
 exclude:
-  - 'tests/**'
-  - '**/tests/**'
-  - 'fixtures/**'
-  - '**/fixtures/**'
   - 'sentinel/rules/**'
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'

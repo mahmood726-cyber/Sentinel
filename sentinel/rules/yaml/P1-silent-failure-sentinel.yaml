@@ -9,12 +9,11 @@ description: >
 pattern: 'return\s+["''](unknown_|__silent__|__fail__)'
 files:
   - '**/*.py'
-exclude:
-  - 'tests/**'
-  - 'fixtures/**'
-  - '.git/**'
+# tests/**, **/tests/**, fixtures/**, **/fixtures/**, .git/** covered by
+# GLOBAL_EXCLUDES + COMMON_EXCLUDES.
+exclude: []
 fix_hint: >
   Raise KeyError or a domain-specific exception instead of returning a
   sentinel string. Include expected-vs-received schema in the exception
   message.
-source: lessons.md#integration-contracts
+source: lessons.md#integration-contracts-learned-2026-04-14

@@ -80,3 +80,43 @@ def test_uninstall_removes_hook_when_no_backup(tmp_path: Path):
     install_hook(repo)
     uninstall_hook(repo)
     assert not (repo / ".git" / "hooks" / "pre-push").exists()
+
+
+def test_install_hook_appends_sentinel_names_to_gitignore(tmp_path: Path):
+    """P2-10: users with the hook installed may `git add .` after a scan
+    and accidentally commit STUCK_FAILURES.md / sentinel-findings.md, which
+    embed absolute local paths. Install must append these filenames to the
+    target repo's .gitignore."""
+    repo = _make_git_repo(tmp_path)
+    install_hook(repo)
+    gitignore = (repo / ".gitignore").read_text(encoding="utf-8")
+    for name in ("STUCK_FAILURES.md", "STUCK_FAILURES.jsonl",
+                 "sentinel-findings.md", "sentinel-findings.jsonl",
+                 "review-findings.md", "review-findings.jsonl"):
+        assert name in gitignore, f"{name} should be in .gitignore after install"
+
+
+def test_install_hook_gitignore_append_idempotent(tmp_path: Path):
+    """Running install twice must not duplicate the gitignore entries."""
+    repo = _make_git_repo(tmp_path)
+    install_hook(repo)
+    first = (repo / ".gitignore").read_text(encoding="utf-8")
+    install_hook(repo)
+    second = (repo / ".gitignore").read_text(encoding="utf-8")
+    assert first == second
+    assert second.count("STUCK_FAILURES.md") == 1
+
+
+def test_install_hook_gitignore_preserves_existing_content(tmp_path: Path):
+    """If the repo already has a .gitignore, Sentinel must append below it
+    without clobbering pre-existing patterns."""
+    repo = _make_git_repo(tmp_path)
+    (repo / ".gitignore").write_text(
+        "node_modules/\n*.log\n",
+        encoding="utf-8",
+    )
+    install_hook(repo)
+    content = (repo / ".gitignore").read_text(encoding="utf-8")
+    assert "node_modules/" in content
+    assert "*.log" in content
+    assert "STUCK_FAILURES.md" in content

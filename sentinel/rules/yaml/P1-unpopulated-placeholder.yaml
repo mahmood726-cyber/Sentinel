@@ -4,20 +4,18 @@ scope: repo
 description: >
   Unpopulated template placeholders (Jinja braces, REPLACE_ME, TBD markers)
   should not ship in built assets per html-apps.md#safety-checks.
-pattern: '\{\{\s*[A-Za-z_][\w.-]*\s*\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
+pattern: '\{\{-?\s*[A-Za-z_]\w*\s*(?:(?:\||\[|\.[A-Za-z_])[^}]*)?\s*-?\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
 files:
   - '**/*.html'
   - '**/*.md'
   - '**/*.js'
   - '**/*.py'
+# tests/**, **/tests/**, fixtures/**, **/fixtures/**, conftest.py,
+# **/conftest.py, and .git/** are covered by GLOBAL_EXCLUDES +
+# COMMON_EXCLUDES in sentinel/registry/yaml_loader.py.
 exclude:
-  - 'tests/**'
-  - '**/tests/**'
-  - 'fixtures/**'
-  - '**/fixtures/**'
   - 'docs/superpowers/**'
   - 'templates/**'
-  - '.git/**'
 fix_hint: >
   Populate the placeholder or escape it before shipping. If the braces are
   intentional template syntax in a non-template file, exclude the file path

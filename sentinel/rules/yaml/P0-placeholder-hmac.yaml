@@ -10,12 +10,11 @@ files:
   - '**/*.json'
   - '**/*.py'
   - '**/*.md'
+# tests/**, **/tests/**, fixtures/**, **/fixtures/** covered by COMMON_EXCLUDES.
 exclude:
-  - 'tests/**'
-  - 'fixtures/**'
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'
 fix_hint: >
   Replace with a real HMAC computed from env TRUTHCERT_HMAC_KEY.
-  See lessons.md#cryptography-signing.
-source: lessons.md#cryptography-signing
+  See lessons.md#cryptography--signing-learned-2026-04-14.
+source: lessons.md#cryptography--signing-learned-2026-04-14

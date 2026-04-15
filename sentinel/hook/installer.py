@@ -12,10 +12,14 @@ import stat
 from pathlib import Path
 
 from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
+from sentinel.io.paths import OUTPUT_FILENAMES, LEGACY_FILENAMES
 
 
 class HookInstallError(Exception):
     """Raised when install/uninstall cannot proceed safely."""
+
+
+GITIGNORE_MARKER = "# === Sentinel hook output (auto-added by install) ==="
 
 
 def is_sentinel_hook(hook_path: Path) -> bool:
@@ -28,6 +32,33 @@ def is_sentinel_hook(hook_path: Path) -> bool:
     return SENTINEL_MARKER in content
 
 
+def ensure_sentinel_gitignored(repo_root: Path) -> None:
+    """Append Sentinel's output filenames to the target repo's .gitignore.
+
+    Without this, a user running `git add .` after a Sentinel scan can
+    commit STUCK_FAILURES.md / sentinel-findings.md — which embed the
+    scanned repo's absolute paths (C:\\... or /home/...), self-violating
+    the P0-hardcoded-local-path rule on the next scan.
+
+    Idempotent: detected via GITIGNORE_MARKER; won't duplicate on reinstall.
+    """
+    gitignore = repo_root / ".gitignore"
+    try:
+        existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
+    except OSError:
+        existing = ""
+    if GITIGNORE_MARKER in existing:
+        return
+    block = [GITIGNORE_MARKER, *OUTPUT_FILENAMES, *LEGACY_FILENAMES]
+    separator = "" if existing.endswith("\n") or not existing else "\n"
+    addition = separator + "\n".join(block) + "\n"
+    try:
+        with gitignore.open("a", encoding="utf-8") as f:
+            f.write(addition)
+    except OSError:
+        pass
+
+
 def install_hook(repo_root: Path, mode: str = "block") -> None:
     """Install the Sentinel pre-push hook.
 
@@ -35,6 +66,10 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     single-repo installs (e.g. developer opting-in to protection).
     mode='warn': BLOCK verdicts recorded but push proceeds. Safer default for
     portfolio-wide rollout where false-positive triage hasn't finished.
+
+    Also appends Sentinel's output filenames to the target repo's .gitignore
+    (idempotently) to prevent users from accidentally committing findings
+    that contain absolute local paths.
     """
     git_dir = repo_root / ".git"
     if not git_dir.is_dir():
@@ -51,6 +86,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
 
     hook.write_text(make_hook_script(mode), encoding="utf-8")
     _chmod_exec(hook)
+    ensure_sentinel_gitignored(repo_root)
 
 
 def uninstall_hook(repo_root: Path) -> None:

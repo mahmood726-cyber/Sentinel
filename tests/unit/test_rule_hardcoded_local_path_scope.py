@@ -3,9 +3,9 @@
 Covers two 2026-04-14 follow-ups from the portfolio cleanup:
 
 1. **Self-reference exclude** — Sentinel's own output files (STUCK_FAILURES.md,
-   review-findings.md, and their .jsonl siblings) must not produce BLOCKs when
-   they quote a matched hardcoded-path string. Without this, every scan after
-   the first produces an ever-growing cascade of self-reference findings.
+   sentinel-findings.md, and their .jsonl siblings) must not produce BLOCKs
+   when they quote a matched hardcoded-path string. Without this, every scan
+   after the first produces an ever-growing cascade of self-reference findings.
 
 2. **File-type scope** — The rule must scan .md / .csv / .R / .ps1 because
    Mahmood's portfolio repeatedly leaks user paths through those file types:
@@ -40,12 +40,26 @@ def test_stuck_failures_md_is_not_scanned(tmp_path: Path):
     )
 
 
-def test_review_findings_md_is_not_scanned(tmp_path: Path):
+def test_sentinel_findings_md_is_not_scanned(tmp_path: Path):
+    """Sentinel's renamed WARN output (sentinel-findings.md, ex
+    review-findings.md — renamed to avoid collision with /review skill)
+    must be excluded from scan."""
+    (tmp_path / "sentinel-findings.md").write_text(
+        "[WARN] P1-unpopulated-placeholder src/x.py:5 C:/Users/user/foo\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "sentinel-findings.md must be excluded"
+
+
+def test_legacy_review_findings_md_is_also_not_scanned(tmp_path: Path):
+    """Pre-rename artifacts (review-findings.md) may still exist on disk in
+    repos that ran Sentinel before the rename. They must remain excluded
+    so old output doesn't become a BLOCK cascade after upgrade."""
     (tmp_path / "review-findings.md").write_text(
         "[BLOCK] P0-hardcoded-local-path src/x.py:5 C:/Users/user/foo\n",
         encoding="utf-8",
     )
-    assert _scan(tmp_path) == [], "review-findings.md must be excluded"
+    assert _scan(tmp_path) == [], "legacy review-findings.md must also be excluded"
 
 
 def test_nested_stuck_failures_md_is_not_scanned(tmp_path: Path):
@@ -119,3 +133,75 @@ def test_txt_file_is_scanned(tmp_path: Path):
     verdicts = _scan(tmp_path)
     assert len(verdicts) == 1
     assert verdicts[0].file == "notes.txt"
+
+
+def test_docs_superpowers_specs_excluded(tmp_path: Path):
+    """Superpowers specs under docs/superpowers/specs/ are design documents
+    that legitimately quote local paths as examples (commit 5eaa7d0)."""
+    specs = tmp_path / "docs" / "superpowers" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "2026-04-14-design.md").write_text(
+        "Example layout: `C:/Users/user/project/src/main.py`\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "docs/superpowers/specs/** must be excluded"
+
+
+def test_docs_superpowers_plans_excluded(tmp_path: Path):
+    """Superpowers plans under docs/superpowers/plans/ are implementation
+    plans that quote paths (commit 5eaa7d0)."""
+    plans = tmp_path / "docs" / "superpowers" / "plans"
+    plans.mkdir(parents=True)
+    (plans / "2026-04-14-plan.md").write_text(
+        "Task 3: edit `C:/Users/user/project/engine.py::run()`\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "docs/superpowers/plans/** must be excluded"
+
+
+def test_excludes_apply_under_real_git_tracked_set(tmp_path: Path):
+    """P2-7: All other tests use tmp_path without .git/, so _git_tracked_files
+    returns None and the rglob fallback is exercised. Real pre-push runs go
+    through the git-tracked-set path. This test initialises a real git repo
+    and confirms the exclude mechanism works on the tracked set too."""
+    import subprocess
+    subprocess.run(["git", "init", "--quiet"], cwd=str(tmp_path), check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@sentinel"],
+        cwd=str(tmp_path), check=True, capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Sentinel Test"],
+        cwd=str(tmp_path), check=True, capture_output=True,
+    )
+    specs = tmp_path / "docs" / "superpowers" / "specs"
+    specs.mkdir(parents=True)
+    (specs / "design.md").write_text(
+        "Example: `C:/Users/user/project.py`\n", encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text(
+        "See `C:/Users/user/other.py`\n", encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "."], cwd=str(tmp_path), check=True, capture_output=True,
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1
+    assert verdicts[0].file == "README.md", (
+        "README.md must fire (in tracked set), specs/design.md must not fire "
+        f"(excluded). Got: {[v.file for v in verdicts]}"
+    )
+
+
+def test_docs_other_path_still_fires(tmp_path: Path):
+    """Negative control: docs/ outside superpowers/specs|plans/ is NOT
+    excluded — catches regressions that broaden the exclude too far."""
+    other = tmp_path / "docs" / "architecture"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text(
+        "See `C:/Users/user/data/notes.md`\n",
+        encoding="utf-8",
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1
+    assert verdicts[0].file == "docs/architecture/overview.md"

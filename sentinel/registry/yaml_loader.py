@@ -11,24 +11,28 @@ from typing import List, Optional, Sequence, Set
 import yaml
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.paths import global_exclude_patterns
 
 
-REQUIRED_FIELDS = ("id", "severity", "description", "pattern", "source")
+REQUIRED_FIELDS = ("id", "severity", "description", "pattern", "source", "fix_hint")
+
+MAX_SCAN_BYTES = 5 * 1024 * 1024
+
+COMMON_EXCLUDES = (
+    "tests/**",
+    "**/tests/**",
+    "fixtures/**",
+    "**/fixtures/**",
+    "conftest.py",
+    "**/conftest.py",
+)
 
 GLOBAL_EXCLUDES = (
     ".git/**",
     "node_modules/**",
     "__pycache__/**",
     "**/__pycache__/**",
-    "STUCK_FAILURES.md",
-    "STUCK_FAILURES.jsonl",
-    "review-findings.md",
-    "review-findings.jsonl",
-    "**/STUCK_FAILURES.md",
-    "**/STUCK_FAILURES.jsonl",
-    "**/review-findings.md",
-    "**/review-findings.jsonl",
-)
+) + COMMON_EXCLUDES + global_exclude_patterns()
 
 
 class YamlRuleLoadError(Exception):
@@ -66,6 +70,7 @@ class YamlRule:
     files: List[str] = field(default_factory=lambda: ["**/*"])
     exclude: List[str] = field(default_factory=list)
     fix_hint: str = ""
+    _compiled: Optional[re.Pattern] = field(default=None, init=False, repr=False)
 
     def check(self, ctx: RepoContext) -> Sequence[Verdict]:
         if self.scope == "portfolio" and ctx.is_repo_scan():
@@ -73,14 +78,20 @@ class YamlRule:
         if self.scope == "repo" and ctx.is_portfolio_scan():
             return []
 
-        compiled = re.compile(self.pattern)
+        if self._compiled is None:
+            self._compiled = re.compile(self.pattern)
+        compiled = self._compiled
         verdicts: List[Verdict] = []
         root = ctx.repo_root
 
         effective_exclude = list(self.exclude) + list(GLOBAL_EXCLUDES)
         tracked = _git_tracked_files(root)
-        for file_path in _iter_matching_files(root, self.files, effective_exclude, tracked):
-            rel = file_path.relative_to(root).as_posix()
+        for file_path, rel in _iter_matching_files(root, self.files, effective_exclude, tracked):
+            try:
+                if file_path.stat().st_size > MAX_SCAN_BYTES:
+                    continue
+            except OSError:
+                continue
             try:
                 text = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError:
@@ -117,14 +128,27 @@ def _git_tracked_files(root: Path) -> Optional[Set[str]]:
         return None
     try:
         res = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-            cwd=str(root), capture_output=True, text=True, timeout=30,
+            [
+                "git", "-c", "core.quotePath=false",
+                "ls-files", "-z",
+                "--cached", "--others", "--exclude-standard",
+            ],
+            cwd=str(root), capture_output=True, timeout=30,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     if res.returncode != 0:
+        import sys
+        sys.stderr.write(
+            f"sentinel: git ls-files failed in {root} (rc={res.returncode}); "
+            f"falling back to rglob. stderr={res.stderr[:200]!r}\n"
+        )
         return None
-    return {line.strip() for line in res.stdout.splitlines() if line.strip()}
+    try:
+        stdout = res.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return {entry for entry in stdout.split("\0") if entry}
 
 
 def _iter_matching_files(
@@ -142,6 +166,8 @@ def _iter_matching_files(
         rels = _rglob_relpaths(root)
 
     for rel in rels:
+        if ".." in rel.split("/"):
+            continue
         if not any(_fnmatch_with_doublestar(rel, pat) for pat in include):
             continue
         if any(_fnmatch_with_doublestar(rel, pat) for pat in exclude):
@@ -152,7 +178,7 @@ def _iter_matching_files(
                 continue
         except OSError:
             continue
-        yield path
+        yield path, rel
 
 
 def _rglob_relpaths(root: Path) -> List[str]:
@@ -196,6 +222,13 @@ def load_yaml_rule(path: Path) -> YamlRule:
         severity = Severity.from_string(raw["severity"])
     except ValueError as e:
         raise YamlRuleLoadError(f"{path}: {e}") from e
+
+    try:
+        re.compile(str(raw["pattern"]))
+    except re.error as e:
+        raise YamlRuleLoadError(
+            f"{path}: invalid regex in 'pattern': {e}"
+        ) from e
 
     scope = raw.get("scope", "repo")
     if scope not in ("repo", "portfolio"):

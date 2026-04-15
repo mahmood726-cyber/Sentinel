@@ -12,6 +12,7 @@ severity: WARN
 scope: repo
 description: y
 pattern: 'foo'
+fix_hint: Remove foo.
 source: test.md
 """
 
