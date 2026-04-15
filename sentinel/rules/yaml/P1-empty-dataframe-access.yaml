@@ -1,0 +1,32 @@
+id: P1-empty-dataframe-access
+severity: WARN
+scope: repo
+description: >
+  Positional DataFrame/Series access (`.iloc[0]`, `.iloc[-1]`, `.values[0]`)
+  raises IndexError on empty inputs. Named in MEMORY.md#top-5-cross-project
+  -defects as one of the five repeat offenders (alongside XSS, hardcoded
+  paths, localStorage collision, SE_FLOOR). Listed in lessons.md#common-
+  regression-traps as "empty datasets" under high-friction targets.
+
+  This rule cannot see whether a guard (`if not df.empty`, `if len(df)`,
+  early-return) exists upstream, so it surfaces the access for human review
+  rather than blocking. WARN severity: grep before edit, confirm the guard
+  chain, and add one if missing. Whole-file suppression is available via
+  the `sentinel:skip-file` marker (first ~1KB of the file).
+pattern: '\.iloc\[\s*(?:0|-1)\s*\]|\.values\[\s*0\s*\]'
+files:
+  - '**/*.py'
+# tests/**, **/tests/**, fixtures/**, **/fixtures/**, conftest.py,
+# **/conftest.py, and .git/** covered by GLOBAL_EXCLUDES + COMMON_EXCLUDES.
+exclude:
+  - 'notebooks/**'
+  - '**/notebooks/**'
+  - 'examples/**'
+  - '**/examples/**'
+fix_hint: >
+  Guard with `if df.empty: return <sentinel>` or `if len(df) == 0: ...`
+  immediately before the positional access, OR use `.iat[0]` / `.at[...]`
+  with a prior existence check. If the file is a generator where this
+  access is provably safe repo-wide, add `# sentinel:skip-file` near the
+  top of the file.
+source: MEMORY.md#top-5-cross-project-defects

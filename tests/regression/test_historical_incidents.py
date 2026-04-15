@@ -382,3 +382,113 @@ def test_install_hook__gitignore_backfill_runs():
         assert "node_modules/" in content  # existing preserved
         assert "STUCK_FAILURES.md" in content
         assert "sentinel-findings.md" in content
+
+
+# ---------------------------------------------------------------------------
+# P1-empty-dataframe-access — `.iloc[0]` / `.iloc[-1]` / `.values[0]` without
+# a guarded preceding .empty / len() check. Named as one of the top-5 repeat
+# defects in MEMORY.md#top-5-cross-project-defects. Every "X trials met the
+# criterion" CT.gov audit that returned an empty DataFrame silently raised
+# IndexError at the first .iloc[0].
+# ---------------------------------------------------------------------------
+
+def test_empty_df__iloc_zero_flagged(tmp_path):
+    """Incident class: pandas `.iloc[0]` on a filter result that can be
+    empty. CT.gov audit scripts repeatedly hit this when an NCT filter
+    returned zero rows; the access raised IndexError rather than returning
+    a typed 'no matches' response."""
+    (tmp_path / "audit.py").write_text(
+        "import pandas as pd\n"
+        "def first_match(df, nct):\n"
+        "    matched = df[df.nct_id == nct]\n"
+        "    return matched.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert len(verdicts) == 1
+    assert verdicts[0].severity == Severity.WARN
+
+
+def test_empty_df__iloc_minus_one_flagged(tmp_path):
+    """Incident class: `.iloc[-1]` is the mirror bug — "last row" of a
+    potentially empty DataFrame. Same IndexError surface."""
+    (tmp_path / "pipeline.py").write_text(
+        "def latest(df):\n"
+        "    return df.iloc[-1]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert len(verdicts) == 1
+
+
+def test_empty_df__values_zero_flagged(tmp_path):
+    """Incident class: `series.values[0]` — numpy-backed positional access
+    on an empty Series, same IndexError surface as pandas .iloc[0]."""
+    (tmp_path / "compute.py").write_text(
+        "def first_val(s):\n"
+        "    return s.values[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert len(verdicts) == 1
+
+
+def test_empty_df__tests_dir_excluded(tmp_path):
+    """Tests legitimately construct known-non-empty fixtures and access
+    `.iloc[0]` without guards. COMMON_EXCLUDES covers tests/**; this
+    regression asserts that exclusion still works for this new rule."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_math.py").write_text(
+        "import pandas as pd\n"
+        "def test_foo():\n"
+        "    df = pd.DataFrame({'x': [1]})\n"
+        "    assert df.iloc[0].x == 1\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == [], (
+        f"tests/ must be excluded by COMMON_EXCLUDES, got {verdicts!r}"
+    )
+
+
+def test_empty_df__skip_file_marker_bypasses(tmp_path):
+    """Generated-reporting files that are provably safe can opt out via
+    `sentinel:skip-file`. This confirms the standard suppression path
+    works for the new rule."""
+    (tmp_path / "report_gen.py").write_text(
+        "# sentinel:skip-file\n"
+        "# Known-safe generator: inputs are always non-empty by contract.\n"
+        "def render(df):\n"
+        "    return df.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == []
+
+
+def test_empty_df__iat_not_flagged(tmp_path):
+    """`.iat[0]` is an acceptable alternative when the caller has already
+    verified non-emptiness — it's the documented fix_hint. Rule must not
+    fire on `.iat[0]`, only on `.iloc[0]` / `.values[0]`."""
+    (tmp_path / "ok.py").write_text(
+        "def safe(df):\n"
+        "    if df.empty:\n"
+        "        return None\n"
+        "    return df.iat[0, 0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == []
