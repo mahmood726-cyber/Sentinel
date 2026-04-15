@@ -285,6 +285,58 @@ def test_non_wiki_dir_still_fires(tmp_path: Path):
     assert verdicts[0].file == "wiki-docs/entry.md"
 
 
+def test_data_nightly_reports_excluded(tmp_path: Path):
+    """Overmind's auto-generated nightly reports (data/nightly_reports/*.md)
+    embed absolute paths as portfolio metadata — not code. Excluded."""
+    nightly = tmp_path / "data" / "nightly_reports"
+    nightly.mkdir(parents=True)
+    (nightly / "nightly_2026-04-15.md").write_text(
+        "# Nightly report\n"
+        "- Path: C:\\Users\\user\\OneDrive\\Backups\\foo\n",
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "data/nightly_reports/** must be excluded"
+
+
+def test_data_artifacts_excluded(tmp_path: Path):
+    """Overmind's daily artifact JSONs embed test commands containing
+    absolute paths. Excluded as auto-gen data."""
+    artifacts = tmp_path / "data" / "artifacts"
+    artifacts.mkdir(parents=True)
+    (artifacts / "daily_report_2026-04-15.json").write_text(
+        '{"test_cmd": "python C:/Users/user/proj/run.py"}\n',
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "data/artifacts/** must be excluded"
+
+
+def test_data_real_project_smoke_excluded(tmp_path: Path):
+    """Overmind's real_project_smoke checkpoints record the scanned
+    project's absolute path. Excluded."""
+    smoke = tmp_path / "data" / "real_project_smoke" / "someproj" / "data" / "checkpoints"
+    smoke.mkdir(parents=True)
+    (smoke / "main.json").write_text(
+        '{"path": "C:/Users/user/Projects/someproj"}\n',
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "data/real_project_smoke/** must be excluded"
+
+
+def test_data_other_still_fires(tmp_path: Path):
+    """Negative control: data/<other>/ is NOT excluded — only the three
+    auto-gen subdirs. A legit data/config.py with hardcoded paths should
+    still fire."""
+    other = tmp_path / "data" / "config"
+    other.mkdir(parents=True)
+    (other / "settings.py").write_text(
+        'DB = "C:/Users/user/app/db.sqlite"\n',
+        encoding="utf-8",
+    )
+    verdicts = _scan(tmp_path)
+    assert len(verdicts) == 1
+    assert "data/config/settings.py" in verdicts[0].file
+
+
 def test_docs_other_path_still_fires(tmp_path: Path):
     """Negative control: docs/ outside superpowers/specs|plans/ is NOT
     excluded — catches regressions that broaden the exclude too far."""

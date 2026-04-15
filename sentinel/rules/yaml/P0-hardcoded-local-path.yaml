@@ -30,16 +30,25 @@ files:
 # tests/**, **/tests/**, fixtures/**, **/fixtures/**, conftest.py, and
 # **/conftest.py are covered by COMMON_EXCLUDES in sentinel/registry/yaml_loader.py.
 #
-# wiki/** excludes auto-generated portfolio wiki entries (e.g. Overmind's
-# wiki/<project>.md health cards, which legitimately contain `**Path:** C:\\...`
-# as DATA describing where each project lives on disk — not hardcoded-in-code).
-# Scope: directory segment named `wiki` at any depth, all files underneath.
+# wiki/**, data/nightly_reports/**, data/artifacts/**,
+# data/real_project_smoke/** exclude auto-generated portfolio content
+# (Overmind's wiki cards + nightly reports + per-project smoke checkpoints).
+# These legitimately contain absolute paths as DATA describing where each
+# project lives — not hardcoded-in-code. Prefer the sentinel:skip-file
+# marker for new auto-gen writers; these path excludes cover existing
+# tracked files that predate the marker.
 exclude:
   - 'sentinel/rules/**'
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'
   - 'wiki/**'
   - '**/wiki/**'
+  - 'data/nightly_reports/**'
+  - '**/data/nightly_reports/**'
+  - 'data/artifacts/**'
+  - '**/data/artifacts/**'
+  - 'data/real_project_smoke/**'
+  - '**/data/real_project_smoke/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.
