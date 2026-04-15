@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sentinel — pre-push rule engine for the AI-agent era</title>
+<meta name="description" content="Catches hardcoded paths, placeholder HMAC signatures, silent-failure sentinels, and agent-config drift in ~2 seconds before git push. 11 rules + 17 regression fixtures. MIT licensed.">
+
+<!-- Open Graph / social preview -->
+<meta property="og:title" content="Sentinel — pre-push rule engine for AI coding agents">
+<meta property="og:description" content="Your AI coding agent will make these mistakes. Sentinel catches them at git push. 11 rules + 17 regression fixtures, ~2s pre-push, MIT.">
+<meta property="og:url" content="https://mahmood726-cyber.github.io/Sentinel/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sentinel — pre-push rule engine for the AI-agent era">
+<meta name="twitter:description" content="Catches hardcoded paths, placeholder HMAC, silent-failure sentinels, and agent-config drift before git push. Open source, MIT.">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<style>
+:root {
+  --bg: #0b1120;
+  --bg-elev: #111827;
+  --bg-card: #1a2236;
+  --border: #2a3244;
+  --text: #e5e7eb;
+  --text-dim: #9ca3af;
+  --text-faint: #6b7280;
+  --accent: #22c55e;
+  --accent-dim: #16a34a;
+  --block: #ef4444;
+  --warn: #eab308;
+  --info: #3b82f6;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-elev); padding: 0.1em 0.4em; border-radius: 4px; color: var(--accent); }
+pre { font-family: var(--mono); font-size: 0.88rem; background: var(--bg-elev); padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
+pre code { background: none; padding: 0; color: inherit; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ========= Hero ========= */
+.hero {
+  padding: 5rem 0 3rem;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(34, 197, 94, 0.08), transparent 50%),
+    radial-gradient(ellipse at 80% 0%, rgba(59, 130, 246, 0.06), transparent 50%),
+    var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.hero-brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; }
+.hero-brand img { width: 32px; height: 32px; }
+.hero-brand span { font-weight: 600; letter-spacing: 0.02em; font-size: 1.1rem; }
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 1rem;
+  letter-spacing: -0.02em;
+}
+.hero h1 .accent { color: var(--accent); }
+.hero .tagline {
+  font-size: clamp(1.1rem, 2vw, 1.3rem);
+  color: var(--text-dim);
+  margin: 0 0 2.25rem;
+  max-width: 720px;
+}
+.cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: transform 0.1s, background 0.1s;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: inherit;
+}
+.btn:hover { transform: translateY(-1px); text-decoration: none; }
+.btn.primary { background: var(--accent); color: #052e16; border-color: var(--accent); }
+.btn.primary:hover { background: var(--accent-dim); }
+.btn.ghost { background: transparent; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.stat { border-left: 2px solid var(--accent); padding: 0 1rem; }
+.stat .n { font-size: 1.5rem; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+.stat .l { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ========= Terminal ========= */
+.term-wrap { padding: 3rem 0; background: var(--bg); }
+.term {
+  background: #060b16;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+}
+.term-bar { background: #0f172a; padding: 0.6rem 1rem; display: flex; align-items: center; gap: 0.4rem; border-bottom: 1px solid var(--border); }
+.term-dot { width: 12px; height: 12px; border-radius: 50%; background: #3f4a5c; }
+.term-dot.r { background: #ef4444; }
+.term-dot.y { background: #eab308; }
+.term-dot.g { background: #22c55e; }
+.term-title { margin-left: auto; margin-right: auto; color: var(--text-faint); font-family: var(--mono); font-size: 0.8rem; }
+.term-body { padding: 1.5rem 1.75rem; font-family: var(--mono); font-size: 0.87rem; line-height: 1.65; color: var(--text); }
+.term-prompt { color: var(--accent); }
+.term-cmd { color: var(--text); }
+.term-dim { color: var(--text-dim); }
+.term-block { color: var(--block); font-weight: 600; }
+.term-warn { color: var(--warn); font-weight: 600; }
+.term-match { color: var(--text); background: rgba(239, 68, 68, 0.12); padding: 0 0.15em; border-radius: 2px; }
+.term-ok { color: var(--accent); }
+
+/* ========= Sections ========= */
+section { padding: 4rem 0; }
+section h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+section .lede { color: var(--text-dim); max-width: 720px; margin-bottom: 2rem; font-size: 1.05rem; }
+
+/* ========= Interactive demo ========= */
+.try-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 780px) { .try-box { grid-template-columns: 1fr; } }
+.try-input, .try-output {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.try-head {
+  padding: 0.6rem 1rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--mono);
+}
+.try-samples { display: flex; gap: 0.35rem; }
+.try-sample {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.try-sample:hover { background: var(--border); }
+#code-input {
+  width: 100%;
+  min-height: 280px;
+  background: transparent;
+  border: 0;
+  padding: 1rem 1.25rem;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+}
+#verdicts {
+  padding: 1rem 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  min-height: 280px;
+  white-space: pre-wrap;
+}
+.verdict { margin-bottom: 0.8rem; padding-bottom: 0.8rem; border-bottom: 1px dashed var(--border); }
+.verdict:last-child { border-bottom: 0; }
+.verdict .head { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem; }
+.verdict .sev.BLOCK { color: var(--block); font-weight: 700; }
+.verdict .sev.WARN  { color: var(--warn); font-weight: 700; }
+.verdict .rule { color: var(--text); }
+.verdict .loc  { color: var(--text-faint); margin-left: auto; }
+.verdict .line { color: var(--text-dim); font-size: 0.82rem; overflow-x: auto; }
+.verdict .line mark { background: rgba(239, 68, 68, 0.2); color: var(--text); padding: 0 0.15em; border-radius: 2px; }
+.verdict .fix { color: var(--text-dim); font-size: 0.78rem; margin-top: 0.25rem; font-family: var(--sans); }
+.empty { color: var(--text-faint); font-style: italic; }
+.clean { color: var(--accent); }
+
+/* ========= Rules table ========= */
+.rules-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.rules-table th, .rules-table td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.rules-table th { color: var(--text-dim); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.rules-table tr:last-child td { border-bottom: 0; }
+.rules-table .rid { font-family: var(--mono); font-size: 0.85rem; color: var(--accent); white-space: nowrap; }
+.tier {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.tier.BLOCK { background: rgba(239, 68, 68, 0.18); color: var(--block); }
+.tier.WARN  { background: rgba(234, 179, 8, 0.18); color: var(--warn); }
+.tier.INFO  { background: rgba(59, 130, 246, 0.18); color: var(--info); }
+
+/* ========= Why grid ========= */
+.why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 780px) { .why-grid { grid-template-columns: 1fr; } }
+.why-col { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem 1.75rem; }
+.why-col h3 { margin: 0 0 1rem; font-size: 1.05rem; }
+.why-col.ko h3 { color: var(--block); }
+.why-col.ok h3 { color: var(--accent); }
+.why-col ul { margin: 0; padding-left: 1.2rem; font-size: 0.93rem; color: var(--text-dim); }
+.why-col li { margin-bottom: 0.5rem; }
+
+/* ========= Footer ========= */
+footer { padding: 3rem 0 4rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.9rem; }
+.footer-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.footer-links { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+
+.muted { color: var(--text-dim); }
+.ok { color: var(--accent); }
+.accent { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="container">
+    <div class="hero-brand">
+      <img src="favicon.svg" alt="Sentinel" aria-hidden="true">
+      <span>Sentinel</span>
+    </div>
+
+    <h1>Your AI coding agent will make these mistakes.<br>
+    <span class="accent">Sentinel catches them at <code>git push</code>.</span></h1>
+
+    <p class="tagline">A pre-push rule engine for the Claude-Code / Cursor / Copilot / Codex era. 11 rules + 17 regression fixtures frozen from real past incidents. Runs in ~2 seconds. MIT licensed.</p>
+
+    <div class="cta-row">
+      <a class="btn primary" href="https://github.com/mahmood726-cyber/Sentinel">★ Star on GitHub</a>
+      <a class="btn" href="#try">Try it in your browser ↓</a>
+      <a class="btn ghost" href="#install">Install</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">11</div><div class="l">Rules</div></div>
+      <div class="stat"><div class="n">17</div><div class="l">Regression fixtures</div></div>
+      <div class="stat"><div class="n">195</div><div class="l">Tests passing</div></div>
+      <div class="stat"><div class="n">~2s</div><div class="l">Pre-push scan</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">External deps</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="term-wrap">
+  <div class="container">
+    <div class="term">
+      <div class="term-bar">
+        <span class="term-dot r"></span>
+        <span class="term-dot y"></span>
+        <span class="term-dot g"></span>
+        <span class="term-title">~/projects/my-repo — git push</span>
+      </div>
+      <div class="term-body">
+<span class="term-prompt">$</span> <span class="term-cmd">git push</span>
+<span class="term-dim">[Sentinel] scanning 234 tracked files across 11 rules...</span>
+  <span class="term-block">[BLOCK]</span> P0-hardcoded-local-path   src/loader.py:12
+          DATA = r"<span class="term-match">C:\Users\alice\Projects\scratch\data.csv</span>"
+  <span class="term-block">[BLOCK]</span> P0-placeholder-hmac       bundle.json:9
+          "signature_placeholder": "<span class="term-match">SIG_RSA_SHA256_mock</span>"
+  <span class="term-warn">[WARN]</span>  P1-unpopulated-placeholder  page.html:18
+          &lt;p&gt;Hello <span class="term-match">{{ user|upper }}</span>&lt;/p&gt;
+<span class="term-dim">[Sentinel] 2 BLOCK, 1 WARN in 1.8s. Push aborted.</span>
+<span class="term-dim">Fix the findings above, or override with SENTINEL_BYPASS=1 git push (logged).</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="try">
+  <div class="container">
+    <h2>Try it live</h2>
+    <p class="lede">Runs the real Sentinel regex rules against your input. No server — your code stays in this tab. Click a sample below or paste your own.</p>
+
+    <div class="try-box">
+      <div class="try-input">
+        <div class="try-head">
+          <span>your_code.py</span>
+          <div class="try-samples">
+            <button class="try-sample" data-sample="path">hardcoded path</button>
+            <button class="try-sample" data-sample="hmac">placeholder HMAC</button>
+            <button class="try-sample" data-sample="silent">silent failure</button>
+            <button class="try-sample" data-sample="jinja">Jinja placeholder</button>
+            <button class="try-sample" data-sample="clean">clean code</button>
+          </div>
+        </div>
+        <textarea id="code-input" spellcheck="false" placeholder="Paste code or click a sample above..."></textarea>
+      </div>
+
+      <div class="try-output">
+        <div class="try-head"><span>Sentinel verdicts</span><span id="verdict-count"></span></div>
+        <div id="verdicts"><span class="empty">Paste code to see which rules fire.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>The 11 built-in rules</h2>
+    <p class="lede">Each rule fires on a specific class of past-incident bug. Each ships with at least one <a href="https://github.com/mahmood726-cyber/Sentinel/blob/main/tests/regression/test_historical_incidents.py">regression fixture</a> encoding the actual content that caused the original bug.</p>
+
+    <table class="rules-table">
+      <thead><tr><th>Rule</th><th>Tier</th><th>Catches</th></tr></thead>
+      <tbody>
+        <tr><td class="rid">P0-hardcoded-local-path</td><td><span class="tier BLOCK">BLOCK</span></td><td><code>C:\Users\...</code>, <code>D:\projects\...</code>, <code>/home/...</code>, <code>/Users/...</code> in shipped code</td></tr>
+        <tr><td class="rid">P0-placeholder-hmac</td><td><span class="tier BLOCK">BLOCK</span></td><td><code>SIG_RSA_SHA256_</code>, <code>signature_placeholder</code> — faux crypto</td></tr>
+        <tr><td class="rid">P0-claude-config-committed</td><td><span class="tier BLOCK">BLOCK</span></td><td><code>.claude/</code>, <code>.gemini/</code>, <code>.codex/</code> committed to a repo</td></tr>
+        <tr><td class="rid">P0-path-not-exist</td><td><span class="tier BLOCK">BLOCK</span></td><td>Registry paths that don't resolve on disk (portfolio scope)</td></tr>
+        <tr><td class="rid">P0-registry-drift</td><td><span class="tier BLOCK">BLOCK</span></td><td>Registries disagreeing on project count</td></tr>
+        <tr><td class="rid">P0-workbook-rewrite-touched</td><td><span class="tier BLOCK">BLOCK</span></td><td>Edits to protected <code>YOUR REWRITE</code> sections</td></tr>
+        <tr><td class="rid">P0-livingmeta-drift</td><td><span class="tier BLOCK">BLOCK</span></td><td>Trial-ID drift between workbook and deployed HTML</td></tr>
+        <tr><td class="rid">P1-silent-failure-sentinel</td><td><span class="tier WARN">WARN</span></td><td><code>return "unknown_..."</code> / <code>"__silent__"</code> silent-failures</td></tr>
+        <tr><td class="rid">P1-unpopulated-placeholder</td><td><span class="tier WARN">WARN</span></td><td><code>{{x}}</code>, <code>{{ x|filter }}</code>, <code>REPLACE_ME</code>, <code>TBD:</code>, <code>XXX:</code></td></tr>
+        <tr><td class="rid">P2-agent-config-version-drift</td><td><span class="tier WARN">WARN</span></td><td>Stale version claims in <code>AGENTS.md</code> vs <code>pyproject.toml</code></td></tr>
+        <tr><td class="rid">P2-progress-md-not-gitignored</td><td><span class="tier INFO">INFO</span></td><td>Tracked <code>PROGRESS.md</code> leaking session state</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Without vs with</h2>
+    <div class="why-grid">
+      <div class="why-col ko">
+        <h3>Without Sentinel</h3>
+        <ul>
+          <li>You push <code>C:\Users\alice\...</code> once a month. Nobody else can reproduce. You debug it 2 weeks later.</li>
+          <li>Your agent writes <code>"signature_placeholder": "SIG_RSA_SHA256_..."</code>. Ships to main. Your next release claims cryptographic signing.</li>
+          <li>Your MA pipeline returns <code>"unknown_ratio"</code> on a schema mismatch. 465 reviews get corrupted silently.</li>
+          <li>Your <code>AGENTS.md</code> says v2.1.0. Your <code>pyproject.toml</code> says v3.1.0. Drift persists for 7+ days.</li>
+          <li>Rule violations keep happening because advice is advisory.</li>
+        </ul>
+      </div>
+      <div class="why-col ok">
+        <h3>With Sentinel</h3>
+        <ul>
+          <li>Pre-push hook BLOCKs the absolute-path commit before it leaves your laptop. <code>~1.8s</code>.</li>
+          <li>Placeholder HMAC fires <code>[BLOCK] P0-placeholder-hmac</code>. You replace with real <code>TRUTHCERT_HMAC_KEY</code>-derived sig.</li>
+          <li><code>P1-silent-failure-sentinel</code> catches silent-failure returns. You raise <code>KeyError</code> with the schema diff instead.</li>
+          <li><code>P2-agent-config-version-drift</code> catches the stale claim at next push. Fix in the same commit.</li>
+          <li>Every rule encodes a real past incident — weakening a rule fails a regression test immediately.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="container">
+    <h2>Install in 60 seconds</h2>
+    <p class="lede">Works on Windows + Ubuntu, Python 3.11 / 3.12 / 3.13. Zero external runtime dependencies.</p>
+
+<pre><code><span class="muted"># Clone + install</span>
+git clone https://github.com/mahmood726-cyber/Sentinel.git
+cd Sentinel
+pip install -e ".[dev]"
+
+<span class="muted"># See the rules</span>
+python -m sentinel list-rules
+
+<span class="muted"># Try it on an existing repo (no install, just scan)</span>
+python -m sentinel scan --repo /path/to/your/repo
+
+<span class="muted"># Install the pre-push hook</span>
+python -m sentinel install-hook --repo /path/to/your/repo
+
+<span class="muted"># Emergency escape valve (logged to ~/.sentinel-logs/bypass.log)</span>
+SENTINEL_BYPASS=1 git push</code></pre>
+
+    <p class="muted" style="margin-top: 1.5rem">The hook installer also auto-adds <code>STUCK_FAILURES.md</code> / <code>sentinel-findings.md</code> to the target repo's <code>.gitignore</code> — one less footgun.</p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Honest differentiation</h2>
+    <p class="lede">Sentinel isn't trying to replace Semgrep or pre-commit.com. It's what you add when your failure modes are specific to AI-agent-assisted development and standard rulesets don't cover them.</p>
+
+    <table class="rules-table">
+      <thead><tr><th style="width: 40%"></th><th>Sentinel</th><th>Semgrep</th><th>pre-commit.com</th><th>CLAUDE.md alone</th></tr></thead>
+      <tbody>
+        <tr><td>Runs pre-push on <code>git push</code></td><td><span class="ok">✓ ~2s</span></td><td>CI (slower)</td><td><span class="ok">✓</span> pre-commit</td><td>advisory</td></tr>
+        <tr><td>Rules tuned to AI-agent failures</td><td><span class="ok">✓</span></td><td>general-purpose</td><td>framework only</td><td>—</td></tr>
+        <tr><td>Real-incident regression fixtures</td><td><span class="ok">✓ 17</span></td><td>curated community</td><td>—</td><td>—</td></tr>
+        <tr><td>Cross-repo aggregator contract</td><td><span class="ok">✓</span></td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>Memory/index drift verification</td><td><span class="ok">✓</span> companion scripts</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>Self-documented threat model</td><td><span class="ok">✓</span></td><td><span class="ok">✓</span> enterprise</td><td>—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-row">
+      <div>
+        <strong>Sentinel</strong> · MIT licensed · built with no external runtime dependencies
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/mahmood726-cyber/Sentinel">GitHub</a>
+        <a href="https://github.com/mahmood726-cyber/Sentinel/blob/main/docs/THREAT_MODEL.md">Threat Model</a>
+        <a href="https://github.com/mahmood726-cyber/Sentinel/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/mahmood726-cyber/Sentinel/issues/new">Report an issue</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Live rule engine — these are the actual regex patterns from the shipping YAML.
+// Kept in sync with sentinel/rules/yaml/*.yaml. If you change a pattern in
+// Python, update it here too (no build step — intentional).
+const RULES = [
+  {
+    id: 'P0-hardcoded-local-path',
+    sev: 'BLOCK',
+    // Same pattern as P0-hardcoded-local-path.yaml
+    pattern: /(?:[A-Z]:[\\/](?:Users|projects|ProgramData|OneDrive)[\\/][^\s"\\/]+|\/Users\/[a-z_][\w-]*|\/home\/[a-z_][a-z0-9_-]*)/gi,
+    fix: 'Replace with Path.home() / env-var override, or move to config.'
+  },
+  {
+    id: 'P0-placeholder-hmac',
+    sev: 'BLOCK',
+    pattern: /SIG_RSA_SHA256_|signature_placeholder/g,
+    fix: 'Replace with a real HMAC computed from env TRUTHCERT_HMAC_KEY.'
+  },
+  {
+    id: 'P1-silent-failure-sentinel',
+    sev: 'WARN',
+    pattern: /return\s+["'](?:unknown_|__silent__|__fail__)/g,
+    fix: 'Raise KeyError or a domain-specific exception instead of returning a sentinel string.'
+  },
+  {
+    id: 'P1-unpopulated-placeholder',
+    sev: 'WARN',
+    pattern: /\{\{-?\s*[A-Za-z_]\w*\s*(?:(?:\||\[|\.[A-Za-z_])[^}]*)?\s*-?\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:/g,
+    fix: 'Populate the placeholder or escape it before shipping.'
+  }
+];
+
+const SAMPLES = {
+  path: `import pandas as pd
+
+# oops
+DATA_DIR = r"C:\\Users\\alice\\Projects\\scratch\\data.csv"
+df = pd.read_csv(DATA_DIR)
+
+# also on macOS:
+BACKUP = "/Users/bob/backup/"
+
+# and Linux:
+LOGS = "/home/alice/logs/"`,
+  hmac: `{
+  "cert_id": "abc123",
+  "created_at": "2026-04-15T12:00:00Z",
+  "signature_placeholder": "SIG_RSA_SHA256_mock_bytes_xxxxxxxxxxxx"
+}
+
+# scaffolding
+def fake_sign():
+    return "SIG_RSA_SHA256_pending_real_key"`,
+  silent: `def infer_effect(study):
+    if "hr" not in study:
+        return "unknown_ratio"   # silent failure
+    return study["hr"]
+
+def parse_cell(c):
+    try:
+        return float(c)
+    except ValueError:
+        return "__silent__"`,
+  jinja: `<!DOCTYPE html>
+<html>
+<body>
+  <h1>Hello {{ user_name }}</h1>
+  <p>Rate: {{ rate|default(0.0) }}</p>
+
+  <!-- scaffolding -->
+  <p>Author: REPLACE_ME</p>
+  <p>TBD: add methodology here</p>
+  <p>Hash: __PLACEHOLDER__</p>
+  <p>XXX: benchmarks here</p>
+</body>
+</html>`,
+  clean: `from pathlib import Path
+import os
+
+DATA_DIR = Path(os.environ.get("DATA_DIR", Path.home() / "data"))
+
+def infer_effect(study: dict) -> float:
+    if "hr" not in study:
+        raise KeyError(f"missing hr; keys: {sorted(study)}")
+    return study["hr"]
+
+TEMPLATE = """<h1>Hello {}</h1><p>Price: {}</p>""".format(
+    user_name, price_str
+)`
+};
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function highlightMatch(line, matchText) {
+  const i = line.indexOf(matchText);
+  if (i < 0) return escapeHtml(line);
+  return escapeHtml(line.slice(0, i)) + '<mark>' + escapeHtml(matchText) + '</mark>' + escapeHtml(line.slice(i + matchText.length));
+}
+
+function scan(text) {
+  const lines = text.split('\n');
+  const verdicts = [];
+  for (const rule of RULES) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      rule.pattern.lastIndex = 0;
+      let m;
+      // reset flag emulation: we re-create a non-global copy for exec safety
+      const re = new RegExp(rule.pattern.source, rule.pattern.flags);
+      while ((m = re.exec(line)) !== null) {
+        verdicts.push({
+          rule: rule.id,
+          sev: rule.sev,
+          line: i + 1,
+          match: m[0],
+          content: line.trim().slice(0, 120),
+          fix: rule.fix
+        });
+        if (m[0].length === 0) break; // safety
+      }
+    }
+  }
+  return verdicts;
+}
+
+function render() {
+  const text = document.getElementById('code-input').value;
+  const box = document.getElementById('verdicts');
+  const counter = document.getElementById('verdict-count');
+  if (!text.trim()) {
+    box.innerHTML = '<span class="empty">Paste code to see which rules fire.</span>';
+    counter.textContent = '';
+    return;
+  }
+  const verdicts = scan(text);
+  if (verdicts.length === 0) {
+    box.innerHTML = '<span class="clean">[Sentinel] verdicts: BLOCK=0 WARN=0 INFO=0 — clean ✓</span>';
+    counter.textContent = '';
+    return;
+  }
+  const block = verdicts.filter(v => v.sev === 'BLOCK').length;
+  const warn = verdicts.filter(v => v.sev === 'WARN').length;
+  counter.textContent = block + ' BLOCK · ' + warn + ' WARN';
+  box.innerHTML = verdicts.map(v =>
+    '<div class="verdict">'
+    + '<div class="head">'
+    +   '<span class="sev ' + v.sev + '">[' + v.sev + ']</span>'
+    +   '<span class="rule">' + v.rule + '</span>'
+    +   '<span class="loc">line ' + v.line + '</span>'
+    + '</div>'
+    + '<div class="line">' + highlightMatch(v.content, v.match) + '</div>'
+    + '<div class="fix">→ ' + v.fix + '</div>'
+    + '</div>'
+  ).join('');
+}
+
+document.getElementById('code-input').addEventListener('input', render);
+document.querySelectorAll('.try-sample').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.sample;
+    document.getElementById('code-input').value = SAMPLES[key];
+    render();
+  });
+});
+
+// Load path sample by default
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('code-input').value = SAMPLES.path;
+  render();
+});
+</script>
+
+</body>
+</html>
