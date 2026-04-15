@@ -1,5 +1,7 @@
 # Sentinel
 
+<!-- sentinel:skip-file — README documents the patterns Sentinel flags; it should not fire on itself (see docs/THREAT_MODEL.md §3.1) -->
+
 > **Your AI coding agent will make these mistakes. Sentinel catches them at `git push`.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
