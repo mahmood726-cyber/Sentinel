@@ -41,6 +41,12 @@ exclude:
   - 'sentinel/rules/**'
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'
+  # docs/index.html is Sentinel's own dashboard page, which contains
+  # demonstration patterns (C:\Users\alice\..., /Users/bob/backup/,
+  # /home/alice/logs/) used to illustrate what this rule catches. The
+  # demo IS the documentation — excluding it prevents the rule from
+  # firing on its own self-test fixture.
+  - 'docs/index.html'
   - 'wiki/**'
   - '**/wiki/**'
   - 'data/nightly_reports/**'

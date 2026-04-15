@@ -16,6 +16,12 @@ files:
 exclude:
   - 'docs/superpowers/**'
   - 'templates/**'
+  # docs/index.html is Sentinel's own dashboard page, which contains
+  # demonstration patterns ({{ user_name }}, REPLACE_ME, TBD:, XXX:,
+  # __PLACEHOLDER__) used to illustrate what this rule catches. The
+  # demo IS the documentation — excluding it prevents the rule from
+  # firing on its own self-test fixture.
+  - 'docs/index.html'
 fix_hint: >
   Populate the placeholder or escape it before shipping. If the braces are
   intentional template syntax in a non-template file, exclude the file path
