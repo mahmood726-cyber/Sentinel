@@ -63,6 +63,15 @@ def _memory_dir() -> Path:
     return DEFAULT_MEMORY_DIR
 
 
+def _available_drives() -> set:
+    """Return the set of drive letters currently accessible (e.g. {'C', 'D'})."""
+    import string
+    return {
+        letter for letter in string.ascii_uppercase
+        if os.path.exists(f"{letter}:/")
+    }
+
+
 def check(ctx: RepoContext) -> List[Verdict]:
     memory = _memory_dir()
     if not memory.is_dir():
@@ -70,6 +79,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
+    drives_available = _available_drives()
 
     for md_file in sorted(memory.glob("*.md")):
         try:
@@ -90,6 +100,31 @@ def check(ctx: RepoContext) -> List[Verdict]:
                 seen.add(key)
                 if Path(found).exists():
                     continue
+
+                # Distinguish "drive offline" (INFO — transient, not drift)
+                # from "drive mounted but path missing" (WARN — real drift).
+                drive_letter = drive.upper()
+                if drive_letter not in drives_available:
+                    verdicts.append(Verdict(
+                        rule_id=ID,
+                        severity=Severity.INFO,
+                        repo=str(memory),
+                        file=md_file.name,
+                        line=lineno,
+                        detail=(
+                            f"{md_file.name}:{lineno} references path on "
+                            f"offline drive {drive_letter}: "
+                            f"{found!r} — not drift, drive not mounted"
+                        ),
+                        fix_hint=(
+                            f"mount {drive_letter}: drive and rerun scan; "
+                            "if the drive is intentionally offline, ignore"
+                        ),
+                        source=SOURCE,
+                        timestamp=now,
+                    ))
+                    continue
+
                 verdicts.append(Verdict(
                     rule_id=ID,
                     severity=SEVERITY,

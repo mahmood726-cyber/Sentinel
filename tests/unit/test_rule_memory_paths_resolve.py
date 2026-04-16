@@ -129,3 +129,21 @@ def test_multiple_missing_multi_verdict(patched_memory_dir: Path, tmp_path: Path
     files = sorted(v.detail for v in verdicts)
     assert any("ghost_a" in f for f in files)
     assert any("ghost_b" in f for f in files)
+
+
+def test_offline_drive_emits_info_not_warn(patched_memory_dir: Path, tmp_path: Path):
+    # Reference a path on a drive that doesn't exist on this machine
+    # (Q: or Z: — typically unmapped on Windows).
+    # Path will be MISSING and drive will be in the unavailable set →
+    # INFO, not WARN.
+    (patched_memory_dir / "offline.md").write_text(
+        r"Project at `Z:\ghost\project`" + "\n", encoding="utf-8"
+    )
+    rule = load_plugin_rule(PLUGIN_PATH)
+    pi = tmp_path / "pi"
+    pi.mkdir()
+    ctx = RepoContext(repo_root=pi, mode=ScanMode.PORTFOLIO, project_index_root=pi)
+    verdicts = rule.check(ctx)
+    assert len(verdicts) == 1
+    assert verdicts[0].severity == Severity.INFO
+    assert "offline drive Z" in verdicts[0].detail
