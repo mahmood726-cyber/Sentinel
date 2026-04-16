@@ -26,6 +26,20 @@ MAX_SCAN_BYTES = 5 * 1024 * 1024
 SKIP_FILE_MARKER = "sentinel:skip-file"
 SKIP_MARKER_SCAN_BYTES = 1024
 
+# Per-line suppression marker. Placed on the same line or the line
+# immediately above the match:
+#   df['x'].iloc[0]  # sentinel:skip-line P1-empty-dataframe-access
+# or:
+#   # sentinel:skip-line P1-empty-dataframe-access
+#   df['x'].iloc[0]
+# A bare `sentinel:skip-line` (no rule ID) suppresses all rules on that
+# line — use sparingly. Multiple rule IDs can be space- or comma-separated:
+#   # sentinel:skip-line P1-empty-dataframe-access, P0-hardcoded-local-path
+# Intended for narrow false-positive cases where upstream guards are
+# not visible to the pattern matcher (e.g. `if len(df) < 3: return`
+# three lines before an `.iloc[0]`).
+SKIP_LINE_MARKER = "sentinel:skip-line"
+
 COMMON_EXCLUDES = (
     "tests/**",
     "**/tests/**",
@@ -106,8 +120,12 @@ class YamlRule:
                 text = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            for lineno, line in enumerate(text.splitlines(), start=1):
+            lines = text.splitlines()
+            for lineno, line in enumerate(lines, start=1):
                 if compiled.search(line):
+                    prev_line = lines[lineno - 2] if lineno >= 2 else ""
+                    if _line_is_suppressed(line, prev_line, self.id):
+                        continue
                     verdicts.append(
                         Verdict(
                             rule_id=self.id,
@@ -122,6 +140,28 @@ class YamlRule:
                         )
                     )
         return verdicts
+
+
+def _line_is_suppressed(current_line: str, prev_line: str, rule_id: str) -> bool:
+    """True if a `sentinel:skip-line` marker on current or previous line
+    suppresses `rule_id`.
+
+    Marker syntax:
+      bare                  — `# sentinel:skip-line`                (all rules)
+      scoped                — `# sentinel:skip-line P1-foo`          (one rule)
+      multiple, separated   — `# sentinel:skip-line P1-a, P1-b`      (listed rules)
+    """
+    for candidate in (current_line, prev_line):
+        idx = candidate.find(SKIP_LINE_MARKER)
+        if idx == -1:
+            continue
+        after = candidate[idx + len(SKIP_LINE_MARKER):]
+        tokens = [tok for tok in after.replace(",", " ").split() if tok]
+        if not tokens:
+            return True  # bare marker — suppress all rules on this line
+        if rule_id in tokens:
+            return True
+    return False
 
 
 def _file_has_skip_marker(file_path: Path) -> bool:
