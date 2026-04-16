@@ -87,6 +87,26 @@ def test_hardcoded_local_path_silent_on_windows_system_paths(tmp_path: Path):
     assert verdicts == [], f"system paths must not fire: {[v.detail for v in verdicts]}"
 
 
+def test_hardcoded_local_path_silent_on_keyboard_shortcut_prose(tmp_path: Path):
+    """Regression for false positive surfaced 2026-04-16 against
+    Finrenone/MANUSCRIPT_LIVINGMETA.md and F1000_LivingMeta_Article_v2.md:
+    accessibility prose like 'ArrowLeft/Right/Home/End' was flagged as a
+    hardcoded path because the case-insensitive `/home/[a-z_]` alternative
+    matched `/Home/End` mid-string. Real /home/user/ and /Users/alice paths
+    must still fire (covered by other tests); slash-separated word-prose
+    must NOT. Fix: anchor the unix-path alternatives to start-of-string,
+    whitespace, quote, paren, equals, or colon."""
+    (tmp_path / "manuscript.md").write_text(
+        "All eight tab panels are keyboard-navigable "
+        "(ArrowLeft/Right/Home/End), screen reader accessible.\n"
+        "Sort order: Up/Down/Left/Right/PageUp/PageDown/Users/Items.\n",
+        encoding="utf-8",
+    )
+    rule = load_yaml_rule(RULE_PATH)
+    verdicts = rule.check(RepoContext(repo_root=tmp_path, mode=ScanMode.REPO))
+    assert verdicts == [], f"keyboard-shortcut prose must not fire: {[v.detail for v in verdicts]}"
+
+
 def test_hardcoded_local_path_excludes_nested_test_dirs(tmp_path: Path):
     """Workbench-style layout: <app>/tests/*.py containing rules-doc
     references like C:/Users/user/.claude/... in a docstring is a

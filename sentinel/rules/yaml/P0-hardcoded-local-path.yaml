@@ -5,7 +5,7 @@ description: >
   Shipped code must not contain absolute local paths like `C:\Users\...` or
   `/home/<user>/...` per lessons.md#code-quality. These leak developer
   environment details and break portability.
-pattern: '(?i)([A-Z]:[\\/](Users|projects|ProgramData|OneDrive)[\\/][^\s\"\\/]+|/Users/[a-z_][\w-]*|/home/[a-z_][a-z0-9_-]*)'
+pattern: '(?i)([A-Z]:[\\/](Users|projects|ProgramData|OneDrive)[\\/][^\s\"\\/]+|(?:^|(?<=[\s\"''(=:,]))/(?:Users|home)/[a-z_][\w-]*)'
 files:
   - '**/*.html'
   - '**/*.js'
