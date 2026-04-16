@@ -41,6 +41,17 @@ exclude:
   - 'sentinel/rules/**'
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'
+  # docs/plans/** generalizes the superpowers-namespaced pattern: plan
+  # documents typically contain historical `cd C:\Users\...\<repo>\`
+  # instructions describing dev-time workflow, not shipped code.
+  - 'docs/plans/**'
+  - '**/docs/plans/**'
+  # truthcert1_work/** — convention for vendored research archives
+  # (snapshots imported from sibling projects as reference). Paths in
+  # these archives describe the original environment, not the current
+  # repo's runtime.
+  - 'truthcert1_work/**'
+  - '**/truthcert1_work/**'
   # docs/index.html is Sentinel's own dashboard page, which contains
   # demonstration patterns (C:\Users\alice\..., /Users/bob/backup/,
   # /home/alice/logs/) used to illustrate what this rule catches. The
