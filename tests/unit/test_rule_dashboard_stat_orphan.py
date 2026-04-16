@@ -140,3 +140,60 @@ def test_portfolio_scope_inactive(tmp_path: Path):
         repo_root=pi, mode=ScanMode.PORTFOLIO, project_index_root=pi
     )
     assert rule.check(ctx) == []
+
+
+# Normalization tests — added 2026-04-16 late to collapse format variants
+# so "3.2x" in stat-card matches "3.2-fold" in narrative, etc.
+
+
+def test_narrative_fold_matches_stat_card_x(tmp_path: Path):
+    # Shifaa's real false positive: stat-card '3.2x' and narrative '3.2-fold'
+    _write(tmp_path / "dash.html", """
+<html><body>
+  <p>The model predicts a <strong>3.2-fold increase</strong> in activity.</p>
+  <div class="stat-card"><div class="num">3.2x</div><div class="label">Increase</div></div>
+</body></html>
+""")
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
+
+
+def test_narrative_percent_word_matches_stat_card_pct(tmp_path: Path):
+    # "61.7 percent" in prose vs "61.7%" in stat card -> no flag
+    _write(tmp_path / "dash.html", """
+<html><body>
+  <p>We found 61.7 percent of the gap is explained.</p>
+  <div class="stat-card"><div class="num">61.7%</div><div class="label">Gap</div></div>
+</body></html>
+""")
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
+
+
+def test_unicode_times_sign_matches_x(tmp_path: Path):
+    _write(tmp_path / "dash.html", """
+<html><body>
+  <p>A <strong>3.2×</strong> increase.</p>
+  <div class="stat-card"><div class="num">3.2x</div><div class="label">Increase</div></div>
+</body></html>
+""")
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
+
+
+def test_mismatched_multiplier_still_flagged(tmp_path: Path):
+    # narrative 5-fold, stat card 3.2x — different numbers, still an orphan
+    _write(tmp_path / "dash.html", """
+<html><body>
+  <p>A <strong>5-fold increase</strong>.</p>
+  <div class="stat-card"><div class="num">3.2x</div><div class="label">Increase</div></div>
+</body></html>
+""")
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    verdicts = rule.check(ctx)
+    assert len(verdicts) == 1
+    assert "3.2x" in verdicts[0].detail
