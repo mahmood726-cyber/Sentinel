@@ -7,10 +7,33 @@ from pathlib import Path
 
 DEFAULT_LOG = Path.home() / ".sentinel-logs" / "bypass.log"
 
+# Redirecting the bypass log to one of these would erase the audit trail
+# (silent-bypass hole). The hook payload rejects these paths before
+# writing; this list keeps the CLI side symmetric so `sentinel bypass-log`
+# doesn't pretend to read from /dev/null either.
+_DISCARD_TARGETS = frozenset({
+    "/dev/null", "/dev/zero", "/dev/stdout", "/dev/stderr",
+    "NUL", "nul", "",
+})
+
+
+class BypassLogPathError(Exception):
+    """Raised when SENTINEL_BYPASS_LOG resolves to a discard target."""
+
 
 def _log_path() -> Path:
     env = os.environ.get("SENTINEL_BYPASS_LOG")
-    return Path(env) if env else DEFAULT_LOG
+    if env is None:
+        return DEFAULT_LOG
+    # Normalize trailing whitespace but DON'T lowercase — Linux paths are
+    # case-sensitive. The Windows NUL/nul variants are enumerated above.
+    normalized = env.strip()
+    if normalized in _DISCARD_TARGETS:
+        raise BypassLogPathError(
+            f"SENTINEL_BYPASS_LOG={env!r} resolves to a discard target. "
+            f"Pick a real file path or unset the variable."
+        )
+    return Path(normalized)
 
 
 def add_subparser(sub: argparse._SubParsersAction) -> None:
@@ -20,7 +43,11 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
-    path = _log_path()
+    try:
+        path = _log_path()
+    except BypassLogPathError as exc:
+        print(f"[Sentinel] {exc}", flush=True)
+        return 1
     if args.clear:
         if path.exists():
             path.write_text("", encoding="utf-8")

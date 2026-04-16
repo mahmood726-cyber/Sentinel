@@ -28,10 +28,25 @@ MODE="${{SENTINEL_MODE:-{mode}}}"
 
 if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   log_path="${{SENTINEL_BYPASS_LOG:-$HOME/.sentinel-logs/bypass.log}}"
-  mkdir -p "$(dirname "$log_path")"
+  # Reject discard targets — redirecting the bypass log to /dev/null or
+  # similar would create a silent-bypass hole (an attacker could bypass
+  # and simultaneously erase the audit trail). Fail closed.
+  case "$log_path" in
+    /dev/null|/dev/zero|NUL|nul|""|/dev/stdout|/dev/stderr)
+      echo "[Sentinel] SENTINEL_BYPASS_LOG resolves to a discard target ($log_path). Push BLOCKED — pick a real file path or unset the variable." >&2
+      exit 1
+      ;;
+  esac
+  if ! mkdir -p "$(dirname "$log_path")" 2>/dev/null; then
+    echo "[Sentinel] cannot create bypass-log directory for $log_path. Push BLOCKED — fix the path or unset SENTINEL_BYPASS_LOG." >&2
+    exit 1
+  fi
   repo="$(git rev-parse --show-toplevel 2>/dev/null || echo unknown)"
   user="$(git config user.name 2>/dev/null || echo unknown)"
-  printf '%s\\t%s\\t%s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user" >> "$log_path"
+  if ! printf '%s\\t%s\\t%s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user" >> "$log_path" 2>/dev/null; then
+    echo "[Sentinel] failed to append to bypass log ($log_path). Push BLOCKED — check file permissions." >&2
+    exit 1
+  fi
   echo "[Sentinel] bypass logged to $log_path" >&2
   hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
   if [ -x "$hook_backup" ]; then
