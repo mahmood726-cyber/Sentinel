@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Iterator, List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_repo_files
 
 
 ID = "P1-js-parse-check"
@@ -87,13 +88,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
 
 def _iter_js_files(root: Path) -> Iterator[Path]:
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        if path.suffix not in EXTENSIONS:
-            continue
-        if path.name.endswith(".min.js"):
-            continue
-        if any(part in EXCLUDE_DIRS for part in path.parts):
-            continue
-        yield path
+    for ext in EXTENSIONS:
+        for path in iter_repo_files(root, f"*{ext}", EXCLUDE_DIRS):
+            if path.name.endswith(".min.js"):
+                continue
+            yield path

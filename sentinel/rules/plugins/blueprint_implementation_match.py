@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_repo_files
 
 
 ID = "P1-blueprint-implementation-match"
@@ -54,6 +55,9 @@ def _collect_blueprint_ids(data: dict) -> Set[str]:
         elif isinstance(item, str) and item:
             ids.add(item)
     return ids
+
+
+_EXCLUDE_DIRS = {"node_modules", ".venv", "dist", ".git", "__pycache__"}
 
 
 def _collect_dom_tokens(html_paths: List[Path]) -> Set[str]:
@@ -110,17 +114,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     if not declared:
         return []
 
-    html_files = sorted(ctx.repo_root.rglob("*.html"))
-    # Exclude common non-app html (docs, generated reports) from the
-    # match set. A blueprint'd app is typically named index.html or
-    # app.html at the repo root; we still scan all .html for coverage
-    # but filter out obvious noise paths.
-    html_files = [
-        p for p in html_files
-        if "node_modules" not in p.parts
-        and ".venv" not in p.parts
-        and "dist" not in p.parts
-    ]
+    html_files = sorted(iter_repo_files(ctx.repo_root, "*.html", _EXCLUDE_DIRS))
 
     if not html_files:
         return [Verdict(

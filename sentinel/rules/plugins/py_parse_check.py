@@ -25,9 +25,10 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, List
+from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_repo_files
 
 
 ID = "P1-py-parse-check"
@@ -46,7 +47,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
 
-    for path in _iter_py_files(ctx.repo_root):
+    for path in iter_repo_files(ctx.repo_root, "*.py", EXCLUDE_DIRS):
         rel = path.relative_to(ctx.repo_root).as_posix()
         try:
             result = subprocess.run(
@@ -85,12 +86,3 @@ def check(ctx: RepoContext) -> List[Verdict]:
             ))
 
     return verdicts
-
-
-def _iter_py_files(root: Path) -> Iterator[Path]:
-    for path in root.rglob("*.py"):
-        if not path.is_file():
-            continue
-        if any(part in EXCLUDE_DIRS for part in path.parts):
-            continue
-        yield path

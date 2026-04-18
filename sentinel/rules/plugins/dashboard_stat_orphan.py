@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_repo_files
 
 
 ID = "P2-dashboard-stat-orphan"
@@ -172,9 +173,4 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
 
 def _iter_html_files(root: Path) -> Iterator[Path]:
-    for path in root.rglob("*.html"):
-        if not path.is_file():
-            continue
-        if any(part in EXCLUDE_DIRS for part in path.parts):
-            continue
-        yield path
+    return iter_repo_files(root, "*.html", EXCLUDE_DIRS)
