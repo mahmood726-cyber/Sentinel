@@ -1,3 +1,4 @@
+# sentinel:skip-file — module doc cites home-dir path as the incident example
 """Bounded file discovery for plugin rules.
 
 Plugins that need "every .py / .html / .js file in this repo" must NOT
