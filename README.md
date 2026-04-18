@@ -6,8 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![tests](https://img.shields.io/badge/tests-195%20passing-brightgreen.svg)](#testing)
-[![rules](https://img.shields.io/badge/rules-11%20%2B%2017%20regression%20fixtures-blue.svg)](#built-in-rules)
+[![tests](https://img.shields.io/badge/tests-293%20passing-brightgreen.svg)](#testing)
+[![rules](https://img.shields.io/badge/rules-20%20%2B%2017%20regression%20fixtures-blue.svg)](#built-in-rules)
 [![pre--push](https://img.shields.io/badge/pre--push-~2s-brightgreen.svg)](#how-fast)
 
 A **pre-push rule engine** for the Claude-Code / Cursor / Copilot / Codex era. Turns "don't commit `C:\Users\...` paths" and "don't ship placeholder HMAC signatures" and "don't claim an agent-config version your `pyproject.toml` disagrees with" into **executable checks that run before every `git push`** — in under 2 seconds, with zero CI.
@@ -82,7 +82,7 @@ Both are auto-added to the target repo's `.gitignore` on install.
 
 ## Built-in rules
 
-Eleven rules total (5 YAML + 6 Python plugins). Each fires on a specific class of past-incident bug.
+Twenty rules total (6 YAML + 14 Python plugins). Each fires on a specific class of past-incident bug.
 
 | Rule ID | Tier | What it catches |
 |---|---|---|
@@ -95,7 +95,16 @@ Eleven rules total (5 YAML + 6 Python plugins). Each fires on a specific class o
 | `P0-livingmeta-drift` | BLOCK (portfolio) | Trial-ID drift between workbook and deployed HTML |
 | `P1-silent-failure-sentinel` | WARN | `return "unknown_ratio"` / `return "__silent__"` (silent failures) |
 | `P1-unpopulated-placeholder` | WARN | `{{x}}`, `{{ x\|filter }}`, `REPLACE_ME`, `TBD:`, `XXX:` |
+| `P1-empty-dataframe-access` | WARN | Unchecked `.iloc[0]` / `.values[0]` on possibly empty DataFrames |
+| `P1-js-parse-check` | BLOCK | JS files that fail to parse (catches `</script>` in template literals, hyphen in function names) |
+| `P1-js-lockfile-present` | WARN | `package.json` without a `package-lock.json` in submission-ready JS repos |
+| `P1-js-scripts-resolvable` | WARN | `package.json` scripts referencing files that don't exist |
+| `P1-py-parse-check` | BLOCK | Python files that fail to parse (catches the `test_*.py` stdout-reassign collection trap) |
+| `P1-blueprint-implementation-match` | WARN | `blueprint.json`-declared DOM ids that don't exist in any shipped `.html` file |
 | `P2-agent-config-version-drift` | WARN | Stale version claims in `AGENTS.md` vs `pyproject.toml` |
+| `P2-autogen-tracked` | WARN | Tracked auto-generated files (`PROGRESS.md`, `DECISIONS.md`, `stability_state.json`, etc.) |
+| `P2-dashboard-stat-orphan` | INFO | Dashboard stats with no matching upstream source (orphaned metric) |
+| `P2-memory-paths-resolve` | WARN (portfolio) | Paths cited in Claude memory files that don't resolve on disk |
 | `P2-progress-md-not-gitignored` | INFO | Tracked `PROGRESS.md` (session state leaking) |
 
 ## Writing your own rule
@@ -128,7 +137,7 @@ More complex rules (portfolio-scope, cross-file, multi-step) can be Python plugi
 On a typical 500-file repo:
 - `python -m sentinel scan` — **~0.8s**
 - Pre-push hook (scan + decide) — **~1.5-2.5s**
-- Full test suite (195 tests) — **~15s**
+- Full test suite (293 tests) — **~15s**
 - Nightly portfolio aggregation (via Overmind) — async, doesn't block pushes
 
 Sentinel skips gitignored files (uses `git ls-files --cached --others --exclude-standard`), so scan time scales with tracked-file count, not total disk.
@@ -154,7 +163,7 @@ The marker must appear in the **first 1KB** of the file — deeper markers don't
 ## Testing
 
 ```bash
-python -m pytest                    # 195 tests, ~15s
+python -m pytest                    # 293 tests, ~15s
 python -m pytest tests/regression   # 17-incident regression corpus
 python -m pytest tests/unit         # per-rule unit tests
 python -m pytest tests/integration  # cross-module integration
