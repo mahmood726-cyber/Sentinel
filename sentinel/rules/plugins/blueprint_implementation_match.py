@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
 
 
 ID = "P1-blueprint-implementation-match"
@@ -57,9 +57,6 @@ def _collect_blueprint_ids(data: dict) -> Set[str]:
     return ids
 
 
-_EXCLUDE_DIRS = {"node_modules", ".venv", "dist", ".git", "__pycache__"}
-
-
 def _collect_dom_tokens(html_paths: List[Path]) -> Set[str]:
     tokens: Set[str] = set()
     for hp in html_paths:
@@ -76,10 +73,24 @@ def _collect_dom_tokens(html_paths: List[Path]) -> Set[str]:
 
 def check(ctx: RepoContext) -> List[Verdict]:
     blueprint = ctx.repo_root / "blueprint.json"
-    if not blueprint.is_file():
+    now = datetime.now(timezone.utc)
+    repo_prefix = str(ctx.repo_root)
+
+    if not blueprint.exists():
         return []
 
-    now = datetime.now(timezone.utc)
+    if not blueprint.is_file():
+        return [Verdict(
+            rule_id=ID,
+            severity=SEVERITY,
+            repo=repo_prefix,
+            file="blueprint.json",
+            line=None,
+            detail="blueprint.json path exists but is not a regular file (directory or symlink?)",
+            fix_hint="remove the directory or symlink named 'blueprint.json' or rename it",
+            source=SOURCE,
+            timestamp=now,
+        )]
 
     try:
         raw = blueprint.read_text(encoding="utf-8")
@@ -88,10 +99,10 @@ def check(ctx: RepoContext) -> List[Verdict]:
         return [Verdict(
             rule_id=ID,
             severity=SEVERITY,
-            repo=str(ctx.repo_root),
+            repo=repo_prefix,
             file="blueprint.json",
             line=None,
-            detail=f"blueprint.json present but unreadable: {e}",
+            detail=f"blueprint.json unreadable ({type(e).__name__})",
             fix_hint="repair blueprint.json so implementation match can verify",
             source=SOURCE,
             timestamp=now,
@@ -101,11 +112,11 @@ def check(ctx: RepoContext) -> List[Verdict]:
         return [Verdict(
             rule_id=ID,
             severity=SEVERITY,
-            repo=str(ctx.repo_root),
+            repo=repo_prefix,
             file="blueprint.json",
             line=None,
             detail="blueprint.json must be a JSON object at the top level",
-            fix_hint="wrap the blueprint in {...}",
+            fix_hint="blueprint.json must start with { and end with } (a JSON object, not an array or string)",
             source=SOURCE,
             timestamp=now,
         )]
@@ -114,18 +125,18 @@ def check(ctx: RepoContext) -> List[Verdict]:
     if not declared:
         return []
 
-    html_files = sorted(iter_repo_files(ctx.repo_root, "*.html", _EXCLUDE_DIRS))
+    html_files = sorted(iter_repo_files(ctx.repo_root, "*.html", HTML_EXCLUDE_DIRS))
 
     if not html_files:
         return [Verdict(
             rule_id=ID,
             severity=SEVERITY,
-            repo=str(ctx.repo_root),
+            repo=repo_prefix,
             file="blueprint.json",
             line=None,
             detail=(
                 f"blueprint.json declares {len(declared)} id(s) but no "
-                ".html file exists (Stage 2 not yet run?)"
+                ".html file exists yet — the implementation stage has not run"
             ),
             fix_hint=(
                 "generate the HTML app from the blueprint, or remove "
@@ -146,7 +157,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     return [Verdict(
         rule_id=ID,
         severity=SEVERITY,
-        repo=str(ctx.repo_root),
+        repo=repo_prefix,
         file="blueprint.json",
         line=None,
         detail=(

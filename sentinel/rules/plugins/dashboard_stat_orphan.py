@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
 
 
 ID = "P2-dashboard-stat-orphan"
@@ -38,11 +38,10 @@ SEVERITY = Severity.INFO
 SOURCE = "lessons.md#portfolio-audit-patterns"
 SCOPE = "repo"
 
-EXCLUDE_DIRS = {
-    "node_modules", "dist", "build", "vendor", "coverage", ".git",
-    ".pytest_cache", "__pycache__", "playwright-report", "test-results",
-    "htmlcov",
-}
+# ReDoS guard: STAT_CARD_BLOCK_RE uses lazy `.*?` with DOTALL. On very
+# large HTML files with unbalanced stat-card divs, backtracking could
+# degrade. Skip files above this size rather than risk the scan budget.
+MAX_FILE_BYTES = 5_000_000
 
 # Match `<div class="num">VALUE</div>` where VALUE has a unit suffix.
 # Accepts integer or decimal, with optional +/- sign.
@@ -71,17 +70,12 @@ NARRATIVE_NUM_RE = re.compile(
 
 def _canonical_unit(raw: str) -> Optional[str]:
     u = raw.lower().strip().replace(" ", "").replace("-", "")
-    if u in ("%", "percent", "percent", "percent."):
-        return "%"
-    if u == "percent" or u == "percent" or u == "pct":
+    if u in ("%", "percent", "percent.", "pct"):
         return "%"
     if u in ("x", "×", "fold", "times"):
         return "x"
     if u.upper() in ("K", "M", "B"):
         return u.upper()
-    # also handle "per cent"
-    if u == "percent":
-        return "%"
     return None
 
 
@@ -124,6 +118,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
     for path in _iter_html_files(ctx.repo_root):
         rel = path.relative_to(ctx.repo_root).as_posix()
         try:
+            if path.stat().st_size > MAX_FILE_BYTES:
+                continue
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
@@ -173,4 +169,4 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
 
 def _iter_html_files(root: Path) -> Iterator[Path]:
-    return iter_repo_files(root, "*.html", EXCLUDE_DIRS)
+    return iter_repo_files(root, "*.html", HTML_EXCLUDE_DIRS)

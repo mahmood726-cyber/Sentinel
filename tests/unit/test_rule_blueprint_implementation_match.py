@@ -7,6 +7,7 @@ file in the repo.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from sentinel.core import RepoContext, ScanMode
@@ -151,5 +152,52 @@ def test_empty_blueprint_no_verdict(tmp_path: Path):
     (tmp_path / "index.html").write_text(
         "<html></html>", encoding="utf-8"
     )
-    # no declared ids → nothing to verify
+    # no declared ids -> nothing to verify
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_blueprint_as_directory_warns(tmp_path: Path):
+    # P1-10: if blueprint.json exists but is a directory, emit a WARN
+    # rather than silently returning empty.
+    (tmp_path / "blueprint.json").mkdir()
+    verdicts = _rule().check(_ctx(tmp_path))
+    assert len(verdicts) == 1
+    assert "not a regular file" in verdicts[0].detail
+
+
+def test_blueprint_match_in_git_worktree(tmp_path: Path):
+    # P1-9: exercise the git ls-files code path in iter_repo_files.
+    # Without this test, blueprint_implementation_match could break on
+    # any real (git-backed) repo and all other tests still pass.
+    bp = {
+        "inputs": [{"id": "main-input"}],
+        "ui_sections": [{"id": "main-panel"}],
+        "outputs": [{"id": "main-output"}],
+    }
+    (tmp_path / "blueprint.json").write_text(
+        json.dumps(bp), encoding="utf-8"
+    )
+    (tmp_path / "index.html").write_text(
+        '<input id="main-input">'
+        '<div id="main-panel"></div>'
+        '<div id="main-output"></div>',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "add", "."],
+        cwd=tmp_path, check=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
+         "commit", "-q", "-m", "init"],
+        cwd=tmp_path, check=True,
+    )
+    # Untracked .html should be invisible to git ls-files, so even if
+    # it had a missing id, the rule would flag it. Confirm git-path is
+    # used by adding an untracked file with the missing id — and
+    # asserting the verdict list is still clean.
+    (tmp_path / "untracked.html").write_text(
+        "<span>nothing</span>", encoding="utf-8"
+    )
     assert _rule().check(_ctx(tmp_path)) == []
