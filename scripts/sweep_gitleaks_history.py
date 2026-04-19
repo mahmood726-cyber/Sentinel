@@ -94,6 +94,7 @@ def main() -> int:
     status_counts: Counter[str] = Counter()
     all_findings: list[dict] = []
     per_repo: dict[str, list[dict]] = {}
+    per_status_repos: dict[str, list[str]] = {}
     completed = 0
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
@@ -102,6 +103,7 @@ def main() -> int:
             repo, status, findings = fut.result()
             completed += 1
             status_counts[status] += 1
+            per_status_repos.setdefault(status, []).append(str(repo))
             if findings:
                 per_repo[str(repo)] = findings
                 for f in findings:
@@ -144,6 +146,7 @@ def main() -> int:
             "generated_at": time.time(),
             "runtime_seconds": dt,
             "status_counts": dict(status_counts),
+            "per_status_repos": per_status_repos,
             "total_findings": len(all_findings),
             "per_repo": per_repo,
         }, indent=2),
