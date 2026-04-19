@@ -41,7 +41,10 @@ from sentinel.io.git_files import DEFAULT_EXCLUDE_DIRS, iter_repo_files
 
 
 ID = "P1-leaked-secret"
-SEVERITY = Severity.WARN
+# Promoted WARN -> BLOCK on 2026-04-19 after a portfolio sweep
+# across 467 repos returned 0 real findings. See sweep output
+# archived at C:/Sentinel/scripts/sweep_leaked_secret.py.
+SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#cryptography--signing-learned-2026-04-14"
 SCOPE = "repo"
 

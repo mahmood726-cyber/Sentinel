@@ -108,8 +108,15 @@ def iter_repo_files(
             if excludes and any(p in excludes for p in Path(rel).parts):
                 continue
             path = root / rel
-            if path.is_file():
-                yield path
+            # `is_file()` can raise OSError on OneDrive placeholders,
+            # broken symlinks, and Windows "inaccessible file" states
+            # (WinError 1920). Treat any failure as "skip this file"
+            # rather than aborting the entire scan.
+            try:
+                if path.is_file():
+                    yield path
+            except OSError:
+                continue
         return
 
     seen: set[Path] = set()
@@ -118,7 +125,10 @@ def iter_repo_files(
             if path in seen:
                 continue
             seen.add(path)
-            if not path.is_file():
+            try:
+                if not path.is_file():
+                    continue
+            except OSError:
                 continue
             if excludes and any(part in excludes for part in path.parts):
                 continue

@@ -31,14 +31,13 @@ def test_clean_repo_no_verdicts(tmp_path: Path):
     assert _rule().check(_ctx(tmp_path)) == []
 
 
-def test_severity_is_warn_not_block(tmp_path: Path):
-    # Start at WARN so that historical false positives across existing
-    # repos cannot hard-block pushes. Promote to BLOCK only after a
-    # portfolio sweep confirms zero false positives.
+def test_severity_is_block_post_portfolio_sweep(tmp_path: Path):
+    # Promoted WARN -> BLOCK on 2026-04-19 after portfolio sweep
+    # across 467 repos returned 0 real findings. Leaked credentials
+    # MUST hard-block pushes. To demote back to WARN, add a fixture
+    # here first that proves demotion was deliberate.
     rule = _rule()
-    assert rule.severity == Severity.WARN, (
-        "Must start at WARN. Promote to BLOCK only after portfolio sweep."
-    )
+    assert rule.severity == Severity.BLOCK
 
 
 def test_aws_access_key_flagged(tmp_path: Path):

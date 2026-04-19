@@ -220,6 +220,39 @@ def test_filename_with_newline_survives_nul_parsing(tmp_path: Path):
     assert found == ["a.py", "b.py"]
 
 
+def test_oserror_on_is_file_is_skipped(tmp_path: Path, monkeypatch):
+    """Incident 2026-04-19: iter_repo_files hit WinError 1920 on an
+    inaccessible OneDrive symlink (.venv/bin/python) in the git path.
+    is_file() raising OSError must be treated as 'skip', not 'abort'."""
+    (tmp_path / "good.py").write_text("x", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    (tmp_path / "inaccessible.py").write_text("y", encoding="utf-8")
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
+         "add", "inaccessible.py"],
+        cwd=tmp_path, check=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
+         "commit", "-q", "-m", "add2"],
+        cwd=tmp_path, check=True,
+    )
+
+    real_is_file = Path.is_file
+
+    def fake_is_file(self: Path) -> bool:
+        if self.name == "inaccessible.py":
+            raise OSError(1920, "simulated WinError 1920")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    found = [p.name for p in iter_repo_files(tmp_path, "*.py")]
+    # good.py yielded; inaccessible.py silently skipped instead of
+    # aborting the whole iteration.
+    assert "good.py" in found
+    assert "inaccessible.py" not in found
+
+
 def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
     """The `--` separator before pattern prevents future callers' hostile
     patterns being interpreted as git options."""
