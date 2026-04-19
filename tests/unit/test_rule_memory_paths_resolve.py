@@ -67,18 +67,19 @@ def test_all_paths_resolve_clean(patched_memory_dir: Path, tmp_path: Path):
     assert rule.check(ctx) == []
 
 
-def test_missing_path_warns(patched_memory_dir: Path, tmp_path: Path, monkeypatch):
+def test_missing_path_warns(patched_memory_dir: Path, tmp_path: Path):
     """Uses a hardcoded Windows-style path (rule regex is Windows-only)
-    and monkeypatches `_available_drives` to include the fake path's
-    drive letter so the verdict is WARN (not INFO "drive offline").
-    Runs cross-platform."""
-    import sentinel.rules.plugins.memory_paths_resolve as mod
-    monkeypatch.setattr(mod, "_available_drives", lambda: {"C"})
+    and patches the loaded plugin's `_available_drives` to include 'C'
+    so the verdict is WARN (not INFO "drive offline"). Runs cross-
+    platform. The patch targets `rule._check.__globals__` because
+    load_plugin_rule creates a fresh module, not the one returned by
+    `import`."""
     (patched_memory_dir / "stale.md").write_text(
         "Project lives at `C:/nonexistent_ghost_project_7f3a`\n",
         encoding="utf-8",
     )
     rule = load_plugin_rule(PLUGIN_PATH)
+    rule._check.__globals__["_available_drives"] = lambda: {"C"}
     pi = tmp_path / "pi"
     pi.mkdir()
     ctx = RepoContext(repo_root=pi, mode=ScanMode.PORTFOLIO, project_index_root=pi)
@@ -126,15 +127,14 @@ def test_repo_scope_inactive(patched_memory_dir: Path, tmp_path: Path):
     assert rule.check(ctx) == []
 
 
-def test_multiple_missing_multi_verdict(patched_memory_dir: Path, tmp_path: Path, monkeypatch):
-    import sentinel.rules.plugins.memory_paths_resolve as mod
-    monkeypatch.setattr(mod, "_available_drives", lambda: {"C"})
+def test_multiple_missing_multi_verdict(patched_memory_dir: Path, tmp_path: Path):
     (patched_memory_dir / "note.md").write_text(
         "- `C:/nonexistent_ghost_a_8b41`\n"
         "- `C:/nonexistent_ghost_b_c9e2`\n",
         encoding="utf-8",
     )
     rule = load_plugin_rule(PLUGIN_PATH)
+    rule._check.__globals__["_available_drives"] = lambda: {"C"}
     pi = tmp_path / "pi"
     pi.mkdir()
     ctx = RepoContext(repo_root=pi, mode=ScanMode.PORTFOLIO, project_index_root=pi)
