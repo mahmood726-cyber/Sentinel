@@ -1,10 +1,23 @@
 """Tests for P2-agent-config-version-drift plugin rule."""
+import sys
 from pathlib import Path
+
+import pytest
 
 from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.rules.plugins.agent_config_version_drift import (
     _authoritative_version,
     check,
+)
+
+
+# The rule's path regex is Windows-only (`[A-Za-z]:...`). Tests that
+# construct AGENTS.md with tmp_path (/tmp/... on Linux) produce content
+# the regex doesn't match, so 0 verdicts instead of the expected N.
+# Skip on non-Windows rather than weaken the production regex.
+_windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Rule matches Windows absolute paths only; tmp_path differs across OS",
 )
 
 
@@ -57,6 +70,7 @@ def test_authoritative_version_returns_none_when_no_source(tmp_path: Path):
     assert _authoritative_version(tmp_path) is None
 
 
+@_windows_only
 def test_check_flags_version_mismatch(tmp_path: Path):
     """AGENTS.md claims v2.1.0; pyproject says v3.1.0 → WARN."""
     project = tmp_path / "myproj"
@@ -124,6 +138,7 @@ def test_check_silent_when_no_version_in_claim(tmp_path: Path):
     assert check(ctx) == []
 
 
+@_windows_only
 def test_check_scans_multiple_config_files(tmp_path: Path):
     """Same drift recorded in both AGENTS.md and CLAUDE.md → two verdicts."""
     project = tmp_path / "myproj"

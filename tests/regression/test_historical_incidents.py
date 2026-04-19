@@ -18,7 +18,10 @@ Naming: test_<rule-id-suffix>_<short-incident-name>. Rules are loaded
 directly from the shipping YAML/plugin files (no duplication).
 """
 from __future__ import annotations
+import sys
 from pathlib import Path
+
+import pytest
 
 from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.registry.yaml_loader import load_yaml_rule
@@ -257,6 +260,10 @@ def test_silent_failure_sentinel__silent_sentinel_token(tmp_path):
 # wrote `v2.1.0` in AGENTS.md while Overmind's pyproject.toml said `3.1.0`.
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="agent-config-version-drift regex matches Windows absolute paths only",
+)
 def test_agent_config_version_drift__stale_version_in_agents_md(tmp_path):
     """Incident: AGENTS.md claimed Overmind v2.1.0 while pyproject had
     v3.1.0 for 7+ days (2026-04-15). Only caught by manual audit.
