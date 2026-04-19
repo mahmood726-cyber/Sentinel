@@ -13,7 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        # Match pyproject.toml requires-python = ">=3.13". Older Python
+        # versions would fail pip install -e ".[dev]" with a clear
+        # error; limit the matrix instead of weakening the declared
+        # compatibility.
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
