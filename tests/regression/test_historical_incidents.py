@@ -18,10 +18,7 @@ Naming: test_<rule-id-suffix>_<short-incident-name>. Rules are loaded
 directly from the shipping YAML/plugin files (no duplication).
 """
 from __future__ import annotations
-import sys
 from pathlib import Path
-
-import pytest
 
 from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.registry.yaml_loader import load_yaml_rule
@@ -260,25 +257,24 @@ def test_silent_failure_sentinel__silent_sentinel_token(tmp_path):
 # wrote `v2.1.0` in AGENTS.md while Overmind's pyproject.toml said `3.1.0`.
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    sys.platform != "win32",
-    reason="agent-config-version-drift regex matches Windows absolute paths only",
-)
-def test_agent_config_version_drift__stale_version_in_agents_md(tmp_path):
+def test_agent_config_version_drift__stale_version_in_agents_md(tmp_path, monkeypatch):
     """Incident: AGENTS.md claimed Overmind v2.1.0 while pyproject had
     v3.1.0 for 7+ days (2026-04-15). Only caught by manual audit.
-    This rule would have caught it at next push."""
-    # Minimal fake project with pyproject.toml saying 3.1.0
-    proj = tmp_path / "overmind"
-    proj.mkdir()
-    (proj / "pyproject.toml").write_text(
-        '[project]\nname = "overmind"\nversion = "3.1.0"\n',
-        encoding="utf-8",
-    )
-    # AGENTS.md with the stale claim
+    This rule would have caught it at next push.
+
+    Uses a hardcoded Windows-style path (rule's regex is Windows-only by
+    design) and monkeypatches the authoritative version lookup, so the
+    test is cross-platform without depending on tmp_path shape.
+    """
+    import sentinel.rules.plugins.agent_config_version_drift as mod
+    real_is_dir = Path.is_dir
+    monkeypatch.setattr(Path, "is_dir", lambda self: (
+        str(self).replace("\\", "/").startswith("C:/fake") or real_is_dir(self)
+    ))
+    monkeypatch.setattr(mod, "_authoritative_version", lambda _p: "3.1.0")
     (tmp_path / "AGENTS.md").write_text(
-        f"# AGENTS\n\n"
-        f"- **Overmind** (`{proj.as_posix()}`, v2.1.0) is the portfolio verifier.\n",
+        "# AGENTS\n\n"
+        "- **Overmind** (`C:/fake/overmind`, v2.1.0) is the portfolio verifier.\n",
         encoding="utf-8",
     )
     from sentinel.rules.plugins.agent_config_version_drift import check

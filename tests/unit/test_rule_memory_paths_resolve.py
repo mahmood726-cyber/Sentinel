@@ -14,7 +14,6 @@ injection.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -23,14 +22,11 @@ from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.registry.plugin_loader import load_plugin_rule
 
 
-# The rule's regex matches only Windows absolute paths. On Linux,
-# tmp_path is `/tmp/...` which the regex doesn't match, so tests that
-# assert "N verdicts emitted" return 0 instead. Skip on non-Windows
-# rather than weaken the production regex.
-_windows_only = pytest.mark.skipif(
-    sys.platform != "win32",
-    reason="Rule matches Windows absolute paths only; tmp_path differs across OS",
-)
+# Cross-platform by design: the rule's regex is Windows-path-only, but
+# tests work around tmp_path shape differences by using hardcoded
+# `C:/nonexistent_*` strings in memory files and monkeypatching
+# `_available_drives` to include 'C' so the path is treated as "drive
+# mounted, path missing" (WARN) rather than "drive offline" (INFO).
 
 
 PLUGIN_PATH = (
@@ -71,12 +67,16 @@ def test_all_paths_resolve_clean(patched_memory_dir: Path, tmp_path: Path):
     assert rule.check(ctx) == []
 
 
-@_windows_only
-def test_missing_path_warns(patched_memory_dir: Path, tmp_path: Path):
-    ghost = tmp_path / "ghost_project"
-    # Don't create ghost
+def test_missing_path_warns(patched_memory_dir: Path, tmp_path: Path, monkeypatch):
+    """Uses a hardcoded Windows-style path (rule regex is Windows-only)
+    and monkeypatches `_available_drives` to include the fake path's
+    drive letter so the verdict is WARN (not INFO "drive offline").
+    Runs cross-platform."""
+    import sentinel.rules.plugins.memory_paths_resolve as mod
+    monkeypatch.setattr(mod, "_available_drives", lambda: {"C"})
     (patched_memory_dir / "stale.md").write_text(
-        f"Project lives at `{ghost}`\n", encoding="utf-8"
+        "Project lives at `C:/nonexistent_ghost_project_7f3a`\n",
+        encoding="utf-8",
     )
     rule = load_plugin_rule(PLUGIN_PATH)
     pi = tmp_path / "pi"
@@ -87,7 +87,7 @@ def test_missing_path_warns(patched_memory_dir: Path, tmp_path: Path):
     v = verdicts[0]
     assert v.rule_id == "P2-memory-paths-resolve"
     assert v.severity == Severity.WARN
-    assert "ghost_project" in v.detail
+    assert "nonexistent_ghost_project_7f3a" in v.detail
 
 
 def test_glob_patterns_skipped(patched_memory_dir: Path, tmp_path: Path):
@@ -126,12 +126,13 @@ def test_repo_scope_inactive(patched_memory_dir: Path, tmp_path: Path):
     assert rule.check(ctx) == []
 
 
-@_windows_only
-def test_multiple_missing_multi_verdict(patched_memory_dir: Path, tmp_path: Path):
-    ghost_a = tmp_path / "ghost_a"
-    ghost_b = tmp_path / "ghost_b"
+def test_multiple_missing_multi_verdict(patched_memory_dir: Path, tmp_path: Path, monkeypatch):
+    import sentinel.rules.plugins.memory_paths_resolve as mod
+    monkeypatch.setattr(mod, "_available_drives", lambda: {"C"})
     (patched_memory_dir / "note.md").write_text(
-        f"- `{ghost_a}`\n- `{ghost_b}`\n", encoding="utf-8"
+        "- `C:/nonexistent_ghost_a_8b41`\n"
+        "- `C:/nonexistent_ghost_b_c9e2`\n",
+        encoding="utf-8",
     )
     rule = load_plugin_rule(PLUGIN_PATH)
     pi = tmp_path / "pi"

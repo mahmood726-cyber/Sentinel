@@ -1,23 +1,16 @@
-"""Tests for P2-agent-config-version-drift plugin rule."""
-import sys
-from pathlib import Path
+"""Tests for P2-agent-config-version-drift plugin rule.
 
-import pytest
+Cross-platform by design: tests that exercise the Windows-path-only
+regex use hardcoded `C:/fake/...` strings in AGENTS.md content and
+monkeypatch the `is_dir` / `_authoritative_version` checks rather than
+depend on tmp_path shape.
+"""
+from pathlib import Path
 
 from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.rules.plugins.agent_config_version_drift import (
     _authoritative_version,
     check,
-)
-
-
-# The rule's path regex is Windows-only (`[A-Za-z]:...`). Tests that
-# construct AGENTS.md with tmp_path (/tmp/... on Linux) produce content
-# the regex doesn't match, so 0 verdicts instead of the expected N.
-# Skip on non-Windows rather than weaken the production regex.
-_windows_only = pytest.mark.skipif(
-    sys.platform != "win32",
-    reason="Rule matches Windows absolute paths only; tmp_path differs across OS",
 )
 
 
@@ -70,14 +63,23 @@ def test_authoritative_version_returns_none_when_no_source(tmp_path: Path):
     assert _authoritative_version(tmp_path) is None
 
 
-@_windows_only
-def test_check_flags_version_mismatch(tmp_path: Path):
-    """AGENTS.md claims v2.1.0; pyproject says v3.1.0 → WARN."""
-    project = tmp_path / "myproj"
-    _make_project(project, "3.1.0", "pyproject")
+def test_check_flags_version_mismatch(tmp_path: Path, monkeypatch):
+    """AGENTS.md claims v2.1.0; authoritative version is v3.1.0 -> WARN.
+
+    Uses a hardcoded Windows-style path in AGENTS.md content (the plugin's
+    regex is Windows-path-only by design) and monkeypatches both the
+    is_dir existence check AND the authoritative version lookup, so the
+    test runs cross-platform without depending on tmp_path shape.
+    """
+    import sentinel.rules.plugins.agent_config_version_drift as mod
+    real_is_dir = Path.is_dir
+    monkeypatch.setattr(Path, "is_dir", lambda self: (
+        str(self).replace("\\", "/").startswith("C:/fake") or real_is_dir(self)
+    ))
+    monkeypatch.setattr(mod, "_authoritative_version", lambda _p: "3.1.0")
     (tmp_path / "AGENTS.md").write_text(
-        f"# AGENTS\n\n"
-        f"- **MyProj** (`{project.as_posix()}`, v2.1.0) is the thing.\n",
+        "# AGENTS\n\n"
+        "- **MyProj** (`C:/fake/myproj`, v2.1.0) is the thing.\n",
         encoding="utf-8",
     )
     ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
@@ -138,12 +140,15 @@ def test_check_silent_when_no_version_in_claim(tmp_path: Path):
     assert check(ctx) == []
 
 
-@_windows_only
-def test_check_scans_multiple_config_files(tmp_path: Path):
-    """Same drift recorded in both AGENTS.md and CLAUDE.md → two verdicts."""
-    project = tmp_path / "myproj"
-    _make_project(project, "3.1.0", "pyproject")
-    stale_claim = f"- **MyProj** (`{project.as_posix()}`, v2.1.0) is the thing.\n"
+def test_check_scans_multiple_config_files(tmp_path: Path, monkeypatch):
+    """Same drift recorded in both AGENTS.md and CLAUDE.md -> two verdicts."""
+    import sentinel.rules.plugins.agent_config_version_drift as mod
+    real_is_dir = Path.is_dir
+    monkeypatch.setattr(Path, "is_dir", lambda self: (
+        str(self).replace("\\", "/").startswith("C:/fake") or real_is_dir(self)
+    ))
+    monkeypatch.setattr(mod, "_authoritative_version", lambda _p: "3.1.0")
+    stale_claim = "- **MyProj** (`C:/fake/myproj`, v2.1.0) is the thing.\n"
     (tmp_path / "AGENTS.md").write_text(stale_claim, encoding="utf-8")
     (tmp_path / "CLAUDE.md").write_text(stale_claim, encoding="utf-8")
     ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
