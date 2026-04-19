@@ -41,3 +41,13 @@ jobs:
 
       - name: Self-scan (Sentinel on Sentinel)
         run: python -m sentinel scan --repo .
+
+      - name: Dependency vulnerability audit (pip-audit)
+        # Surfaces known CVEs in the dependency tree. Runs on ubuntu +
+        # 3.13 only (representative — same wheel set across OS/py).
+        # No `--strict`: unresolvable-dep warnings don't fail the job;
+        # actual CVEs do.
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+        run: |
+          python -m pip install --upgrade pip-audit
+          pip-audit --progress-spinner off

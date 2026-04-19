@@ -41,6 +41,12 @@ DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset({
     ".git", "node_modules", "dist", "build", "__pycache__",
     ".pytest_cache", "vendor", "coverage",
     "playwright-report", "test-results", "htmlcov",
+    # Test trees + fixtures are excluded for consistency with
+    # yaml_loader.COMMON_EXCLUDES. Rules that specifically want to
+    # scan tests (e.g. the py-parse-check of root-level test_*.py)
+    # still work because only the `tests` subdir is excluded, not
+    # files named `test_*` at the root.
+    "tests", "fixtures",
 })
 
 PY_EXCLUDE_DIRS: frozenset[str] = DEFAULT_EXCLUDE_DIRS | {
