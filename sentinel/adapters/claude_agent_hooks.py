@@ -122,7 +122,9 @@ _CLAUDE_LOCAL_SETTINGS = re.compile(r"\.claude[\\/]settings\.local\.json$")
 # strings, obfuscated env assignments). Sentinel is an integrity guard
 # for honest users, not a malware sandbox. Review P1-2.
 _BYPASS_PATTERN = re.compile(
-    r"SENTINEL_BYPASS\s*=\s*(?!(?:0|false|no|off)\b)\S+",
+    # \b before SENTINEL_BYPASS rules out incidental matches inside longer
+    # identifiers like MY_SENTINEL_BYPASS. Review P2-R4.
+    r"\bSENTINEL_BYPASS\s*=\s*(?!(?:0|false|no|off)\b)\S+",
     re.IGNORECASE,
 )
 
@@ -203,21 +205,32 @@ def check_hardcoded_path(file_path: str, content: str) -> Finding | None:
 
 def check_placeholder_hmac(file_path: str, content: str) -> Finding | None:
     """P0-placeholder-hmac port: BLOCK placeholder signature strings that
-    claim signed-ness without providing it."""
+    claim signed-ness without providing it.
+
+    Scans line-by-line, skipping lines that start with `#` or `//`
+    (Python / shell / JS / C-style comment leaders). Review P2-R1:
+    the regex alone can't distinguish a real assignment from a
+    commented-out one like `# signature = "SIG_X"`.
+    """
     if _SKIP_FILE_MARKER in content:
         return None
-    m = _PLACEHOLDER_HMAC.search(content)
-    if not m:
-        return None
-    return Finding(
-        rule_id="P0-placeholder-hmac",
-        detail=f"placeholder signature in proposed content: {m.group(0)!r}",
-        fix_hint=(
-            "Placeholder HMAC strings are a security bug, not a TODO. "
-            "Wire a real signer (see overmind.verification.signers) or "
-            "remove the claim entirely (lessons.md#cryptography--signing)."
-        ),
-    )
+    for line in content.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(("#", "//")):
+            continue
+        m = _PLACEHOLDER_HMAC.search(line)
+        if not m:
+            continue
+        return Finding(
+            rule_id="P0-placeholder-hmac",
+            detail=f"placeholder signature in proposed content: {m.group(0)!r}",
+            fix_hint=(
+                "Placeholder HMAC strings are a security bug, not a TODO. "
+                "Wire a real signer (see overmind.verification.signers) or "
+                "remove the claim entirely (lessons.md#cryptography--signing)."
+            ),
+        )
+    return None
 
 
 def check_claude_config_write(file_path: str) -> Finding | None:

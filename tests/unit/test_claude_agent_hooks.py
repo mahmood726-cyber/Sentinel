@@ -257,6 +257,50 @@ def test_placeholder_hmac_still_catches_real_assignment():
     assert f is not None
 
 
+def test_placeholder_hmac_skips_python_comment_with_equals():
+    """Review P2-R1: `# signature = "SIG_X"` in a comment must NOT fire.
+    Round-1 regex-tightening covered the prose case but missed
+    commented-out assignments. Line-by-line comment-skipping handles it."""
+    content = '# signature = "SIG_RSA_SHA256_EXAMPLE"\nreal_code = 1'
+    f = check_placeholder_hmac("app.py", content)
+    assert f is None
+
+
+def test_placeholder_hmac_skips_js_comment_with_equals():
+    """Same fix as P2-R1 must cover JS/TS `//` comments."""
+    content = '// signature = "SIG_TEST_VALUE"\nconst x = 1;'
+    f = check_placeholder_hmac("app.js", content)
+    assert f is None
+
+
+def test_placeholder_hmac_catches_assignment_despite_nearby_comment():
+    """A comment above a real assignment must not shield the assignment.
+    Uses `my_signature` as the variable name so the LHS-anchor regex
+    (which requires 'signature' inside the identifier) still matches."""
+    content = (
+        '# example: signature = "SIG_EXAMPLE"\n'
+        'my_signature = "SIG_REAL_PLACEHOLDER"'
+    )
+    f = check_placeholder_hmac("app.py", content)
+    assert f is not None
+    # Must fire on the non-comment line, not the comment line
+    assert "SIG_REAL_PLACEHOLDER" in f.detail
+
+
+def test_bash_bypass_ignores_substring_in_longer_identifier():
+    """Review P2-R4: `MY_SENTINEL_BYPASS=1` must NOT match — the word-
+    boundary anchor blocks incidental matches inside longer names."""
+    f = check_bash_bypass("MY_SENTINEL_BYPASS=1 git push")
+    assert f is None
+
+
+def test_bash_bypass_still_catches_leading_export():
+    """`export SENTINEL_BYPASS=1` is preceded by a word-boundary from
+    the space. Must still match."""
+    f = check_bash_bypass("export SENTINEL_BYPASS=1; git push")
+    assert f is not None
+
+
 # --- hook callback end-to-end --------------------------------------
 
 def test_hook_blocks_write_with_hardcoded_path():
