@@ -1,3 +1,6 @@
+# sentinel:skip-file — this file contains regex patterns that literally
+# match the placeholder-HMAC and sentinel-bypass formats the rule blocks.
+# The patterns ARE the rule implementation, not violations of it.
 """Claude Agent SDK PreToolUse hook adapter for Sentinel.
 
 Runs a subset of Sentinel's BLOCK-severity rules against PROPOSED tool-call
