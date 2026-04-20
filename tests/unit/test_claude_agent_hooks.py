@@ -301,6 +301,38 @@ def test_bash_bypass_still_catches_leading_export():
     assert f is not None
 
 
+def test_bash_bypass_catches_git_push_no_verify():
+    """Review P2-R3.4: `git push --no-verify` skips the pre-push hook
+    and leaves no audit trail. Parallel bypass path to SENTINEL_BYPASS=1."""
+    for cmd in (
+        "git push --no-verify",
+        "git push origin master --no-verify",
+        "git push --no-verify origin master",
+    ):
+        f = check_bash_bypass(cmd)
+        assert f is not None, f"git --no-verify not detected in: {cmd!r}"
+        assert "no-verify" in f.detail
+
+
+def test_bash_bypass_catches_git_commit_no_verify():
+    """Same class as push; commit --no-verify skips pre-commit."""
+    f = check_bash_bypass("git commit -m 'wip' --no-verify")
+    assert f is not None
+
+
+def test_bash_bypass_allows_plain_git_push():
+    """Plain `git push` is obviously fine."""
+    f = check_bash_bypass("git push origin master")
+    assert f is None
+
+
+def test_bash_bypass_does_not_leak_across_command_separator():
+    """The [^;&|]* guard prevents matching across shell command chains —
+    `git push; echo --no-verify` is two separate commands, not a bypass."""
+    f = check_bash_bypass("git push; echo --no-verify")
+    assert f is None
+
+
 # --- hook callback end-to-end --------------------------------------
 
 def test_hook_blocks_write_with_hardcoded_path():

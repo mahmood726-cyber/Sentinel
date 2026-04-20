@@ -128,6 +128,16 @@ _BYPASS_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# git push --no-verify skips the pre-push hook — a parallel bypass path
+# to SENTINEL_BYPASS=1 that doesn't route through our env-var check.
+# Caught per-tool-call so the agent can't use it as a quieter override.
+# Review P2-R3.4. [^;&|]* keeps the pattern from jumping across shell
+# command separators (e.g. `git push; echo --no-verify` wouldn't match).
+_GIT_NO_VERIFY = re.compile(
+    r"\bgit\s+(?:push|commit)\b[^;&|]*\s--no-verify\b",
+    re.IGNORECASE,
+)
+
 # sentinel:skip-file marker — if present in content, skip content checks
 # (matches Sentinel's file-level scanner behavior).
 _SKIP_FILE_MARKER = "sentinel:skip-file"
@@ -256,22 +266,39 @@ def check_claude_config_write(file_path: str) -> Finding | None:
 
 
 def check_bash_bypass(command: str) -> Finding | None:
-    """SENTINEL_BYPASS detector: BLOCK attempts to bypass Sentinel's
-    pre-push hook via the bypass env var.
+    """Bypass detector: BLOCK attempts to skip Sentinel's pre-push hook.
 
-    Rationale: the bypass exists for genuine emergencies (release-cut
-    deadlines), but it's logged to ~/.sentinel-logs/bypass.log. An agent
-    reaching for it is almost always trying to silence a real rule
-    violation — block inside the SDK loop, where the agent can still
-    diagnose and fix the underlying issue."""
+    Two parallel mechanisms are caught:
+      1. `SENTINEL_BYPASS=<truthy>` — the env-var switch Sentinel honors,
+         normally logged to ~/.sentinel-logs/bypass.log.
+      2. `git push --no-verify` / `git commit --no-verify` — git's own
+         hook-skip flag, which Sentinel can't log because git never
+         invokes the hook at all.
+
+    Both exist for genuine emergencies (release-cut deadlines) at the
+    human level. An agent reaching for either is almost always trying to
+    silence a real rule violation — block inside the SDK loop so the
+    agent fixes the root cause rather than bypassing it.
+    """
     if _BYPASS_PATTERN.search(command):
         return Finding(
             rule_id="P0-sentinel-bypass-attempt",
-            detail=f"agent attempted Sentinel bypass in bash: {command!r}",
+            detail=f"agent attempted SENTINEL_BYPASS in bash: {command!r}",
             fix_hint=(
                 "Do not use SENTINEL_BYPASS=1 to silence rule violations. "
                 "Fix the underlying issue or add a sentinel:skip-file marker "
                 "if the rule is genuinely false-positive on this file."
+            ),
+        )
+    if _GIT_NO_VERIFY.search(command):
+        return Finding(
+            rule_id="P0-sentinel-bypass-attempt",
+            detail=f"agent attempted git --no-verify bypass in bash: {command!r}",
+            fix_hint=(
+                "git push/commit --no-verify skips pre-push/pre-commit "
+                "hooks (Sentinel included), and leaves no audit trail. "
+                "Use SENTINEL_BYPASS=1 for emergencies (logged) or — "
+                "preferably — fix the rule violation."
             ),
         )
     return None
@@ -357,7 +384,15 @@ def _allow_response() -> dict[str, Any]:
 # Public callback type. We spell it out rather than importing
 # claude_agent_sdk.types.HookCallback so the module stays importable
 # without the SDK installed (tests run SDK-less).
-SentinelHookCallback = Callable[..., Awaitable[dict[str, Any]]]
+#
+# Three-arg signature matches the SDK's HookCallback protocol exactly:
+#   (input_data: HookInput, tool_use_id: str | None, context: HookContext)
+# Using explicit arg types lets type-checkers verify call sites.
+# Review P2-R3.3.
+SentinelHookCallback = Callable[
+    [dict[str, Any], str | None, dict[str, Any]],
+    Awaitable[dict[str, Any]],
+]
 
 
 def sentinel_pretool_hook() -> SentinelHookCallback:
