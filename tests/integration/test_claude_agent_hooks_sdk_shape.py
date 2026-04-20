@@ -102,5 +102,5 @@ def test_callback_is_awaitable():
         {"signal": None},
     )
     assert asyncio.iscoroutine(result), "hook callback must be an async coroutine"
-    # Consume the coroutine to avoid RuntimeWarning about unawaited
-    asyncio.get_event_loop().run_until_complete(result) if False else result.close()
+    # Close the unawaited coroutine to silence RuntimeWarning. Review P2-2.
+    result.close()

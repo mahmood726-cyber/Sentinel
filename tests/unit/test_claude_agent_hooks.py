@@ -177,6 +177,86 @@ def test_bash_bypass_allows_unrelated_env_var():
     assert f is None
 
 
+def test_bash_bypass_blocks_truthy_variants():
+    """Review P1-2: widen bypass regex to catch truthy variants beyond =1."""
+    for cmd in (
+        "SENTINEL_BYPASS=true git push",
+        "SENTINEL_BYPASS=yes git push",
+        "SENTINEL_BYPASS=on git push",
+        "SENTINEL_BYPASS=2 git push",           # any nonzero int
+        "SENTINEL_BYPASS=anything git push",    # any non-falsy string
+        "export SENTINEL_BYPASS=TRUE; git push",  # case-insensitive
+    ):
+        f = check_bash_bypass(cmd)
+        assert f is not None, f"bypass not detected in: {cmd!r}"
+
+
+def test_bash_bypass_allows_explicit_falsy():
+    """An agent setting SENTINEL_BYPASS=0 (or =false, etc) is explicitly
+    NOT bypassing. Don't flag — that's the operator doing the right thing."""
+    for cmd in (
+        "SENTINEL_BYPASS=0 git push",
+        "SENTINEL_BYPASS=false git push",
+        "SENTINEL_BYPASS=no git push",
+        "SENTINEL_BYPASS=off git push",
+    ):
+        f = check_bash_bypass(cmd)
+        assert f is None, f"explicit-falsy incorrectly flagged: {cmd!r}"
+
+
+def test_hardcoded_path_segment_match_not_substring():
+    """Review P2-1: `my_sentinel/rules/foo.py` must NOT be excluded just
+    because it contains `sentinel/rules` as a substring. Segment-match
+    semantics: each excluded tuple is a contiguous run of path parts."""
+    # Real violation in a file whose PATH happens to contain 'sentinel/rules'
+    # as a substring but not as a path segment.
+    f = check_hardcoded_path(
+        "my_sentinel/rules_book.py",
+        'x = "C:\\Users\\bob\\data"',
+    )
+    assert f is not None, (
+        "substring match incorrectly excluded my_sentinel/rules_book.py"
+    )
+
+
+def test_hardcoded_path_segment_match_legit_exclusion():
+    """Genuine sentinel/rules/** should still be excluded."""
+    f = check_hardcoded_path(
+        "sentinel/rules/foo.py",
+        'x = "C:\\Users\\bob\\data"',
+    )
+    assert f is None
+
+
+def test_hardcoded_path_conftest_excluded_anywhere():
+    """conftest.py at any path depth is excluded."""
+    f = check_hardcoded_path(
+        "deeply/nested/conftest.py",
+        'x = "C:\\Users\\bob\\data"',
+    )
+    assert f is None
+
+
+def test_placeholder_hmac_does_not_match_prose_comments():
+    """Review P2-3: the middle regex was over-broad, matching
+    `# signature format looks like 'SIG_EXAMPLE'` in code comments.
+    After tightening, bare prose doesn't match — only actual assignment
+    syntax."""
+    # Prose in a code comment — must NOT fire
+    content = '# The signature format looks like "SIG_RSA_SHA256_EXAMPLE"'
+    f = check_placeholder_hmac("docs_example.py", content)
+    assert f is None, (
+        "prose reference to SIG_* incorrectly matched as placeholder"
+    )
+
+
+def test_placeholder_hmac_still_catches_real_assignment():
+    """After tightening, real assignment of a placeholder must still fire."""
+    content = 'my_signature = "SIG_RSA_SHA256_PLACEHOLDER"'
+    f = check_placeholder_hmac("bad_cert.py", content)
+    assert f is not None
+
+
 # --- hook callback end-to-end --------------------------------------
 
 def test_hook_blocks_write_with_hardcoded_path():

@@ -58,27 +58,32 @@ _HARDCODED_PATH = re.compile(
     r")"
 )
 
-# Paths Sentinel's YAML rule excludes from scanning. Keep in sync with
-# P0-hardcoded-local-path.yaml's `exclude:` block.
-_HARDCODED_PATH_EXCLUDED_SUBSTRINGS = (
-    "sentinel/rules/",
-    "docs/superpowers/specs/",
-    "docs/superpowers/plans/",
-    "docs/plans/",
-    "truthcert1_work/",
-    "docs/index.html",
-    "wiki/",
-    "data/nightly_reports/",
-    "data/artifacts/",
-    "data/real_project_smoke/",
-    "data/baseline_probes/",
-    # tests/fixtures and conftest are also excluded in the YAML rule,
-    # but a PreToolUse on a test file creating a fixture path is fine.
-    "tests/",
-    "/tests/",
-    "fixtures/",
-    "conftest.py",
+# Path-segment prefixes Sentinel's YAML rule excludes from scanning.
+# Each entry is a tuple of POSIX path parts; matching is segment-prefix,
+# not substring — so "sentinel/rules" excludes repo-root/sentinel/rules/**
+# but NOT unrelated paths that happen to contain "sentinel/rules" as a
+# substring (e.g. "my_sentinel/rules/foo" — review P2-1).
+#
+# Keep in sync with P0-hardcoded-local-path.yaml's `exclude:` block.
+_HARDCODED_PATH_EXCLUDED_PART_PREFIXES: tuple[tuple[str, ...], ...] = (
+    ("sentinel", "rules"),
+    ("docs", "superpowers", "specs"),
+    ("docs", "superpowers", "plans"),
+    ("docs", "plans"),
+    ("truthcert1_work",),
+    ("wiki",),
+    ("data", "nightly_reports"),
+    ("data", "artifacts"),
+    ("data", "real_project_smoke"),
+    ("data", "baseline_probes"),
+    ("tests",),
+    ("fixtures",),
 )
+# Single-file exclusions (exact filename or full relative path).
+_HARDCODED_PATH_EXCLUDED_FILES: frozenset[str] = frozenset({
+    "docs/index.html",
+    "conftest.py",
+})
 
 _HARDCODED_PATH_SCAN_EXTENSIONS = {
     ".html", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx",
@@ -88,10 +93,15 @@ _HARDCODED_PATH_SCAN_EXTENSIONS = {
 }
 
 # P0-placeholder-hmac — stubs shipped as real signatures.
+#
+# Middle pattern anchors the LHS to an identifier-shape assignment
+# (word-boundary + `signature` + optional word chars + `=`) so it doesn't
+# match prose in comments like `# the signature format looks like "SIG_X"`.
+# Review P2-3.
 _PLACEHOLDER_HMAC = re.compile(
     r'"signature_placeholder":\s*"SIG_[A-Z0-9_]+_?"'
-    r"|signature.*=.*['\"]SIG_[A-Z0-9_]+_?['\"]"
-    r"|bundle_signature.*=.*['\"](?:PLACEHOLDER|TODO|REPLACE_ME|STUB)['\"]",
+    r"|\b\w*signature\w*\s*[:=]\s*['\"]SIG_[A-Z0-9_]+_?['\"]"
+    r"|\b\w*bundle_signature\w*\s*[:=]\s*['\"](?:PLACEHOLDER|TODO|REPLACE_ME|STUB)['\"]",
     re.IGNORECASE,
 )
 
@@ -101,9 +111,18 @@ _CLAUDE_CONFIG_DIR = re.compile(r"(?:^|[\\/])\.claude[\\/]")
 _CLAUDE_LOCAL_SETTINGS = re.compile(r"\.claude[\\/]settings\.local\.json$")
 
 # SENTINEL_BYPASS — the whole point of SDK-hook enforcement is to catch
-# bypass attempts that pre-push would allow.
+# the reflexive "let me just override this rule" bypass.
+#
+# Matches any truthy assignment: =1, =true, =yes, =on, =any-nonzero-str.
+# Explicitly falsy values (=0, =false, =no, =off, =empty) are NOT
+# flagged — an agent setting SENTINEL_BYPASS=0 is doing the right
+# thing (explicitly NOT bypassing).
+#
+# OUT OF SCOPE: adversarial evasion (variable indirection, eval-ed
+# strings, obfuscated env assignments). Sentinel is an integrity guard
+# for honest users, not a malware sandbox. Review P1-2.
 _BYPASS_PATTERN = re.compile(
-    r"SENTINEL_BYPASS\s*=\s*1\b",
+    r"SENTINEL_BYPASS\s*=\s*(?!(?:0|false|no|off)\b)\S+",
     re.IGNORECASE,
 )
 
@@ -130,12 +149,28 @@ class Finding:
 def _path_is_excluded_from_hardcoded_scan(file_path: str) -> bool:
     """Is this file explicitly not scanned for hardcoded paths?
 
-    Uses case-insensitive POSIX-style matching since agents emit both
-    forward and back slashes. Mirrors P0-hardcoded-local-path.yaml's
-    `exclude` list.
+    Segment-level match (not substring). E.g. `sentinel/rules/...` IS
+    excluded but `my_sentinel/rules/...` is NOT. Mirrors
+    P0-hardcoded-local-path.yaml's `exclude:` globs. Review P2-1.
     """
-    normalized = file_path.replace("\\", "/")
-    return any(sub in normalized for sub in _HARDCODED_PATH_EXCLUDED_SUBSTRINGS)
+    normalized = file_path.replace("\\", "/").lstrip("./")
+    if normalized in _HARDCODED_PATH_EXCLUDED_FILES:
+        return True
+    parts = tuple(p for p in normalized.split("/") if p)
+    if not parts:
+        return False
+    # Terminal filename check (e.g. `conftest.py` anywhere).
+    if parts[-1] in _HARDCODED_PATH_EXCLUDED_FILES:
+        return True
+    # Segment-prefix check: each excluded tuple must appear as a contiguous
+    # run of path parts (anywhere in the path, matching `**/foo/**` glob
+    # semantics in the YAML rule).
+    for prefix in _HARDCODED_PATH_EXCLUDED_PART_PREFIXES:
+        n = len(prefix)
+        for i in range(0, len(parts) - n + 1):
+            if parts[i : i + n] == prefix:
+                return True
+    return False
 
 
 def _path_has_scan_extension(file_path: str) -> bool:
