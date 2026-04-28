@@ -14,16 +14,20 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import traceback
 from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, ScanMode, Severity, Verdict
 from sentinel.io import write_findings
+from sentinel.io.paths import SARIF_OUT
+from sentinel.io.sarif import verdicts_to_sarif
 from sentinel.registry.registry import Registry
 
 RULES_ROOT = Path(__file__).parent.parent / "rules"
 EXIT_INTERNAL_ERROR = 10
+SARIF_FILENAME = SARIF_OUT
 
 
 def add_subparser(sub: argparse._SubParsersAction) -> None:
@@ -40,6 +44,16 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
         help="Portfolio registry root (default: C:/ProjectIndex)",
     )
     p.add_argument("--json", action="store_true", help="Emit verdicts as JSON")
+    p.add_argument(
+        "--sarif", action="store_true",
+        help=f"Also write findings to {SARIF_FILENAME} (SARIF 2.1.0; "
+             "for GitHub code-scanning, GitLab SAST, IDE plugins).",
+    )
+    p.add_argument(
+        "--timing", action="store_true",
+        help="Print per-rule wall-clock timings to stdout. Off by default; "
+             "intended for diagnosing which rule is the bottleneck.",
+    )
     p.set_defaults(func=_run)
 
 
@@ -98,17 +112,44 @@ def _run_inner(args: argparse.Namespace) -> int:
     reg = Registry.from_dir(RULES_ROOT)
 
     verdicts: List[Verdict] = []
+    timings: list[tuple[str, float]] = []
     for rule in reg.all_rules():
-        verdicts.extend(rule.check(ctx))
+        if args.timing:
+            t0 = time.perf_counter()
+            verdicts.extend(rule.check(ctx))
+            timings.append((rule.id, time.perf_counter() - t0))
+        else:
+            verdicts.extend(rule.check(ctx))
 
     write_findings(write_root, verdicts)
+
+    if args.sarif:
+        sarif_path = write_root / SARIF_FILENAME
+        sarif_path.write_text(
+            json.dumps(verdicts_to_sarif(verdicts), indent=2),
+            encoding="utf-8",
+        )
 
     if args.json:
         print(json.dumps({"verdicts": [v.to_dict() for v in verdicts]}, indent=2))
     else:
         _print_summary(verdicts)
 
+    if args.timing:
+        _print_timings(timings)
+
     return 1 if any(v.severity == Severity.BLOCK for v in verdicts) else 0
+
+
+def _print_timings(timings: list[tuple[str, float]]) -> None:
+    """Print per-rule timings sorted slowest-first, plus a total line.
+    Format kept tabular for grep-ability; never localized."""
+    if not timings:
+        return
+    total = sum(d for _, d in timings)
+    for rule_id, dur in sorted(timings, key=lambda t: t[1], reverse=True):
+        print(f"[timing]  {rule_id:<40}  {dur:.3f}s")
+    print(f"[timing]  {'TOTAL':<40}  {total:.3f}s")
 
 
 def _print_summary(verdicts: List[Verdict]) -> None:

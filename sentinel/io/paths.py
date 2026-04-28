@@ -15,8 +15,9 @@ BLOCK_MD = "STUCK_FAILURES.md"
 BLOCK_JSONL = "STUCK_FAILURES.jsonl"
 WARN_MD = "sentinel-findings.md"
 WARN_JSONL = "sentinel-findings.jsonl"
+SARIF_OUT = "sentinel-findings.sarif"
 
-OUTPUT_FILENAMES = (BLOCK_MD, BLOCK_JSONL, WARN_MD, WARN_JSONL)
+OUTPUT_FILENAMES = (BLOCK_MD, BLOCK_JSONL, WARN_MD, WARN_JSONL, SARIF_OUT)
 
 # Legacy WARN output name (pre-rename). Repos that ran Sentinel before the
 # rename may still have these files on disk; keep them in GLOBAL_EXCLUDES so
