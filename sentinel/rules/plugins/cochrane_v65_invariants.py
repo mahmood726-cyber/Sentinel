@@ -94,15 +94,25 @@ CHECKS: List[tuple] = [
         "run scripts/fix_pi_df_cochrane.py to flip k-2 -> k-1 and gate at k>=2",
     ),
     (
-        # Definition AND call site -- the method-shorthand definition
-        # `_mhPool(plotData, zCrit) { ... }` matches `_mhPool(`, so we
-        # additionally require `this._mhPool(` to confirm the engine
-        # actually invokes the method and pushes the sensitivity scenario.
-        ["_mhPool(", "this._mhPool("],
-        "Mantel-Haenszel pool not wired (method missing OR defined but never invoked)",
-        "run scripts/add_mh_pool.py to add the _mhPool method with "
-        "Robins-Breslow-Greenland variance AND ensure the engine calls "
-        "`const mhResult = this._mhPool(plotData, zCrit);` and pushes the scenario",
+        # MH pool wired into the sensitivity scenarios. Two engine
+        # families coexist in the portfolio:
+        #   IL23-style:   `_mhPool(plotData, zCrit) { ... }`
+        #   older-style:  `mhPoolOR(plotData, confLevel) { ... }` +
+        #                 `mhPoolRR(plotData, confLevel) { ... }`
+        # The substring `mhPool` matches all four variants. The second
+        # needle `Mantel-Haenszel` confirms the method is actually
+        # pushed into the methods/sensitivity-scenarios array (both
+        # styles use the exact label "Mantel-Haenszel" on the push).
+        # This formulation lets the rule fire only when MH is genuinely
+        # absent (e.g. SGLT2_HF) rather than on naming-convention
+        # mismatches.
+        ["mhPool", "Mantel-Haenszel"],
+        "Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensitivity array)",
+        "either run scripts/add_mh_pool.py (adds IL23-style _mhPool) "
+        "or hand-port the older mhPoolOR/mhPoolRR pair from a sibling "
+        "dashboard; in both cases the methods array must include a "
+        "`{ name: 'Mantel-Haenszel', ... }` push so the sensitivity "
+        "panel renders it",
     ),
     (
         # Same lift applied to ROB-ME -- prevents the next instance of
