@@ -62,10 +62,18 @@ CHECKS: List[tuple] = [
         "`const tau2 = (k >= 2) ? tau2_reml : tau2_dl;` after the REML iteration",
     ),
     (
-        ["qProfileTau2CI"],
-        "Q-profile tau2 CI helper missing (Cochrane v6.5 §10.10.4)",
+        # Two needles: definition AND call site. Closing the silent-no-render
+        # gap caught by audit_v65_engine_coverage.py (2026-04-30): three
+        # dashboards (COLCHICINE_CVD, GLP1_CVOT, SGLT2_HF) had the helper
+        # defined but never invoked, so tau2 CI never rendered for users.
+        # The arrow-function definition `qProfileTau2CI = (yi...)` has a
+        # SPACE before the paren, so `qProfileTau2CI(` matches call sites
+        # only.
+        ["qProfileTau2CI =", "qProfileTau2CI("],
+        "Q-profile tau2 CI not wired (helper missing OR defined but never called)",
         "run scripts/add_qprofile_tau2_ci.py from the Finrenone repo to insert the "
-        "qchisq + qProfileTau2CI helpers near tQuantile",
+        "qchisq + qProfileTau2CI helpers AND ensure the call site uses "
+        "`qProfileTau2CI(_qpYi, _qpVi, df, 1 - confLevel)` after the REML primary block",
     ),
     (
         ["qchisq", "df === 1"],
@@ -86,17 +94,23 @@ CHECKS: List[tuple] = [
         "run scripts/fix_pi_df_cochrane.py to flip k-2 -> k-1 and gate at k>=2",
     ),
     (
-        ["_assessROBME("],
-        "ROB-ME framework missing (Cochrane Ch.13 2024+)",
-        "run scripts/add_robme_framework.py to add the chip-robme HTML element "
-        "and the _assessROBME(c) method that produces the Q1-Q4 verdict",
+        # Definition AND call site -- the method-shorthand definition
+        # `_mhPool(plotData, zCrit) { ... }` matches `_mhPool(`, so we
+        # additionally require `this._mhPool(` to confirm the engine
+        # actually invokes the method and pushes the sensitivity scenario.
+        ["_mhPool(", "this._mhPool("],
+        "Mantel-Haenszel pool not wired (method missing OR defined but never invoked)",
+        "run scripts/add_mh_pool.py to add the _mhPool method with "
+        "Robins-Breslow-Greenland variance AND ensure the engine calls "
+        "`const mhResult = this._mhPool(plotData, zCrit);` and pushes the scenario",
     ),
     (
-        ["_mhPool("],
-        "Mantel-Haenszel pool missing (Cochrane v6.5 §10.4.1 sparse-binary "
-        "preference)",
-        "run scripts/add_mh_pool.py to add the _mhPool method with "
-        "Robins-Breslow-Greenland variance and the sensitivity scenario push",
+        # Same lift applied to ROB-ME -- prevents the next instance of
+        # "helper present, never called" silent-no-render regression.
+        ["_assessROBME(", "this._assessROBME("],
+        "ROB-ME not wired (method missing OR defined but never invoked)",
+        "run scripts/add_robme_framework.py to add the _assessROBME method AND "
+        "ensure it is called via `this._assessROBME(c)` and rendered into the chip",
     ),
 ]
 
