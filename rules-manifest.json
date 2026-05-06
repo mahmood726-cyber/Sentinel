@@ -25,7 +25,7 @@
     "plugins/registry_drift.py": "cdfca92ab7f446d52dab910a46315c1dd790e49bfbc78045b1871e56d9b36174",
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
     "yaml/P0-claude-config-committed.yaml": "11487d0b0444c105f4851b5c78ca39f00e3292336ab3209f54068d27b4a7eaa1",
-    "yaml/P0-hardcoded-local-path.yaml": "bbce6d3f8ef48c962146209add43dc9a13f1a775a603e8b8ca2093cc084f2c2e",
+    "yaml/P0-hardcoded-local-path.yaml": "35b34f0468eb9eab109ab8665f162c69033bc7d52bcb3814840efab20087deda",
     "yaml/P0-placeholder-hmac.yaml": "2d8ad617df6a2f7c3b7f60a2873e0979c055fe29d706e1eff12f36b83a321acd",
     "yaml/P1-empty-dataframe-access.yaml": "321ad741d72fa9857e01bb3403f00b68870e86746bfc7a186764e090bd7b823a",
     "yaml/P1-silent-failure-sentinel.yaml": "4f3437c7efb75f50a21a42cc59da952b385365fff1fe506a34bc70da23e86e3e",

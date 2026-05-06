@@ -68,6 +68,12 @@ exclude:
   - '**/data/real_project_smoke/**'
   - 'data/baseline_probes/**'
   - '**/data/baseline_probes/**'
+  # data/baselines/**: numerical-witness baseline JSONs store absolute
+  # paths to per-project probe scripts (e.g. `node C:/Projects/<repo>/probe.cjs`).
+  # The path IS the data the witness needs to invoke the probe — same
+  # legitimate-paths-as-data category as nightly_reports/wiki/baseline_probes.
+  - 'data/baselines/**'
+  - '**/data/baselines/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.
