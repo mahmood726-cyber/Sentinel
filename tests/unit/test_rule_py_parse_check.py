@@ -60,6 +60,13 @@ def test_broken_py_blocks(tmp_path: Path):
     assert v.file == "src/bad.py"
 
 
+def test_skip_file_marker_suppresses_parse_check(tmp_path: Path):
+    _write(tmp_path / "src" / "archived_bad.py", "# sentinel:skip-file\n" + BROKEN_PY)
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
+
+
 def test_venv_excluded(tmp_path: Path):
     _write(tmp_path / ".venv" / "site-packages" / "broken.py", BROKEN_PY)
     _write(tmp_path / "venv" / "lib" / "broken.py", BROKEN_PY)

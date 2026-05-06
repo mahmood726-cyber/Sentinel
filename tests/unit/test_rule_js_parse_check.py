@@ -57,6 +57,13 @@ def test_broken_js_blocks(tmp_path: Path):
     assert v.file == "src/bad.js"
 
 
+def test_skip_file_marker_suppresses_parse_check(tmp_path: Path):
+    _write(tmp_path / "src" / "archived_bad.js", "// sentinel:skip-file\n" + BROKEN_JS)
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
+
+
 def test_node_modules_excluded(tmp_path: Path):
     _write(tmp_path / "node_modules" / "junk" / "bad.js", BROKEN_JS)
     rule = load_plugin_rule(PLUGIN_PATH)

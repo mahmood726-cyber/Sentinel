@@ -22,6 +22,7 @@ longer applies.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
@@ -32,6 +33,8 @@ ID = "P1-py-parse-check"
 SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#python-module-test-collection-traps"
 SCOPE = "repo"
+SKIP_FILE_MARKER = "sentinel:skip-file"
+SKIP_MARKER_SCAN_BYTES = 1024
 
 
 def check(ctx: RepoContext) -> List[Verdict]:
@@ -41,6 +44,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
     for path in iter_repo_files(ctx.repo_root, "*.py", PY_EXCLUDE_DIRS):
         rel = path.relative_to(ctx.repo_root).as_posix()
+        if _file_has_skip_marker(path):
+            continue
         try:
             source = path.read_text(encoding="utf-8", errors="replace")
         except OSError as e:
@@ -95,3 +100,11 @@ def check(ctx: RepoContext) -> List[Verdict]:
             ))
 
     return verdicts
+
+
+def _file_has_skip_marker(file_path: Path) -> bool:
+    try:
+        head = file_path.read_bytes()[:SKIP_MARKER_SCAN_BYTES]
+    except OSError:
+        return False
+    return SKIP_FILE_MARKER in head.decode("utf-8", errors="replace")

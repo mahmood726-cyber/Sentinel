@@ -35,6 +35,8 @@ ID = "P1-js-parse-check"
 SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#code-quality"
 SCOPE = "repo"
+SKIP_FILE_MARKER = "sentinel:skip-file"
+SKIP_MARKER_SCAN_BYTES = 1024
 
 EXTENSION_PATTERNS = ("*.js", "*.mjs", "*.cjs")
 
@@ -49,6 +51,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
     for path in _iter_js_files(ctx.repo_root):
         rel = path.relative_to(ctx.repo_root).as_posix()
+        if _file_has_skip_marker(path):
+            continue
         # Defense-in-depth: make sure the path can't be interpreted as
         # an option by node. iter_repo_files yields absolute paths
         # already, which on every supported platform start with "/" or
@@ -107,3 +111,11 @@ def _iter_js_files(root: Path):
         if path.name.endswith(".min.js"):
             continue
         yield path
+
+
+def _file_has_skip_marker(file_path: Path) -> bool:
+    try:
+        head = file_path.read_bytes()[:SKIP_MARKER_SCAN_BYTES]
+    except OSError:
+        return False
+    return SKIP_FILE_MARKER in head.decode("utf-8", errors="replace")
