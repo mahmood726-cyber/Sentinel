@@ -51,9 +51,18 @@ COMMON_EXCLUDES = (
 
 GLOBAL_EXCLUDES = (
     ".git/**",
+    "**/.git/**",
     "node_modules/**",
+    "**/node_modules/**",
     "__pycache__/**",
     "**/__pycache__/**",
+    # archive/: frozen historical release snapshots and scratch trees.
+    # Mirrors DEFAULT_EXCLUDE_DIRS in sentinel/io/git_files.py — see the
+    # 2026-05-08 dosehtml incident for justification. Both YAML rules and
+    # parse-check plugins skip these now so a single archive doesn't
+    # inflate the BLOCK count across multiple rule classes.
+    "archive/**",
+    "**/archive/**",
 ) + COMMON_EXCLUDES + global_exclude_patterns()
 
 

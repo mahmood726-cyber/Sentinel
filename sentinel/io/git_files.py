@@ -47,6 +47,14 @@ DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset({
     # still work because only the `tests` subdir is excluded, not
     # files named `test_*` at the root.
     "tests", "fixtures",
+    # archive/: historical release-snapshot trees and scratch /
+    # temp-file holding pens. Past incident (2026-05-08): the
+    # C:/HTML apps/dosehtml/archive/release-snapshots/* tree
+    # contributed 12 P1-py-parse-check (BOM-prefixed legacy .py)
+    # plus 3 P1-js-parse-check (temp_*.js) BLOCKs on code that has
+    # no current bug surface. Same principle as `dist`/`vendor`:
+    # frozen historical content, not actively-shipped source.
+    "archive",
 })
 
 PY_EXCLUDE_DIRS: frozenset[str] = DEFAULT_EXCLUDE_DIRS | {

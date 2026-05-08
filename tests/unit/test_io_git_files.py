@@ -122,6 +122,25 @@ def test_exclude_constants_non_empty():
     assert HTML_EXCLUDE_DIRS >= DEFAULT_EXCLUDE_DIRS
     assert ".venv" in PY_EXCLUDE_DIRS
     assert "node_modules" in JS_EXCLUDE_DIRS
+    # `archive` covers historical release-snapshot directories that
+    # commonly contain BOM-prefixed Python and parse-error JS scratch files.
+    # Past incident (2026-05-08): C:/HTML apps/dosehtml/archive/release-
+    # snapshots/* contributed 12 P1-py-parse-check + 3 P1-js-parse-check
+    # BLOCKs on frozen historical code that has no current bug surface.
+    assert "archive" in DEFAULT_EXCLUDE_DIRS
+
+
+def test_archive_directory_excluded_by_default(tmp_path: Path):
+    """A file under archive/ must NOT be returned by iter_repo_files when
+    using DEFAULT_EXCLUDE_DIRS."""
+    archive = tmp_path / "archive" / "old-release"
+    archive.mkdir(parents=True)
+    (archive / "frozen.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "live.py").write_text("y = 2\n", encoding="utf-8")
+    files = list(iter_repo_files(tmp_path, "*.py", DEFAULT_EXCLUDE_DIRS))
+    rels = sorted(f.name for f in files)
+    assert "live.py" in rels
+    assert "frozen.py" not in rels
 
 
 # -- Regression-critical: fail-closed on git errors -----------------------
