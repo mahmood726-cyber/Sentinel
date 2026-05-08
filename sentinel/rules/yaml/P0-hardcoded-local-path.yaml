@@ -74,6 +74,20 @@ exclude:
   # legitimate-paths-as-data category as nightly_reports/wiki/baseline_probes.
   - 'data/baselines/**'
   - '**/data/baselines/**'
+  # results/**: analysis output directories. Past incident (2026-05-07
+  # triage): TruthCert-Validation-Papers/results/ctgov_external_validation/
+  # validation_details.json contributed 46,397 hardcoded-path BLOCKs out of
+  # the portfolio's 124,097 — pdf_path columns recording where each input
+  # PDF was loaded from. These are reproducibility metadata produced by
+  # one-shot pipelines, not source. Same legitimate-paths-as-data category
+  # as nightly_reports/baselines/baseline_probes.
+  - 'results/**'
+  - '**/results/**'
+  # data/benchmarks/**: CSV adjudication tables (rct-extractor-v2 pattern)
+  # describing where each input PDF was sourced from. Same paths-as-data
+  # rule. Excluding this kills the rct-extractor-v2 .csv FP cluster.
+  - 'data/benchmarks/**'
+  - '**/data/benchmarks/**'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.

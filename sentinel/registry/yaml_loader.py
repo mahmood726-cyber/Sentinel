@@ -92,7 +92,15 @@ class YamlRule:
     files: List[str] = field(default_factory=lambda: ["**/*"])
     exclude: List[str] = field(default_factory=list)
     fix_hint: str = ""
+    # Optional guard recognition: when set, a verdict is suppressed if any
+    # of the preceding `guard_lookback_lines` lines matches `guard_pattern`.
+    # Used by P1-empty-dataframe-access to honour `if df.empty:` /
+    # `if len(df) == 0:` guards within a small window above the access.
+    # Empty string disables guard recognition (default).
+    guard_pattern: str = ""
+    guard_lookback_lines: int = 5
     _compiled: Optional[re.Pattern] = field(default=None, init=False, repr=False)
+    _guard_compiled: Optional[re.Pattern] = field(default=None, init=False, repr=False)
 
     def check(self, ctx: RepoContext) -> Sequence[Verdict]:
         if self.scope == "portfolio" and ctx.is_repo_scan():
@@ -103,6 +111,9 @@ class YamlRule:
         if self._compiled is None:
             self._compiled = re.compile(self.pattern)
         compiled = self._compiled
+        if self.guard_pattern and self._guard_compiled is None:
+            self._guard_compiled = re.compile(self.guard_pattern)
+        guard_compiled = self._guard_compiled
         verdicts: List[Verdict] = []
         root = ctx.repo_root
 
@@ -126,6 +137,16 @@ class YamlRule:
                     prev_line = lines[lineno - 2] if lineno >= 2 else ""
                     if _line_is_suppressed(line, prev_line, self.id):
                         continue
+                    # Guard suppression: skip if a preceding line within the
+                    # lookback window matches the rule's guard pattern.
+                    if guard_compiled is not None:
+                        start_idx = max(0, lineno - 1 - self.guard_lookback_lines)
+                        end_idx = lineno - 1  # exclusive of the matched line itself
+                        if any(
+                            guard_compiled.search(lines[i])
+                            for i in range(start_idx, end_idx)
+                        ):
+                            continue
                     verdicts.append(
                         Verdict(
                             rule_id=self.id,
@@ -308,6 +329,20 @@ def load_yaml_rule(path: Path) -> YamlRule:
             f"{path}: scope must be 'repo' or 'portfolio', got {scope!r}"
         )
 
+    guard_pattern = str(raw.get("guard_pattern", "") or "")
+    if guard_pattern:
+        try:
+            re.compile(guard_pattern)
+        except re.error as e:
+            raise YamlRuleLoadError(
+                f"{path}: invalid regex in 'guard_pattern': {e}"
+            ) from e
+    guard_lookback_lines = int(raw.get("guard_lookback_lines", 5))
+    if guard_lookback_lines < 1:
+        raise YamlRuleLoadError(
+            f"{path}: guard_lookback_lines must be >= 1, got {guard_lookback_lines}"
+        )
+
     return YamlRule(
         id=str(raw["id"]),
         severity=severity,
@@ -318,4 +353,6 @@ def load_yaml_rule(path: Path) -> YamlRule:
         files=list(raw.get("files", ["**/*"])),
         exclude=list(raw.get("exclude", [])),
         fix_hint=str(raw.get("fix_hint", "")),
+        guard_pattern=guard_pattern,
+        guard_lookback_lines=guard_lookback_lines,
     )

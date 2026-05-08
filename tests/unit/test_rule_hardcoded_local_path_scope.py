@@ -135,6 +135,78 @@ def test_txt_file_is_scanned(tmp_path: Path):
     assert verdicts[0].file == "notes.txt"
 
 
+def test_results_dir_excluded(tmp_path: Path):
+    """Analysis-output directories named `results/` legitimately contain
+    paths as reproducibility metadata, not code. Past incident
+    (2026-05-07 triage): TruthCert-Validation-Papers/results/.../validation_details.json
+    contributed 46,397 hardcoded-path BLOCKs out of the portfolio's 124,097
+    — pdf_path columns recording where each input PDF came from. Excluding
+    `**/results/**` cuts ~37% of all hardcoded-path BLOCKs in the portfolio.
+    """
+    results = tmp_path / "results" / "ctgov_external_validation"
+    results.mkdir(parents=True)
+    (results / "validation_details.json").write_text(
+        '{"pdf_path": "C:/Users/user/cardiology_rcts/PMC1234.pdf"}\n',
+        encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "results/** must be excluded (output artifacts)"
+
+
+def test_nested_results_dir_excluded(tmp_path: Path):
+    """A `results/` subdirectory anywhere in the tree is the same pattern."""
+    nested = tmp_path / "analysis" / "subproject" / "results"
+    nested.mkdir(parents=True)
+    (nested / "validation_details.json").write_text(
+        '{"pdf_path": "C:/Users/user/x.pdf"}\n', encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "**/results/** must be excluded"
+
+
+def test_data_benchmarks_excluded(tmp_path: Path):
+    """data/benchmarks/** holds CSV adjudication tables describing where
+    each input PDF was sourced from. Past incident (rct-extractor-v2):
+    data/benchmarks/.../remaining_miss_sheet.csv contributed thousands of
+    hardcoded-path BLOCKs as legitimate data, not code.
+    """
+    bench = tmp_path / "data" / "benchmarks" / "round1"
+    bench.mkdir(parents=True)
+    (bench / "remaining_miss_sheet.csv").write_text(
+        "id,source\n1,C:/Users/user/PDF1234.pdf\n", encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "data/benchmarks/** must be excluded"
+
+
+def test_data_benchmarks_nested_excluded(tmp_path: Path):
+    """Nested data/benchmarks under a project subtree."""
+    bench = tmp_path / "subproj" / "data" / "benchmarks" / "round2"
+    bench.mkdir(parents=True)
+    (bench / "audit.csv").write_text(
+        "id,path\n1,C:/Users/user/x.pdf\n", encoding="utf-8",
+    )
+    assert _scan(tmp_path) == [], "**/data/benchmarks/** must be excluded"
+
+
+def test_results_dir_does_not_over_exclude_sibling_code(tmp_path: Path):
+    """Sibling files OUTSIDE results/ must still be scanned. Negative
+    control to catch over-broad excludes."""
+    code = tmp_path / "src"
+    code.mkdir()
+    (code / "module.py").write_text(
+        'OUT = "C:/Users/user/x"\n', encoding="utf-8",
+    )
+    results = tmp_path / "results"
+    results.mkdir()
+    (results / "out.json").write_text('{"p": "C:/Users/user/x"}\n', encoding="utf-8")
+    verdicts = _scan(tmp_path)
+    files_flagged = {v.file for v in verdicts}
+    # results/out.json excluded; src/module.py still flagged.
+    assert "src/module.py" in files_flagged, (
+        f"src/module.py must remain flagged, got files: {files_flagged}"
+    )
+    assert "results/out.json" not in files_flagged
+    assert not any("results/" in f for f in files_flagged)
+
+
 def test_docs_superpowers_specs_excluded(tmp_path: Path):
     """Superpowers specs under docs/superpowers/specs/ are design documents
     that legitimately quote local paths as examples (commit 5eaa7d0)."""

@@ -4,7 +4,15 @@ scope: repo
 description: >
   Unpopulated template placeholders (Jinja braces, REPLACE_ME, TBD markers)
   should not ship in built assets per html-apps.md#safety-checks.
-pattern: '\{\{-?\s*[A-Za-z_]\w*\s*(?:(?:\||\[|\.[A-Za-z_])[^}]*)?\s*-?\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
+pattern: '\{\{-?\s*[A-Za-z_]\w*\s*(?:(?:\||\[|\.[A-Za-z_])[^}]{0,80})?\s*-?\}\}|REPLACE_ME|__PLACEHOLDER__|TBD:|XXX:'
+# The `{0,80}` cap on the inner-content quantifier separates real Jinja
+# expressions (typically <80 chars between the braces — even long filter
+# chains rarely exceed 70) from Python f-string `{{...}}` brace-escapes
+# that emit JavaScript function bodies (usually hundreds of chars between
+# braces). Past incident (2026-05-07 triage): E156's
+# scripts/build_showcase_v3.py contributed 297 false positives because the
+# unbounded `[^}]*` matched whole `{{c.style.display=(...long JS...)}}`
+# spans. The cap kills those without losing realistic Jinja coverage.
 files:
   - '**/*.html'
   - '**/*.md'

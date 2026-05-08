@@ -132,6 +132,49 @@ def test_unpopulated_placeholder_literal_tokens_still_fire(tmp_path: Path):
         assert any(literal in d for d in matched), f"{literal} must fire"
 
 
+def test_unpopulated_placeholder_ignores_python_fstring_js_emit(tmp_path: Path):
+    """Python f-string `{{...}}` brace-escapes that emit JavaScript must NOT
+    fire. Past incident (2026-05-07 triage): E156's scripts/build_showcase_v3.py
+    contributed 297 P1-unpopulated-placeholder false positives — the regex
+    saw `{{c.style.display=(...)}}` as a Jinja attribute access. Real Jinja
+    expressions are short (<80 chars between the braces); Python f-string
+    JS-emit blocks span hundreds. Capping the inner-content length at 80
+    cleanly separates the two.
+    """
+    (tmp_path / "build_showcase.py").write_text(
+        # Real-world pattern from build_showcase_v3.py: f-string emits JS
+        # function bodies that contain attribute accesses inside `{{...}}`.
+        'js = f"""<script>function f(){{const q=s.value.toLowerCase();'
+        'cs.forEach(c=>{{c.style.display=(ac===\\"all\\"||c.dataset.cat===ac)'
+        '&&(!q||c.textContent.toLowerCase().includes(q))?\\"\\":\\"none\\"}})}}'
+        '</script>"""\n',
+        encoding="utf-8",
+    )
+    rule = load_yaml_rule(RULE_PATH)
+    verdicts = rule.check(RepoContext(repo_root=tmp_path, mode=ScanMode.REPO))
+    js_emit_fps = [v for v in verdicts if "c.style" in (v.detail or "")
+                   or "c.dataset" in (v.detail or "")]
+    assert js_emit_fps == [], (
+        f"Python f-string JS-emit must not produce {{...}} placeholder "
+        f"verdicts: {[v.detail for v in js_emit_fps]}"
+    )
+
+
+def test_unpopulated_placeholder_long_jinja_expr_just_under_cap(tmp_path: Path):
+    """Defensive: Jinja expressions up to ~70 chars must still fire (the
+    cap is at 80 chars between `{{` and `}}`)."""
+    # 68 chars of identifier+filter chain inside the braces
+    (tmp_path / "page.html").write_text(
+        "<p>{{ form.fields.email.errors[0]|striptags|truncate(40)|escape }}</p>\n",
+        encoding="utf-8",
+    )
+    rule = load_yaml_rule(RULE_PATH)
+    verdicts = rule.check(RepoContext(repo_root=tmp_path, mode=ScanMode.REPO))
+    assert len(verdicts) == 1, (
+        f"long-but-realistic Jinja must still fire, got {verdicts}"
+    )
+
+
 def test_unpopulated_placeholder_excludes_nested_test_dirs(tmp_path: Path):
     """Workbench-style layout: <app>/tests/*.py containing FORBIDDEN tuples
     of literal template tokens is a test fixture, not shipping code."""

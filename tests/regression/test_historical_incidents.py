@@ -480,6 +480,96 @@ def test_empty_df__skip_file_marker_bypasses(tmp_path):
     assert verdicts == []
 
 
+def test_empty_df__guard_if_empty_suppresses(tmp_path):
+    """`.iloc[0]` immediately after `if df.empty: return ...` is safe.
+    Past incident (2026-05-07 triage): TruthCert-Validation-Papers had
+    `df['col'].iloc[0] if 'col' in df.columns else None` patterns that
+    fired the rule despite a column-presence guard. The rule should
+    recognise the canonical guards documented in its own fix_hint
+    (`if df.empty:` / `if len(df) == 0:`) within ~5 preceding lines.
+    """
+    (tmp_path / "guarded.py").write_text(
+        "def first_row(df):\n"
+        "    if df.empty:\n"
+        "        return None\n"
+        "    return df.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == [], f"guarded access must be suppressed, got {verdicts}"
+
+
+def test_empty_df__guard_if_not_empty_suppresses(tmp_path):
+    """`if not df.empty:` is the equivalent positive form."""
+    (tmp_path / "guarded.py").write_text(
+        "def first_row(df):\n"
+        "    if not df.empty:\n"
+        "        return df.iloc[0]\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == []
+
+
+def test_empty_df__guard_len_check_suppresses(tmp_path):
+    """`if len(df) == 0:` / `if len(df) > 0:` are equally valid guards
+    and are mentioned in the rule's fix_hint."""
+    (tmp_path / "guarded.py").write_text(
+        "def first_row(df):\n"
+        "    if len(df) == 0:\n"
+        "        return None\n"
+        "    return df.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert verdicts == []
+
+
+def test_empty_df__guard_far_above_does_not_suppress(tmp_path):
+    """A guard 10 lines above is too far — the access should still flag.
+    Default lookback window is 5 lines; further-back guards are too
+    decoupled to count as protection for THIS access."""
+    (tmp_path / "ungoverned.py").write_text(
+        "def first_row(df):\n"
+        "    if df.empty:\n"
+        "        return None\n"
+        "    # 8 lines of unrelated work...\n"
+        "    a = 1\n"
+        "    b = 2\n"
+        "    c = 3\n"
+        "    d = 4\n"
+        "    e = 5\n"
+        "    f = 6\n"
+        "    return df.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert len(verdicts) == 1, f"guard outside window should not suppress, got {verdicts}"
+
+
+def test_empty_df__non_guard_if_does_not_suppress(tmp_path):
+    """`if some_unrelated_condition:` is not a guard. Must still flag."""
+    (tmp_path / "ungoverned.py").write_text(
+        "def first_row(df, mode):\n"
+        "    if mode == 'fast':\n"
+        "        return df.iloc[0]\n",
+        encoding="utf-8",
+    )
+    verdicts = _load("P1-empty-dataframe-access").check(
+        RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    )
+    assert len(verdicts) == 1
+
+
 def test_empty_df__iat_not_flagged(tmp_path):
     """`.iat[0]` is an acceptable alternative when the caller has already
     verified non-emptiness — it's the documented fix_hint. Rule must not

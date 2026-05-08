@@ -113,3 +113,57 @@ def test_empty_file_returns_false(tmp_path):
     p = tmp_path / "empty.py"
     _write(p, b"")
     assert has_skip_marker(p) is False
+
+
+# ---------------------------------------------------------------------------
+# Batch-file comment prefixes (REM and ::). Past incident:
+# C:/overmind/scripts/nightly_verify.bat carries `REM sentinel:skip-file` on
+# line 2 but P0-hardcoded-local-path still fired 13× on the file because the
+# prefix grammar only accepted #, //, /*, space, tab. .bat / .cmd use REM
+# (case-insensitive) or :: as comment lead-ins; both must be honoured here.
+# ---------------------------------------------------------------------------
+
+def test_marker_on_line2_bat_rem_uppercase(tmp_path):
+    p = tmp_path / "f.bat"
+    _write(p, b"@echo off\nREM sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is True
+
+
+def test_marker_on_line2_bat_rem_lowercase(tmp_path):
+    p = tmp_path / "f.bat"
+    _write(p, b"@echo off\nrem sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is True
+
+
+def test_marker_on_line2_bat_rem_mixedcase(tmp_path):
+    p = tmp_path / "f.bat"
+    _write(p, b"@echo off\nRem sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is True
+
+
+def test_marker_on_line1_bat_double_colon(tmp_path):
+    p = tmp_path / "f.cmd"
+    _write(p, b":: sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is True
+
+
+def test_marker_on_line1_bat_double_colon_no_space(tmp_path):
+    p = tmp_path / "f.cmd"
+    _write(p, b"::sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is True
+
+
+def test_marker_rem_without_trailing_space_rejected(tmp_path):
+    """`REMsentinel:skip-file` (no separator) must NOT suppress — that's
+    a different identifier, not the canonical marker."""
+    p = tmp_path / "f.bat"
+    _write(p, b"@echo off\nREMsentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is False
+
+
+def test_marker_xrem_prefix_rejected(tmp_path):
+    """`xREM sentinel:skip-file` must NOT suppress — the prefix grammar
+    requires REM at column 0 (after optional whitespace)."""
+    p = tmp_path / "f.bat"
+    _write(p, b"@echo off\nxREM sentinel:skip-file\necho hi\n")
+    assert has_skip_marker(p) is False

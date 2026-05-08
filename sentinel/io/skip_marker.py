@@ -31,10 +31,22 @@ from pathlib import Path
 SKIP_FILE_MARKER = "sentinel:skip-file"
 SKIP_MARKER_SCAN_BYTES = 1024
 
-# Bytes that may legally precede the marker on its line.
-# Mirrors the comment-prefix grammar of YAML/Python (#), JS/CSS (//, /*),
-# plus leading whitespace.
-_PREFIX_RE = re.compile(rb"^[#/* \t]*sentinel:skip-file\b", re.MULTILINE)
+# Bytes that may legally precede the marker on its line. Three families:
+#   1. Inline-style: `#`, `//`, `/*` plus leading whitespace —
+#      matches Python/YAML, JS/C/CSS, etc. (the original grammar).
+#   2. `REM` keyword (case-insensitive) — Windows .bat / .cmd. Requires
+#      whitespace after the keyword so `REMsentinel:skip-file` (a
+#      different identifier) does not match.
+#   3. `::` colon-comment — also Windows .bat / .cmd; whitespace after is
+#      optional because `::sentinel:skip-file` is a valid lead-in.
+# Past incident (2026-05-06 nightly): C:/overmind/scripts/nightly_verify.bat
+# line 2 (`REM sentinel:skip-file ...`) was being ignored because only
+# family (1) was recognised, producing 13 false-positive hits on the .bat
+# despite the marker being present.
+_PREFIX_RE = re.compile(
+    rb"^(?:[ \t]*(?i:rem)[ \t]+|[ \t]*::[ \t]*|[#/* \t]*)sentinel:skip-file\b",
+    re.MULTILINE,
+)
 
 
 def has_skip_marker(file_path: Path) -> bool:
