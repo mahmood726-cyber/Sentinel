@@ -16,11 +16,14 @@ work even when __init__.py is unstaged. The break only shows up on a
 fresh clone or a CI runner.
 
 Detection:
-  For each directory with at least one *.py file whose top-level imports
-  include `from .X import` or `from ..X import`, check whether
-  `<dir>/__init__.py` is tracked in git. If the directory is itself
-  inside a path that already has an ancestor __init__.py tracked, that's
-  fine — the parent makes it a sub-package.
+  For each TRACKED *.py file whose top-level imports include
+  `from .X import` or `from ..X import`, check whether
+  `<dir>/__init__.py` is tracked in git. Untracked .py files (e.g.
+  inside .cmdstan/, .positron/extensions/, AppData/Local/pypa/, OneDrive
+  backups) are skipped — fresh clones don't see them at all, so they
+  can't ImportError on them. If the directory is itself inside a path
+  that already has an ancestor __init__.py tracked, that's fine — the
+  parent makes it a sub-package.
 
 Severity: WARN (not BLOCK).
   - Lots of legitimate src-layouts use unconventional package markers.
@@ -79,17 +82,24 @@ def _list_tracked(repo: Path) -> Set[str]:
     return set(r.stdout.splitlines())
 
 
-def _walk_py_dirs(repo: Path):
-    """Yield (relative_dir_path, is_relative_imports_used)."""
+def _walk_py_dirs(repo: Path, tracked: Set[str]):
+    """Yield (relative_dir_path, evidence_filename) for each directory
+    that contains at least one TRACKED .py file using relative imports.
+    Untracked files are skipped — fresh clones don't see them, so they
+    cannot trigger ImportError on a clone."""
     import os
     for dirpath, dirnames, filenames in os.walk(repo):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
         py_files = [n for n in filenames if n.endswith(".py")]
         if not py_files:
             continue
+        rel_dir = Path(dirpath).relative_to(repo).as_posix() or "."
         uses_relative = False
         evidence_file = None
         for fname in py_files:
+            tracked_key = fname if rel_dir == "." else f"{rel_dir}/{fname}"
+            if tracked_key not in tracked:
+                continue
             try:
                 text = (Path(dirpath) / fname).read_text(encoding="utf-8", errors="ignore")
             except OSError:
@@ -99,8 +109,7 @@ def _walk_py_dirs(repo: Path):
                 evidence_file = fname
                 break
         if uses_relative:
-            rel = Path(dirpath).relative_to(repo).as_posix() or "."
-            yield rel, evidence_file
+            yield rel_dir, evidence_file
 
 
 def check(ctx: RepoContext) -> List[Verdict]:
@@ -115,7 +124,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
 
-    for rel_dir, evidence in _walk_py_dirs(repo):
+    for rel_dir, evidence in _walk_py_dirs(repo, tracked):
         init_rel = f"{rel_dir}/__init__.py" if rel_dir != "." else "__init__.py"
         if init_rel in tracked:
             continue

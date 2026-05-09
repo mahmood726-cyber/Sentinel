@@ -125,3 +125,33 @@ def test_no_relative_imports_no_verdict(tmp_path: Path):
     rule = load_plugin_rule(PLUGIN_PATH)
     ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
     assert rule.check(ctx) == []
+
+
+def test_skips_untracked_py_files(tmp_path: Path):
+    """Fresh clones don't see untracked files, so they cannot ImportError
+    on them. A .py file using relative imports inside a gitignored dir
+    (e.g. AppData/, .cmdstan/, .positron/, OneDrive/Backups/) must not
+    produce a verdict.
+
+    Triggering observation (2026-05-09 home-config push):
+      Sentinel emitted 421 WARNs from this rule, the bulk of which were
+      paths inside .cmdstan/, .positron/extensions/, AppData/Local/pypa/,
+      and OneDrive backups. None of those .py files are tracked. None of
+      them can ImportError on a fresh clone of home-config. All were
+      false positives.
+    """
+    _init_repo(tmp_path)
+    (tmp_path / "real.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".cmdstan/\n", encoding="utf-8")
+    _commit_all(tmp_path)
+    # Now create the gitignored .cmdstan dir with a relative-import .py
+    # file. The dir-name components (.cmdstan, cmdstan-2.37.0, stan, tbb)
+    # are NOT in SKIP_DIR_NAMES, so the walker descends in. The fix has
+    # to filter by tracked status, not by dir name.
+    pkg = tmp_path / ".cmdstan" / "cmdstan-2.37.0" / "stan" / "tbb"
+    pkg.mkdir(parents=True)
+    (pkg / "a.py").write_text("from .b import c\n", encoding="utf-8")
+    (pkg / "b.py").write_text("c = 1\n", encoding="utf-8")
+    rule = load_plugin_rule(PLUGIN_PATH)
+    ctx = RepoContext(repo_root=tmp_path, mode=ScanMode.REPO)
+    assert rule.check(ctx) == []
