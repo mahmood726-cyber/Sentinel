@@ -8,6 +8,7 @@
     "plugins/blueprint_implementation_match.py": "da818dade1a1e4502d87fed6c17ef31aaba6cc17b45dd879ae3fbe5bea2c70d9",
     "plugins/cochrane_v65_invariants.py": "abdbd930355335e60d9d0e690e5c95585076894a58800d0b67a9f599c60eb918",
     "plugins/dashboard_stat_orphan.py": "bd07f231ccb1a6b1c7ef6a8bcbd2d289d253a54f9b53ac6a76f09c565e04229c",
+    "plugins/e156_placeholder_leak.py": "c194f2fb0a14bce37635b3bc99e5aad8619d792ed2768a6e9824f79a1383b09f",
     "plugins/html_a11y_basics.py": "8868a8eb37e4f19a8ac39eb40a43b9bc911b53254c041b3c4c3b0209326ded23",
     "plugins/js_lockfile_present.py": "c89a40dad5c447824849b1a65275651637703bb859fab18b9612352c80ef2beb",
     "plugins/js_parse_check.py": "6ae9c9a0e78afad433e3d2ff89dec5b3cd103ea7ffeeb79ab43ebd2355f6990d",
@@ -19,16 +20,16 @@
     "plugins/memory_paths_resolve.py": "968f307d726b610acce902cb7f777f4f5e6ec45d74d2ea53e23820b2b07c3ac4",
     "plugins/path_not_exist.py": "7101e12c9a795a38605956e2cddecf5fd53d674822fa1b1deeb9dd801ad7e944",
     "plugins/progress_md_not_gitignored.py": "cf6516ba0c03d7240ba22d77b35eb5d07969e45bb0afdc70557afe68416a5194",
-    "plugins/py_package_init_tracked.py": "e4f96e6bbca75a72422ab1a680c3feb5ea094988de62953597793377e69b6a86",
+    "plugins/py_package_init_tracked.py": "3dae5e98881c2a12c7bfd89d330934e365f6bac784db90e1cfd15c7254d77ffd",
     "plugins/py_parse_check.py": "63896067052652037eace044f97150b465b2e0f075323bca69d16627d4acf48a",
     "plugins/rapidmeta_data_integrity.py": "291d7ed45ce64e08817d4987c0ee3e9bfd61e6b71a8048ee8009f03662e692bc",
     "plugins/registry_drift.py": "cdfca92ab7f446d52dab910a46315c1dd790e49bfbc78045b1871e56d9b36174",
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
     "yaml/P0-claude-config-committed.yaml": "11487d0b0444c105f4851b5c78ca39f00e3292336ab3209f54068d27b4a7eaa1",
-    "yaml/P0-hardcoded-local-path.yaml": "35b34f0468eb9eab109ab8665f162c69033bc7d52bcb3814840efab20087deda",
+    "yaml/P0-hardcoded-local-path.yaml": "baed4191001eecd1792e73be901d6d0fe630443f5369767411e9067cd032d07d",
     "yaml/P0-placeholder-hmac.yaml": "2d8ad617df6a2f7c3b7f60a2873e0979c055fe29d706e1eff12f36b83a321acd",
-    "yaml/P1-empty-dataframe-access.yaml": "321ad741d72fa9857e01bb3403f00b68870e86746bfc7a186764e090bd7b823a",
+    "yaml/P1-empty-dataframe-access.yaml": "e4c6d4685e21179233654fdf0a1e482685279aed2e17345ae80ffb3511d08b3f",
     "yaml/P1-silent-failure-sentinel.yaml": "4f3437c7efb75f50a21a42cc59da952b385365fff1fe506a34bc70da23e86e3e",
-    "yaml/P1-unpopulated-placeholder.yaml": "4c4452606c2b5868d1a6a95727f89e1be6b155a61c0f858787dc539032086479"
+    "yaml/P1-unpopulated-placeholder.yaml": "b284eb4bd03228beac311f6c7a6796eb9291f19fb070a92ae2e5fd2c50b519d9"
   }
 }
