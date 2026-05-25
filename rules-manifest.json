@@ -37,6 +37,7 @@
     "plugins/py_package_init_tracked.py": "3dae5e98881c2a12c7bfd89d330934e365f6bac784db90e1cfd15c7254d77ffd",
     "plugins/py_parse_check.py": "63896067052652037eace044f97150b465b2e0f075323bca69d16627d4acf48a",
     "plugins/rapidmeta_data_integrity.py": "291d7ed45ce64e08817d4987c0ee3e9bfd61e6b71a8048ee8009f03662e692bc",
+    "plugins/regex_catastrophic_backtrack.py": "f64fda88073e6438fa826541d24920448ccffea046bcb3a79b6bb245c6713d64",
     "plugins/registry_drift.py": "cdfca92ab7f446d52dab910a46315c1dd790e49bfbc78045b1871e56d9b36174",
     "plugins/script_close_in_template.py": "d5f0938e20500409810819bfe4c437325932201bf2dc3f4cb88cc54554d6f488",
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
