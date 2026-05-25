@@ -46,7 +46,7 @@ def test_scan_returns_10_on_registry_load_failure(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     env = {
-        "PYTHONPATH": str(tmp_path),
+        "PYTHONPATH": subprocess.os.pathsep.join([str(tmp_path), str(REPO_ROOT)]),
         "PATH": subprocess.os.environ.get("PATH", ""),
     }
 

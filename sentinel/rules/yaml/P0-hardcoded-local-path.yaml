@@ -94,6 +94,15 @@ exclude:
   # rule. Excluding this kills the rct-extractor-v2 .csv FP cluster.
   - 'data/benchmarks/**'
   - '**/data/benchmarks/**'
+  # r-shiny/shinylive/**, r-shiny/shinylive-sw.js: vendored 3rd-party
+  # WebR/Shinylive runtime (TypeScript defs + service worker bundle).
+  # Strings like `/home/web_user` are the Emscripten/Pyodide sandbox
+  # runtime root, not a developer-machine path. Don't modify vendored
+  # files; exclude them here.
+  - 'r-shiny/shinylive/**'
+  - '**/r-shiny/shinylive/**'
+  - 'r-shiny/shinylive-sw.js'
+  - '**/r-shiny/shinylive-sw.js'
 fix_hint: >
   Replace absolute paths with relative paths, config-driven roots, or
   environment variables. Use candidate-root discovery for data snapshots.

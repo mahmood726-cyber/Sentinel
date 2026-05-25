@@ -5,9 +5,9 @@
 > **Your AI coding agent will make these mistakes. Sentinel catches them at `git push`.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![tests](https://img.shields.io/badge/tests-293%20passing-brightgreen.svg)](#testing)
-[![rules](https://img.shields.io/badge/rules-20%20%2B%2017%20regression%20fixtures-blue.svg)](#built-in-rules)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
+[![tests](https://img.shields.io/badge/tests-regression--backed-brightgreen.svg)](#testing)
+[![rules](https://img.shields.io/badge/rules-28%20built--in-blue.svg)](#built-in-rules)
 [![pre--push](https://img.shields.io/badge/pre--push-~2s-brightgreen.svg)](#how-fast)
 
 A **pre-push rule engine** for the Claude-Code / Cursor / Copilot / Codex era. Turns "don't commit `C:\Users\...` paths" and "don't ship placeholder HMAC signatures" and "don't claim an agent-config version your `pyproject.toml` disagrees with" into **executable checks that run before every `git push`** — in under 2 seconds, with zero CI.
@@ -16,7 +16,7 @@ When Sentinel fires, you see exactly which line of which file broke which rule. 
 
 ```console
 $ git push
-[Sentinel] scanning 234 tracked files across 11 rules...
+[Sentinel] scanning 234 tracked files across the active ruleset...
   [BLOCK] P0-hardcoded-local-path   src/loader.py:12
           DATA = r"C:\Users\alice\Projects\scratch\data.csv"
   [BLOCK] P0-placeholder-hmac       bundle.json:9
@@ -82,7 +82,7 @@ Both are auto-added to the target repo's `.gitignore` on install.
 
 ## Built-in rules
 
-Twenty rules total (6 YAML + 14 Python plugins). Each fires on a specific class of past-incident bug.
+Sentinel currently ships **28 built-in rules** (6 YAML + 22 Python plugins). Run `python -m sentinel list-rules` for the live count on your checkout.
 
 | Rule ID | Tier | What it catches |
 |---|---|---|
@@ -137,7 +137,7 @@ More complex rules (portfolio-scope, cross-file, multi-step) can be Python plugi
 On a typical 500-file repo:
 - `python -m sentinel scan` — **~0.8s**
 - Pre-push hook (scan + decide) — **~1.5-2.5s**
-- Full test suite (293 tests) — **~15s**
+- Full test suite — **~15s** on the author machine
 - Nightly portfolio aggregation (via Overmind) — async, doesn't block pushes
 
 Sentinel skips gitignored files (uses `git ls-files --cached --others --exclude-standard`), so scan time scales with tracked-file count, not total disk.
@@ -163,7 +163,7 @@ The marker must appear in the **first 1KB** of the file — deeper markers don't
 ## Testing
 
 ```bash
-python -m pytest                    # 293 tests, ~15s
+python -m pytest                    # full suite
 python -m pytest tests/regression   # 17-incident regression corpus
 python -m pytest tests/unit         # per-rule unit tests
 python -m pytest tests/integration  # cross-module integration
