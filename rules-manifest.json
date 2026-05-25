@@ -40,6 +40,7 @@
     "plugins/regex_catastrophic_backtrack.py": "f64fda88073e6438fa826541d24920448ccffea046bcb3a79b6bb245c6713d64",
     "plugins/registry_drift.py": "cdfca92ab7f446d52dab910a46315c1dd790e49bfbc78045b1871e56d9b36174",
     "plugins/script_close_in_template.py": "d5f0938e20500409810819bfe4c437325932201bf2dc3f4cb88cc54554d6f488",
+    "plugins/test_module_collision.py": "0aced5da4a3be300aa33ecdb3953b432b627d066c9cfd8c30a6bce55b19d0285",
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
     "yaml/P0-claude-config-committed.yaml": "11487d0b0444c105f4851b5c78ca39f00e3292336ab3209f54068d27b4a7eaa1",
     "yaml/P0-hardcoded-local-path.yaml": "6dbb4dc73c7840af76544a623ca96ed85d323e02a68ce4448491b3d6123f0038",
