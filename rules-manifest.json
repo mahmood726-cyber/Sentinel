@@ -30,6 +30,7 @@
     "plugins/memory_paths_resolve.py": "968f307d726b610acce902cb7f777f4f5e6ec45d74d2ea53e23820b2b07c3ac4",
     "plugins/module_stdout_reassign.py": "7db9aa7fe96c031e47251fb16a0825ffaddc1040abcaa8b4e19c709651df2df6",
     "plugins/nullish_or_mixed.py": "ab416ccee06a29e2a8ac41f30f9dd50cfd7ac8164704d6c66fbd46b90c3f8d8f",
+    "plugins/numeric_parse_or_null.py": "6c03a61b7ed34722ba6a5c191e25e47a9b199ed950df8bbb28472b72e100106d",
     "plugins/path_not_exist.py": "7101e12c9a795a38605956e2cddecf5fd53d674822fa1b1deeb9dd801ad7e944",
     "plugins/progress_md_not_gitignored.py": "cf6516ba0c03d7240ba22d77b35eb5d07969e45bb0afdc70557afe68416a5194",
     "plugins/py_package_init_tracked.py": "3dae5e98881c2a12c7bfd89d330934e365f6bac784db90e1cfd15c7254d77ffd",
