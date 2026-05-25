@@ -26,35 +26,75 @@ from pathlib import Path
 if sys.platform == "win32" and "pytest" not in sys.modules:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-# (mojibake bytes when read as UTF-8) → (original UTF-8 character)
-# Longest-first matters: `â€"` (em-dash) must be tried before bare `â€`
-# (right-double-quote partial) to avoid eating the leading 2 chars and
-# leaving `"` orphaned.
-FIXES = [
-    ("â”€", "─"),     # box drawings light horizontal
-    ("â€™", "'"),      # right single quote
-    ("â€˜", "'"),      # left single quote
-    ("â€œ", '"'),     # left double quote
-    ("â€\"", "—"),    # em dash (3 chars: â + € + ")
-    ("â€¦", "…"),     # horizontal ellipsis
-    ("â€", '"'),       # right double quote (partial — match last since shortest)
-    ("â˜…", "★"),     # black star
-    ("â–ˆ", "█"),     # full block
-    ("â–€", "▀"),     # upper half block
-    ("â†'", "→"),     # rightwards arrow
-    ("â†", "←"),       # leftwards arrow (partial)
-]
+# Mojibake repair via algorithmic round-trip:
+#
+# Original bug: a UTF-8 file is read as cp1252 then re-saved as UTF-8.
+# So a Unicode codepoint U whose UTF-8 encoding is N bytes b1 b2 ... bN
+# becomes N separate Unicode codepoints — each one is the cp1252 decoding
+# of the corresponding byte. To invert: take each suspicious "mojibake
+# run" of chars, re-encode them as cp1252 to recover the original bytes,
+# then decode those bytes as UTF-8.
+#
+# We only repair runs that:
+#   1. Start with `â` (U+00E2) — the cp1252 decoding of UTF-8 byte 0xE2,
+#      which is the lead byte for all U+2000-U+2FFF (typographic punct,
+#      arrows, box-drawing, etc. — the practically-affected range).
+#   2. Round-trip cleanly: every char in the run encodes to a single
+#      cp1252 byte, and the resulting byte sequence decodes as valid
+#      UTF-8 in the U+2000-U+2FFF range.
+#
+# This is safer than a hard-coded substitution table — past first-pass
+# attempt had wrong target codepoints (ASCII `"` U+0022 vs curly close
+# `"` U+201D) and `replace` ed the partial prefix, doubling the
+# corruption. Algorithmic invert can't make that mistake.
+
+
+def _try_demojibake_run(text: str, start: int) -> tuple[str, int] | None:
+    """If text[start:start+3] is a 3-char mojibake of a U+2000-U+2FFF
+    codepoint, return (original_char, 3). Otherwise None."""
+    if start + 3 > len(text) or text[start] != "â":
+        return None
+    try:
+        bs = bytearray()
+        for j in range(3):
+            ch = text[start + j]
+            encoded = ch.encode("cp1252", errors="strict")
+            if len(encoded) != 1:
+                return None
+            bs.append(encoded[0])
+        if bs[0] != 0xE2:
+            return None
+        original = bs.decode("utf-8", errors="strict")
+        if len(original) != 1:
+            return None
+        # Only accept "interesting punctuation / symbol" range, not
+        # arbitrary 3-byte UTF-8 (which might legitimately appear in
+        # Chinese / Arabic / etc. text).
+        if not (0x2000 <= ord(original) <= 0x27FF):
+            return None
+        return (original, 3)
+    except (UnicodeEncodeError, UnicodeDecodeError, ValueError):
+        return None
 
 
 def _fix_text(text: str) -> tuple[str, int]:
-    """Apply all mojibake fixes. Returns (fixed_text, total_replacements)."""
+    """Walk the text, replacing each algorithmic-recoverable mojibake run."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
     total = 0
-    for bad, good in FIXES:
-        if bad in text:
-            count = text.count(bad)
-            text = text.replace(bad, good)
-            total += count
-    return text, total
+    while i < n:
+        if text[i] == "â":
+            recovered = _try_demojibake_run(text, i)
+            if recovered is not None:
+                ch, consumed = recovered
+                out.append(ch)
+                i += consumed
+                total += 1
+                continue
+        out.append(text[i])
+        i += 1
+    return "".join(out), total
 
 
 def _walk_repo(root: Path):
@@ -103,7 +143,7 @@ def main(argv=None) -> int:
             text = p.read_text(encoding="utf-8", errors="strict")
         except (UnicodeDecodeError, OSError):
             continue
-        if not any(bad in text for bad, _ in FIXES):
+        if "â" not in text:
             continue
         new_text, count = _fix_text(text)
         if count == 0 or new_text == text:
