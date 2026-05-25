@@ -19,6 +19,7 @@
     "plugins/fabrication_round_number_cluster.py": "1bd5c6eb738652478fa71f33c28d46c38d9c90a9b66effa19fc1ae751c1d5eb5",
     "plugins/fabrication_self_contradiction.py": "05b9b0d0142b51776d3d9a3ac7517aba1d373d36d0a29e74fc3b505be5a12963",
     "plugins/fabrication_temporal_impossibility.py": "311b9f4d86f154b2a08c8b2c0bccb2eab314b763dac626400b99001d83ec2496",
+    "plugins/hallucinated_python_import.py": "26bef5c44596d42cbcc48b36af6ba9efe1288bb9e9d11af7db968cd3f6142015",
     "plugins/hallucination_classifier.py": "634b63ebd116bafd2080dca0d51bf031e55e09dbbc9fb6d802b08e9cb75ccd97",
     "plugins/hmac_compare_eq.py": "0cca46ad03a243793eb640d8914d0ac793a96558b2c090fbad221dd47112174c",
     "plugins/html_a11y_basics.py": "8868a8eb37e4f19a8ac39eb40a43b9bc911b53254c041b3c4c3b0209326ded23",
