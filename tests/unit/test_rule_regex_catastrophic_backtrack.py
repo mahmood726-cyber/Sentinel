@@ -1,3 +1,4 @@
+# sentinel:skip-file — test fixtures literally contain the bad regex patterns under test.
 """Tests for P1-regex-catastrophic-backtrack.
 
 Fires on Python re.compile/match/etc. calls whose pattern contains a
