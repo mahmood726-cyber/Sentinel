@@ -29,6 +29,18 @@ Files scanned: rewrite-workbook.txt, students.html, paper/*.html — anything
 that contains rendered e156 body text.
 
 Scope: repo (commit-time).
+
+Override mechanism (added 2026-05-25): operators can whitelist legitimate
+uses by adding one of these markers to the file or workbook entry:
+
+  <!-- sentinel:claim-language-allow -->                  (HTML)
+  # sentinel:claim-language-allow                         (markdown / workbook)
+  sentinel:claim-language-context: descriptive            (stronger; same effect)
+
+File-scope marker (before any [N/T] block, or in any non-workbook file) →
+skip the whole file. Entry-scope marker (inside an [N/T] block of the
+workbook) → skip just that entry. Use sparingly — the goal is operator-
+documented exceptions, not bulk silencing.
 """
 from __future__ import annotations
 
@@ -89,6 +101,25 @@ HETERO_RE = re.compile(
 # pages + students.html (the targets) all pass.
 SCRIPT_TAG_RE = re.compile(r"<script\b", re.IGNORECASE)
 
+# Per-entry / per-file override marker. Operators can whitelist legitimate
+# uses of certainty/overclaim language (e.g. "confirmed cases" in a public-
+# health audit, "eliminates wrangling" in a software description) by adding
+# one of these markers to the file or workbook entry:
+#
+#   <!-- sentinel:claim-language-allow -->                  (HTML)
+#   # sentinel:claim-language-allow                         (markdown/workbook)
+#   sentinel:claim-language-allow                            (anywhere in metadata)
+#   sentinel:claim-language-context: descriptive             (stronger, same effect)
+#
+# File-scope marker → skip the whole file. Entry-scope marker (inside the
+# [N/T] to next-SEP block in rewrite-workbook.txt) → skip just that entry.
+#
+# Use sparingly. The point is operator-documented exceptions, not bulk silencing.
+OVERRIDE_MARKER_RE = re.compile(
+    r"sentinel:claim-language(?:-allow|-context:\s*\w+)",
+    re.IGNORECASE,
+)
+
 EXCLUDE_DIRS = frozenset((
     "node_modules", "__pycache__", ".git", ".pytest_cache",
     ".venv", "venv", "build", "dist",
@@ -120,6 +151,27 @@ def _iter_target_files(root: Path):
             yield p
 
 
+def _entry_blocks_with_overrides(text: str, rel: str) -> set[tuple[int, int]]:
+    """For the workbook only: return the set of (start, end) char offsets of
+    [N/T] entry blocks that contain a per-entry override marker. Findings
+    inside those ranges are suppressed."""
+    if rel != "rewrite-workbook.txt":
+        # Only the workbook has [N/T] entry blocks separated by 70 "=" chars.
+        return set()
+    SEP = "=" * 70
+    overrides: set[tuple[int, int]] = set()
+    cursor = 0
+    while True:
+        end = text.find(SEP, cursor + 1)
+        block = text[cursor:end if end >= 0 else len(text)]
+        if OVERRIDE_MARKER_RE.search(block):
+            overrides.add((cursor, end if end >= 0 else len(text)))
+        if end < 0:
+            break
+        cursor = end + len(SEP)
+    return overrides
+
+
 def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
     verdicts: List[Verdict] = []
 
@@ -130,8 +182,31 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
     if "claim-language" in rel or "claim_language" in rel:
         return verdicts
 
+    # File-scope override: skip the whole file.
+    if OVERRIDE_MARKER_RE.search(text):
+        # An entry-scope marker is INSIDE a [N/T] block; a file-scope marker
+        # is OUTSIDE any block (header, footer, prelude). For non-workbook
+        # files we use the simpler heuristic: any marker present → skip file.
+        if rel != "rewrite-workbook.txt":
+            return verdicts
+        # For the workbook, only skip the whole file if the marker is in
+        # the pre-entry header. Detect by checking if the FIRST marker
+        # appears before the first [N/T] block.
+        first_marker = OVERRIDE_MARKER_RE.search(text).start()
+        first_entry = re.search(r"^\[\d+/\d+\]", text, re.MULTILINE)
+        if first_entry is None or first_marker < first_entry.start():
+            return verdicts
+
+    # Entry-scope overrides: collect the ranges to suppress (workbook only).
+    override_ranges = _entry_blocks_with_overrides(text, rel)
+
+    def _is_overridden(offset: int) -> bool:
+        return any(s <= offset < e for s, e in override_ranges)
+
     # 1a. WARN on soft-overclaim (confirms/confirmed)
     for m in OVERCLAIM_SOFT_RE.finditer(text):
+        if _is_overridden(m.start()):
+            continue
         pre = text[max(0, m.start() - 500):m.start()]
         if pre.rfind("<script") > pre.rfind("</script>"):
             continue
@@ -156,6 +231,8 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
 
     # 1b. BLOCK on causal-overclaim words
     for m in CAUSAL_OVERCLAIM_RE.finditer(text):
+        if _is_overridden(m.start()):
+            continue
         # Skip if inside a <script> block (likely a JS variable / API doc)
         # Heuristic: previous 200 chars contain <script and no </script
         pre = text[max(0, m.start() - 500):m.start()]
@@ -189,6 +266,9 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
         blocks = text.split(SEP)
         for i, blk in enumerate(blocks):
             if not blk.strip():
+                continue
+            # Entry-scope override marker → suppress THIS entry's findings
+            if OVERRIDE_MARKER_RE.search(blk):
                 continue
             hm = re.search(r"^\[(\d+)/\d+\]", blk, re.MULTILINE)
             entry_num = int(hm.group(1)) if hm else None
