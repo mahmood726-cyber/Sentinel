@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-path-not-exist
 description: 'P0-path-not-exist: portfolio-scoped. Every project in the manifest must have a path that resolves on disk. Missing paths = BLOCK.'

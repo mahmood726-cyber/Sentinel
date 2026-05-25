@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-js-lockfile-present
 description: 'P1-js-lockfile-present: WARN when package.json has no companion lockfile.'

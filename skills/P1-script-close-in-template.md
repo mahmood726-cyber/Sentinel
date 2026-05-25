@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-script-close-in-template
 description: 'P1-script-close-in-template: BLOCK on literal `</script>` inside a template literal or string inside a `<script>` block.'

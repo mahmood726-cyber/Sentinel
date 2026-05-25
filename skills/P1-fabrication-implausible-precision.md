@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-fabrication-implausible-precision
 description: "P1-fabrication-implausible-precision: WARN when a CI is impossibly narrow given the trial's sample size."

@@ -146,7 +146,12 @@ def _to_skill_md(info: dict, source_kind: str, source_path: Path) -> str:
         f"edit the rule and re-run the exporter._"
     )
 
+    # Skip-marker so SKILL.md exports of rules whose docstrings legitimately
+    # demonstrate the bad pattern don't self-flag (cp1252_mojibake,
+    # script_close_in_template, etc.). Comment-syntax HTML form is read by
+    # sentinel.io.skip_marker.
     return textwrap.dedent(f"""\
+        <!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
         ---
         name: {rid}
         description: {desc!r}

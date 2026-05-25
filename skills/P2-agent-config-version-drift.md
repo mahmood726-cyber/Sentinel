@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-agent-config-version-drift
 description: 'P2-agent-config-version-drift: repo-scoped.'

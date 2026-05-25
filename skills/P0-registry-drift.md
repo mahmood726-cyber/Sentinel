@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-registry-drift
 description: 'P0-registry-drift: wraps reconcile_counts.py as a portfolio-scoped rule.'

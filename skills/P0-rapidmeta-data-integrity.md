@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-rapidmeta-data-integrity
 description: 'P0-rapidmeta-data-integrity: BLOCK on silent-shadowing data bugs in RapidMeta-style dashboards (*_REVIEW.html).'

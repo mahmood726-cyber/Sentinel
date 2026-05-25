@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-memory-paths-resolve
 description: 'P2-memory-paths-resolve: WARN on Claude memory files referencing non-existent paths.'

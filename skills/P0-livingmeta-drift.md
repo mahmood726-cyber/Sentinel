@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-livingmeta-drift
 description: 'P0-livingmeta-drift: wraps audit_livingmeta_claims.py as a portfolio rule.'

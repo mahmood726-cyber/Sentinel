@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-cochrane-v65-invariants
 description: 'P1-cochrane-v65-invariants: WARN when a RapidMeta-style dashboard is missing one of the Cochrane Handbook v6.5 / RevMan-2025 statistical invariants that the engine portfolio standardised on at v13.0 (commit f415bff, 2026-04-29).'

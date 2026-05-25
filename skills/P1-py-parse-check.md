@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-py-parse-check
 description: "P1-py-parse-check: BLOCK pushes containing .py files that fail python's parser."

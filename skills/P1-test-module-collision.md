@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-test-module-collision
 description: 'P1-test-module-collision: BLOCK when two `test_*.py` files share a basename across directories AND at least one directory lacks `__init__.py`.'

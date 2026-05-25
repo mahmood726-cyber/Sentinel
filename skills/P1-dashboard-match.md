@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-dashboard-match
 description: "P1-dashboard-match: WARN when a rendered review's workbook-level pooled HR/OR claim is incompatible with the per-trial values inside its own realData block."

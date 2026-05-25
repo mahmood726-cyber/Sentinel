@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-hardcoded-local-path
 description: 'Shipped code must not contain absolute local paths like `C:\\Users\\...` or `/home/<user>/...` per lessons.md#code-quality. These leak developer environment details and break portability.'

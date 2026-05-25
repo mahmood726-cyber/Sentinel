@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-unpopulated-placeholder
 description: 'Unpopulated template placeholders (Jinja braces, REPLACE_ME, TBD markers) should not ship in built assets per html-apps.md#safety-checks.'

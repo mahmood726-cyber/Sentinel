@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-placeholder-hmac
 description: 'Placeholder HMAC signatures shipping as real crypto. Any string matching SIG_RSA_SHA256_ or signature_placeholder indicates an unreplaced TruthCert scaffold.'

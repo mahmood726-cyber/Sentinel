@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-js-parse-check
 description: "P1-js-parse-check: BLOCK pushes containing JS files that fail node's parser."

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-hmac-compare-eq
 description: 'P0-hmac-compare-eq: BLOCK on `==` / `!=` comparison of HMAC / digest / signature values where `hmac.compare_digest` should be used.'

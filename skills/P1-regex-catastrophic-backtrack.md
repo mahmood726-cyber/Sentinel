@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-regex-catastrophic-backtrack
 description: 'P1-regex-catastrophic-backtrack: WARN on Python regex patterns with nested unbounded quantifiers that risk catastrophic backtracking (ReDoS).'

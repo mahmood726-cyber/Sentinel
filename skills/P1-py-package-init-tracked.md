@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-py-package-init-tracked
 description: 'P1-py-package-init-tracked: WARN when a directory has files using relative imports but its `__init__.py` package marker is not tracked in git.'

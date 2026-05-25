@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-license-noncompliance
 description: "P1-license-noncompliance: WARN when a repo's declared dependencies include a copyleft license (GPL/AGPL/LGPL family) that would create a compatibility risk for repos published under MIT."

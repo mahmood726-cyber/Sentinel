@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-leaked-secret
 description: 'P1-leaked-secret: WARN when a tracked file contains a string that looks like a real credential (API key, token, private-key header).'

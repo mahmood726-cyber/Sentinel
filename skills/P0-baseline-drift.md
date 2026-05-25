@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-baseline-drift
 description: "P0-baseline-drift: BLOCK when a shipped paper's numerical baseline drifts beyond tolerance."

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-fabrication-self-contradiction
 description: 'P1-fabrication-self-contradiction: WARN when an entry\'s body claims "no difference" / "non-significant" but quotes a CI whose bounds are both on the same side of the null.'

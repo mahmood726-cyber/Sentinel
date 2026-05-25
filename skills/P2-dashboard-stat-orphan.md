@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-dashboard-stat-orphan
 description: 'P2-dashboard-stat-orphan: INFO on stat-card values that appear nowhere else in the HTML.'

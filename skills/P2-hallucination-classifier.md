@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-hallucination-classifier
 description: 'P2-hallucination-classifier: WARN when a small classifier model judges that a rendered body claim is unsupported by its context.'

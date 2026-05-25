@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-workbook-rewrite-touched
 description: 'P0-workbook-rewrite-touched: BLOCK if a staged diff touches a YOUR REWRITE: section in rewrite-workbook.txt.'

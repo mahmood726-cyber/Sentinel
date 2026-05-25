@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-claude-config-committed
 description: 'Agent tool configuration directories (.claude/, .gemini/, .codex/) must never be committed to public repos per CLAUDE.md#config-safety.'

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-e156-placeholder-leak
 description: 'P0-e156-placeholder-leak: BLOCK on Python-None / template-placeholder leaks in e156 students.html and rewrite-workbook.txt.'

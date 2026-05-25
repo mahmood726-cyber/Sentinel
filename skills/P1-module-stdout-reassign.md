@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-module-stdout-reassign
 description: "P1-module-stdout-reassign: WARN on module-level sys.stdout reassignment that doesn't exclude pytest."

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-localstorage-key-collision
 description: 'P0-localstorage-key-collision: BLOCK when 2+ dashboards share the same rapid_meta_* localStorage key prefix.'

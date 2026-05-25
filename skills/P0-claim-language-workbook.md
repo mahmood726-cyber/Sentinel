@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-claim-language-workbook
 description: 'P0-claim-language: BLOCK causal-overclaim words; WARN certainty-claims near heterogeneity language.'

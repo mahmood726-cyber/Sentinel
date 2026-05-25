@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-empty-dataframe-access
 description: 'Positional DataFrame/Series access (`.iloc[0]`, `.iloc[-1]`, `.values[0]`) raises IndexError on empty inputs. Named in MEMORY.md#top-5-cross-project -defects as one of the five repeat offenders (alongside XSS, hardcoded paths, localStorage collisi...'

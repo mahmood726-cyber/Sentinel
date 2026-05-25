@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-denominator-logic
 description: "P0-denominator-logic: BLOCK on events > totals and on CIs that don't bracket their point estimate."

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-blueprint-implementation-match
 description: 'P1-blueprint-implementation-match: repo-scoped.'

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P0-citation-cascade
 description: 'P0-citation-cascade: BLOCK structurally-invalid DOIs; WARN on potentially hallucinated citations.'

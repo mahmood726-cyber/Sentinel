@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-silent-failure-sentinel
 description: 'Silent failure sentinels like `return "unknown_..."` hide schema errors and let pipelines complete with corrupted output per lessons.md#integration-contracts. Prefer raising KeyError with the expected-vs-received key diff.'

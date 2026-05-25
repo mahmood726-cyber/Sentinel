@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-js-scripts-resolvable
 description: "P1-js-scripts-resolvable: WARN when package.json scripts reference files that don't exist."

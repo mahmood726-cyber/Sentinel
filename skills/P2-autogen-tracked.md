@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-autogen-tracked
 description: 'P2-autogen-tracked: WARN when known auto-generated files are tracked in git.'

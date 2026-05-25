@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-fabrication-round-number-cluster
 description: 'P1-fabrication-round-number-cluster: WARN on entries where too many distinct number categories happen to land on suspiciously round values.'

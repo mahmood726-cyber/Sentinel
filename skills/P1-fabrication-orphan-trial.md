@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-fabrication-orphan-trial
 description: 'P1-fabrication-orphan-trial: WARN when an NCT id is mentioned in the rendered body but has no matching entry in realData.'

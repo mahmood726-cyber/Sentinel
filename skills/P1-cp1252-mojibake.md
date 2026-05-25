@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-cp1252-mojibake
 description: 'P1-cp1252-mojibake: WARN on UTF-8 files containing canonical cp1252-misread byte sequences.'

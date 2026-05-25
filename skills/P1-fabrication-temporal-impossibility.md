@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-fabrication-temporal-impossibility
 description: "P1-fabrication-temporal-impossibility: WARN when a trial's year field creates a chronologically impossible scenario."

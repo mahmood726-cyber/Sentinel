@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-numeric-parse-or-null
 description: 'P2-numeric-parse-or-null: WARN on `parseFloat(x) || null` / `parseInt(x) || null` / `Number(x) || null` — drops 0.0 silently.'

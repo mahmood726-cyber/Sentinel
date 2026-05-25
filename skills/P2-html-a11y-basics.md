@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-html-a11y-basics
 description: 'P2-html-a11y-basics: INFO on basic WCAG failures in tracked HTML.'

@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P2-progress-md-not-gitignored
 description: 'P2-progress-md-not-gitignored: INFO if PROGRESS.md is tracked by git.'

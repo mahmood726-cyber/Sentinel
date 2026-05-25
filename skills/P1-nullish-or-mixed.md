@@ -1,3 +1,4 @@
+<!-- sentinel:skip-file — auto-generated rule descriptor; docstring may demonstrate the bad pattern by design -->
 ---
 name: P1-nullish-or-mixed
 description: 'P1-nullish-or-mixed: BLOCK on `?? ... ||` (or vice versa) mixed in JavaScript without explicit grouping parentheses.'
