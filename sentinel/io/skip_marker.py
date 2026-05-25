@@ -43,8 +43,11 @@ SKIP_MARKER_SCAN_BYTES = 1024
 # line 2 (`REM sentinel:skip-file ...`) was being ignored because only
 # family (1) was recognised, producing 13 false-positive hits on the .bat
 # despite the marker being present.
+# Added 2026-05-25: HTML comment prefix `<!--` to support .html test
+# fixtures that legitimately contain intentional bug examples (the
+# script-close-in-template rule's BAD fixture being the trigger).
 _PREFIX_RE = re.compile(
-    rb"^(?:[ \t]*(?i:rem)[ \t]+|[ \t]*::[ \t]*|[#/* \t]*)sentinel:skip-file\b",
+    rb"^(?:[ \t]*(?i:rem)[ \t]+|[ \t]*::[ \t]*|[ \t]*<!--[ \t-]*|[#/* \t]*)sentinel:skip-file\b",
     re.MULTILINE,
 )
 
