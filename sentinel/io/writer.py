@@ -44,27 +44,26 @@ def _append_jsonl(path: Path, verdicts: Sequence[Verdict]) -> None:
 
 
 def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
-    # MD and JSONL appends are not wrapped in a single atomic transaction:
-    # a crash between them leaves the pair out of sync by one entry.
-    # Reruns recover (both files append further); downstream consumers
-    # that require exact parity should treat JSONL as canonical.
+    # JSONL is written first because downstream automation treats it as the
+    # canonical machine-readable source. If a later Markdown append is
+    # interrupted by a lock/crash, Overmind can still see the finding.
     blocks = [v for v in verdicts if v.severity == Severity.BLOCK]
     warns = [v for v in verdicts if v.severity == Severity.WARN]
 
     if blocks:
+        _append_jsonl(repo_root / BLOCK_JSONL, blocks)
         md_path = repo_root / BLOCK_MD
         if not md_path.exists():
             md_path.write_text(STUCK_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:
             for v in blocks:
                 f.write(_format_verdict(v))
-        _append_jsonl(repo_root / BLOCK_JSONL, blocks)
 
     if warns:
+        _append_jsonl(repo_root / WARN_JSONL, warns)
         md_path = repo_root / WARN_MD
         if not md_path.exists():
             md_path.write_text(REVIEW_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:
             for v in warns:
                 f.write(_format_verdict(v))
-        _append_jsonl(repo_root / WARN_JSONL, warns)
