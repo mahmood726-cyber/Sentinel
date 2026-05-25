@@ -9,6 +9,7 @@
     "plugins/citation_cascade.py": "31490c4169d95ce32ca103ae0aabc02436742cd29b88c4ae1795e0d01dd0ba64",
     "plugins/claim_language.py": "bbb9420130c0a81075e10df9f7d575e5036de65cb7a23d10b2131454478e7ab8",
     "plugins/cochrane_v65_invariants.py": "abdbd930355335e60d9d0e690e5c95585076894a58800d0b67a9f599c60eb918",
+    "plugins/cp1252_mojibake.py": "17179b03cdd554a743200de95dc0b8a291e3c1d3a4be669d703b351bb9e4c0b4",
     "plugins/dashboard_match.py": "0d6e5f741297782eafb2c24f946091770f59e54312377039df6e62ee56ed99bf",
     "plugins/dashboard_stat_orphan.py": "bd07f231ccb1a6b1c7ef6a8bcbd2d289d253a54f9b53ac6a76f09c565e04229c",
     "plugins/denominator_logic.py": "30ea89c4803ae09975543e01f7da7e0a750d4e26b0d36174a5e46cb527a4a4bd",

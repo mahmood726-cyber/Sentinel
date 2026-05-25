@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![tests](https://img.shields.io/badge/tests-regression--backed-brightgreen.svg)](#testing)
-[![rules](https://img.shields.io/badge/rules-28%20built--in-blue.svg)](#built-in-rules)
+[![rules](https://img.shields.io/badge/rules-47%20built--in-blue.svg)](#built-in-rules)
 [![pre--push](https://img.shields.io/badge/pre--push-~2s-brightgreen.svg)](#how-fast)
 
 A **pre-push rule engine** for the Claude-Code / Cursor / Copilot / Codex era. Turns "don't commit `C:\Users\...` paths" and "don't ship placeholder HMAC signatures" and "don't claim an agent-config version your `pyproject.toml` disagrees with" into **executable checks that run before every `git push`** — in under 2 seconds, with zero CI.
@@ -82,30 +82,78 @@ Both are auto-added to the target repo's `.gitignore` on install.
 
 ## Built-in rules
 
-Sentinel currently ships **28 built-in rules** (6 YAML + 22 Python plugins). Run `python -m sentinel list-rules` for the live count on your checkout.
+Sentinel currently ships **47 built-in rules** (6 YAML + 41 Python plugins). Run `python -m sentinel list-rules` for the live count on your checkout.
+
+### Generic code-quality
 
 | Rule ID | Tier | What it catches |
 |---|---|---|
 | `P0-hardcoded-local-path` | BLOCK | `C:\Users\...`, `/home/...`, `D:\projects\...`, `/Users/...` in shipped code |
 | `P0-placeholder-hmac` | BLOCK | `SIG_RSA_SHA256_`, `signature_placeholder` — faux crypto sigs |
+| `P0-hmac-compare-eq` | BLOCK | `==` / `!=` on HMAC / signature / digest identifiers (timing-leak) |
 | `P0-claude-config-committed` | BLOCK | `.claude/`, `.gemini/`, `.codex/` committed to a repo |
-| `P0-path-not-exist` | BLOCK (portfolio) | Registry paths that don't resolve on disk |
-| `P0-registry-drift` | BLOCK (portfolio) | Multiple registries disagreeing on project count |
 | `P0-workbook-rewrite-touched` | BLOCK | Edits to protected `YOUR REWRITE` sections |
-| `P0-livingmeta-drift` | BLOCK (portfolio) | Trial-ID drift between workbook and deployed HTML |
 | `P1-silent-failure-sentinel` | WARN | `return "unknown_ratio"` / `return "__silent__"` (silent failures) |
 | `P1-unpopulated-placeholder` | WARN | `{{x}}`, `{{ x\|filter }}`, `REPLACE_ME`, `TBD:`, `XXX:` |
 | `P1-empty-dataframe-access` | WARN | Unchecked `.iloc[0]` / `.values[0]` on possibly empty DataFrames |
-| `P1-js-parse-check` | BLOCK | JS files that fail to parse (catches `</script>` in template literals, hyphen in function names) |
-| `P1-js-lockfile-present` | WARN | `package.json` without a `package-lock.json` in submission-ready JS repos |
-| `P1-js-scripts-resolvable` | WARN | `package.json` scripts referencing files that don't exist |
-| `P1-py-parse-check` | BLOCK | Python files that fail to parse (catches the `test_*.py` stdout-reassign collection trap) |
+| `P1-leaked-secret` | BLOCK | OpenAI / GitHub / AWS / Anthropic key shapes in tracked files |
+| `P1-license-noncompliance` | WARN | Bundled dependencies whose declared license disagrees with the repo's LICENSE |
+| `P1-cp1252-mojibake` | WARN | Canonical `â"€`, `â€"`, `â˜…` byte sequences (UTF-8 reopened in cp1252 editor) |
 | `P1-blueprint-implementation-match` | WARN | `blueprint.json`-declared DOM ids that don't exist in any shipped `.html` file |
 | `P2-agent-config-version-drift` | WARN | Stale version claims in `AGENTS.md` vs `pyproject.toml` |
 | `P2-autogen-tracked` | WARN | Tracked auto-generated files (`PROGRESS.md`, `DECISIONS.md`, `stability_state.json`, etc.) |
-| `P2-dashboard-stat-orphan` | INFO | Dashboard stats with no matching upstream source (orphaned metric) |
-| `P2-memory-paths-resolve` | WARN (portfolio) | Paths cited in Claude memory files that don't resolve on disk |
 | `P2-progress-md-not-gitignored` | INFO | Tracked `PROGRESS.md` (session state leaking) |
+| `P2-html-a11y-basics` | INFO | `<html>` w/o `lang=`, missing `<title>`, `<img>` w/o `alt=`, unlabeled inputs |
+
+### Python collection / runtime
+
+| Rule ID | Tier | What it catches |
+|---|---|---|
+| `P1-py-parse-check` | BLOCK | Python files that fail to parse |
+| `P1-py-package-init-tracked` | WARN | Importable package directory committed without `__init__.py` |
+| `P1-test-module-collision` | BLOCK | Two `test_*.py` files sharing basename across dirs without `__init__.py` (pytest drops one) |
+| `P1-module-stdout-reassign` | WARN | Module-level `sys.stdout = io.TextIOWrapper(...)` without a `"pytest" not in sys.modules` guard |
+| `P1-regex-catastrophic-backtrack` | WARN | Nested unbounded quantifiers `(\w+)+`, `(.+)*` (ReDoS) |
+
+### JavaScript / HTML
+
+| Rule ID | Tier | What it catches |
+|---|---|---|
+| `P1-js-parse-check` | BLOCK | JS files that fail to parse |
+| `P1-js-lockfile-present` | WARN | `package.json` without a `package-lock.json` in submission-ready JS repos |
+| `P1-js-scripts-resolvable` | WARN | `package.json` scripts referencing files that don't exist |
+| `P1-script-close-in-template` | BLOCK | Literal `</script>` inside a backtick template literal |
+| `P1-nullish-or-mixed` | BLOCK | `?? \|\| ` or `?? &&` without explicit grouping parens (JS SyntaxError) |
+| `P2-numeric-parse-or-null` | WARN | `parseFloat(x) \|\| null` silently dropping 0.0 |
+| `P1-dashboard-match` | WARN | Rendered review's pooled HR/OR claim incompatible with its own realData block |
+
+### E156 Assurance Standard
+
+| Rule ID | Tier | What it catches |
+|---|---|---|
+| `P0-baseline-drift` | BLOCK | MissionCritical baseline corpus integrity |
+| `P0-citation-cascade` | BLOCK | Citation chain integrity in the workbook |
+| `P0-claim-language-workbook` | WARN (BLOCK with `SENTINEL_CLAIM_LANGUAGE_BLOCK=1`) | Causal-claim language without override marker |
+| `P0-denominator-logic` | BLOCK | Inconsistent denominators across data extraction |
+| `P0-e156-placeholder-leak` | BLOCK | Python `None` reaching JS object literals → `Uncaught ReferenceError` |
+| `P0-rapidmeta-data-integrity` | BLOCK | Trial-data tampering in rapidmeta review files |
+| `P1-cochrane-v65-invariants` | WARN | Cochrane v6.5 / RevMan 2025 numeric-reproducibility invariants |
+| `P1-fabrication-implausible-precision` | WARN | BadScientist arXiv 2510.18003 — implausibly precise numbers |
+| `P1-fabrication-orphan-trial` | WARN | BadScientist — trial cited but never linked to source |
+| `P1-fabrication-round-number-cluster` | WARN | BadScientist — too many round numbers in one report |
+| `P1-fabrication-self-contradiction` | WARN | BadScientist — body claim contradicts its own data table |
+| `P1-fabrication-temporal-impossibility` | WARN | BadScientist — dates that can't have happened |
+| `P2-hallucination-classifier` | WARN | HF Inference API hallucination score above threshold (scaffolded — needs HF_API_KEY) |
+| `P2-dashboard-stat-orphan` | INFO | Dashboard stats with no matching upstream source |
+
+### Portfolio scope
+
+| Rule ID | Tier | What it catches |
+|---|---|---|
+| `P0-path-not-exist` | BLOCK (portfolio) | Registry paths that don't resolve on disk |
+| `P0-registry-drift` | BLOCK (portfolio) | Multiple registries disagreeing on project count |
+| `P0-livingmeta-drift` | BLOCK (portfolio) | Trial-ID drift between workbook and deployed HTML |
+| `P2-memory-paths-resolve` | WARN (portfolio) | Paths cited in Claude memory files that don't resolve on disk |
 
 ## Writing your own rule
 
