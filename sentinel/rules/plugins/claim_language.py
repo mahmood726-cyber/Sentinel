@@ -52,10 +52,31 @@ from typing import List
 from sentinel.core import RepoContext, Severity, Verdict
 
 
-ID = "P1-claim-language"
+ID = "P0-claim-language-workbook"
+# Default severity is WARN across all files. BLOCK promotion is opt-in
+# via SENTINEL_CLAIM_LANGUAGE_BLOCK=1 (workbook-only — rendered HTML
+# always stays WARN even with the flag because those are auto-generated
+# artifacts; fix the source, not the render).
+#
+# Phase-3 Q (2026-05-25): the path to BLOCK is shipped; the live baseline
+# (1293 firings on the workbook) is too noisy to default-on without a
+# substantial content cleanup pass first. Operator turns it on per-session
+# once they've handled enough overrides.
 SEVERITY = Severity.WARN
 SOURCE = "F:\\e156\\docs\\assurance-standard.md#4-claim-language-checking"
 SCOPE = "repo"
+
+import os as _os
+_BLOCK_OPT_IN = _os.environ.get("SENTINEL_CLAIM_LANGUAGE_BLOCK") == "1"
+
+
+def _severity_for(rel: str) -> "Severity":
+    """Per-file severity. With SENTINEL_CLAIM_LANGUAGE_BLOCK=1, the
+    workbook gets BLOCK while rendered HTML stays WARN. Without the flag,
+    everything stays WARN."""
+    if _BLOCK_OPT_IN and rel == "rewrite-workbook.txt":
+        return Severity.BLOCK
+    return Severity.WARN
 
 MAX_FILE_BYTES = 10_000_000
 
@@ -212,7 +233,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
             continue
         verdicts.append(Verdict(
             rule_id=ID,
-            severity=Severity.WARN,
+            severity=_severity_for(rel),
             repo=None,
             file=rel,
             line=_line_of(text, m.start()),
@@ -240,7 +261,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
             continue
         verdicts.append(Verdict(
             rule_id=ID,
-            severity=Severity.WARN,
+            severity=_severity_for(rel),
             repo=None,
             file=rel,
             line=_line_of(text, m.start()),
@@ -281,7 +302,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
                 blk_offset = sum(len(blocks[j]) + len(SEP) for j in range(i))
                 verdicts.append(Verdict(
                     rule_id=ID,
-                    severity=Severity.WARN,
+                    severity=_severity_for(rel),
                     repo=None,
                     file=rel,
                     line=_line_of(text, blk_offset + first.start()),
@@ -305,7 +326,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
             first = certs[0]
             verdicts.append(Verdict(
                 rule_id=ID,
-                severity=Severity.WARN,
+                severity=_severity_for(rel),
                 repo=None,
                 file=rel,
                 line=_line_of(text, first.start()),
