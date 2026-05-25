@@ -14,6 +14,12 @@ files:
 exclude:
   - 'docs/superpowers/specs/**'
   - 'docs/superpowers/plans/**'
+  # skills/**: auto-exported documentation of Sentinel's own rules.
+  # The body legitimately contains the trigger strings (SIG_RSA_SHA256_,
+  # signature_placeholder) for illustration.
+  - 'skills/**'
+  - '**/skills/**'
+  - 'sentinel/rules/**'
 fix_hint: >
   Replace with a real HMAC computed from env TRUTHCERT_HMAC_KEY.
   See lessons.md#cryptography--signing-learned-2026-04-14.

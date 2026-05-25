@@ -24,6 +24,12 @@ files:
 exclude:
   - 'docs/superpowers/**'
   - 'templates/**'
+  # skills/**: auto-exported documentation of Sentinel's own rules.
+  # The body legitimately contains placeholder example strings
+  # (REPLACE_ME, TBD, __PLACEHOLDER__) for illustration.
+  - 'skills/**'
+  - '**/skills/**'
+  - 'sentinel/rules/**'
   # docs/index.html is Sentinel's own dashboard page, which contains
   # demonstration patterns ({{ user_name }}, REPLACE_ME, TBD:, XXX:,
   # __PLACEHOLDER__) used to illustrate what this rule catches. The
