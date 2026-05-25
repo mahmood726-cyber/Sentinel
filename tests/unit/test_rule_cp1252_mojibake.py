@@ -1,3 +1,4 @@
+# sentinel:skip-file — test fixtures literally contain mojibake patterns.
 """Tests for P1-cp1252-mojibake.
 
 Fires on UTF-8 files containing canonical cp1252-misread byte
