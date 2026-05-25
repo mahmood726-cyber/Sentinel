@@ -73,3 +73,40 @@ def has_skip_marker(file_path: Path) -> bool:
     if head.startswith(b"\xef\xbb\xbf"):
         head = head[3:]
     return _PREFIX_RE.search(head) is not None
+
+
+# Per-line `# sentinel:skip-line` marker for narrow false-positive cases
+# where the upstream guard isn't visible to the pattern matcher. Promoted
+# from sentinel.registry.yaml_loader so plugin rules can honor the same
+# convention without duplicating the parser. Syntax:
+#
+#   risky_call(x)  # sentinel:skip-line P0-foo-rule
+#   risky_call(y)  # sentinel:skip-line P0-foo-rule, P1-bar-rule
+#   risky_call(z)  # sentinel:skip-line   <- bare; suppresses all rules on line
+#
+# Or on the line immediately ABOVE:
+#
+#   # sentinel:skip-line P0-foo-rule
+#   risky_call(w)
+SKIP_LINE_MARKER = "sentinel:skip-line"
+
+
+def line_is_suppressed(current_line: str, prev_line: str, rule_id: str) -> bool:
+    """True if a `sentinel:skip-line` marker on `current_line` or
+    `prev_line` suppresses `rule_id`. Both args are bare line strings
+    (no trailing newline).
+
+    Bare marker (no rule IDs after) suppresses all rules. Scoped form
+    accepts space- or comma-separated rule IDs.
+    """
+    for candidate in (current_line, prev_line):
+        idx = candidate.find(SKIP_LINE_MARKER)
+        if idx == -1:
+            continue
+        after = candidate[idx + len(SKIP_LINE_MARKER):]
+        tokens = [tok for tok in after.replace(",", " ").split() if tok]
+        if not tokens:
+            return True
+        if rule_id in tokens:
+            return True
+    return False

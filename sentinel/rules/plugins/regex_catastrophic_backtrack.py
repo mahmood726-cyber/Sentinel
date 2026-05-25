@@ -61,24 +61,38 @@ _RE_CALL_RE = re.compile(
 #    where the inner pattern itself is unbounded.
 # 2. Two adjacent unbounded quantifiers on overlapping char classes.
 
-# Shape 1 — group whose body contains `+` or `*` outside another group,
+# Shape: group whose body contains `+` or `*` outside another group,
 # followed by another `+` or `*` on the group itself.
 _NESTED_UNBOUNDED_RE = re.compile(
     r"\(([^()]*[+*][?+]?[^()]*)\)[+*][?+]?"
 )
 
+# A group body counts as "wildly unbounded" only when the inner `+`/`*`
+# applies to a wildcard class. Specific anchors like `[/-]` or `\d+\.\s`
+# limit backtracking enough in practice — past incidents (lessons.md ReDoS)
+# all involved wildcard-only patterns.
+_WILD_INNER_RE = re.compile(
+    r"(?:"
+    r"\.[+*][?+]?"               # .+ .* .+? .*?
+    r"|\\[wWsSdD][+*][?+]?"      # \w+ \W+ \s+ \S+ \d+ \D+ + variants
+    r"|\[[^\]]*\][+*][?+]?"      # [class]+ — but ALSO must not have a literal anchor
+    r")"
+)
+
 
 def _has_inner_unbounded(group_body: str) -> bool:
-    """The captured (...) body must contain `+` or `*` that's not bounded
-    by `{n,m}`. Also must not be a non-capturing-only marker like `?:`."""
-    # Strip non-capturing markers / lookarounds — they don't affect
-    # backtracking semantics here.
-    s = group_body
-    # Skip `[\w]+` style — those by themselves are fine; the danger is when
-    # the WHOLE GROUP is then quantified.
-    # A bare `+` or `*` inside the group means the outer `+` on the group
-    # creates the exponential blow-up.
-    return bool(re.search(r"[+*]\??", s))
+    """True if the captured (...) body contains a wildcard `+`/`*` whose
+    target is a generic class (`.`, `\\w`, `\\s`, `\\S`, `\\d`, etc.) and
+    is not bounded by an adjacent literal anchor. Specific-literal anchors
+    inside the group prevent backtracking explosion in practice."""
+    # If the body has a literal anchor (specific punct char outside a class),
+    # the engine can't explode — bail out.
+    # Heuristic: any literal `/`, `-`, `:`, `.`, `,`, `;`, `=`, `(`, `)`
+    # AT TOP LEVEL (not inside a char class) acts as an anchor.
+    if re.search(r"(?<!\\)[/:;=]", group_body):
+        return False
+    # Now require a wildcard inner quantifier to be present.
+    return bool(_WILD_INNER_RE.search(group_body))
 
 
 def _line_of(text: str, offset: int) -> int:

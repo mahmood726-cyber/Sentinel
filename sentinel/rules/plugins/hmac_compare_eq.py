@@ -30,7 +30,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_repo_files
-from sentinel.io.skip_marker import has_skip_marker
+from sentinel.io.skip_marker import has_skip_marker, line_is_suppressed
 
 
 ID = "P0-hmac-compare-eq"
@@ -103,6 +103,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         if not any(tok in text.lower() for tok in SENSITIVE_TOKENS):
             continue
         stripped = _strip_noise(text)
+        lines = text.splitlines()
         rel = path.relative_to(root).as_posix()
         seen_offsets: set[int] = set()
         for m in _EQ_RE.finditer(stripped):
@@ -112,12 +113,17 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if m.start() in seen_offsets:
                 continue
             seen_offsets.add(m.start())
+            line_no = _line_of(text, m.start())
+            cur = lines[line_no - 1] if line_no - 1 < len(lines) else ""
+            prv = lines[line_no - 2] if line_no - 2 >= 0 else ""
+            if line_is_suppressed(cur, prv, ID):
+                continue
             verdicts.append(Verdict(
                 rule_id=ID,
                 severity=SEVERITY,
                 repo=str(root),
                 file=rel,
-                line=_line_of(text, m.start()),
+                line=line_no,
                 detail=(
                     f"`{lhs} {op} {rhs}` uses non-constant-time comparison "
                     "on a crypto-sensitive value — timing-attack leak"
