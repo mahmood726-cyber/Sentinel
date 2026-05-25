@@ -1,3 +1,5 @@
+# sentinel:skip-file — this module's docstring shows the bad pattern as
+# the example of what NOT to write, which would otherwise self-flag.
 """P1-module-stdout-reassign: WARN on module-level sys.stdout reassignment
 that doesn't exclude pytest.
 
@@ -47,6 +49,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_repo_files
+from sentinel.io.skip_marker import has_skip_marker
 
 
 ID = "P1-module-stdout-reassign"
@@ -116,6 +119,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
     verdicts: List[Verdict] = []
     root = ctx.repo_root
     for path in iter_repo_files(root, "*.py", PY_EXCLUDE_DIRS):
+        if has_skip_marker(path):
+            continue
         try:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue

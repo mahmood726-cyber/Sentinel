@@ -28,7 +28,7 @@
     "plugins/livingmeta_drift.py": "e1aae4815feee0085be70dca8a54b839740173573bfc4092465e6b9f4264ba27",
     "plugins/localstorage_key_collision.py": "6c8777a69423de4105b0fb792b733fac96b3d07a6fee286cd952bb654c928533",
     "plugins/memory_paths_resolve.py": "968f307d726b610acce902cb7f777f4f5e6ec45d74d2ea53e23820b2b07c3ac4",
-    "plugins/module_stdout_reassign.py": "abf57f9112522f728fbce855a3211c0820cfc1e4cd7bd6595daed12fbb058ab8",
+    "plugins/module_stdout_reassign.py": "7db9aa7fe96c031e47251fb16a0825ffaddc1040abcaa8b4e19c709651df2df6",
     "plugins/path_not_exist.py": "7101e12c9a795a38605956e2cddecf5fd53d674822fa1b1deeb9dd801ad7e944",
     "plugins/progress_md_not_gitignored.py": "cf6516ba0c03d7240ba22d77b35eb5d07969e45bb0afdc70557afe68416a5194",
     "plugins/py_package_init_tracked.py": "3dae5e98881c2a12c7bfd89d330934e365f6bac784db90e1cfd15c7254d77ffd",
