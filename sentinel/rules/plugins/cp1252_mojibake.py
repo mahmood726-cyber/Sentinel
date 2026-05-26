@@ -52,34 +52,72 @@ TEXT_EXTENSIONS = ("*.py", "*.md", "*.html", "*.htm", "*.js", "*.mjs",
                    "*.rst", "*.toml", "*.ini", "*.cfg", "*.csv", "*.r",
                    "*.R")
 
-# Canonical mojibake sequences. Each one is "â" + a specific cp1252-byte-
-# misread of a common UTF-8 punctuation/symbol codepoint. Anchored to
-# avoid matching legitimate words like "âge" or "câble" in French text.
-MOJIBAKE_PATTERNS = {
-    "â”€": "─ (BOX DRAWINGS LIGHT HORIZONTAL)",
-    "â”â": "│ (BOX DRAWINGS LIGHT VERTICAL — chained mojibake form)",
-    "â€\"": "— (EM DASH)",       # the trailing " is part of the corruption
-    "â€™": "' (RIGHT SINGLE QUOTATION)",
-    "â€˜": "' (LEFT SINGLE QUOTATION)",
-    "â€œ": '" (LEFT DOUBLE QUOTATION)',
-    "â€": '" (RIGHT DOUBLE QUOTATION — partial)',
-    "â€¦": "… (HORIZONTAL ELLIPSIS)",
-    "â˜…": "★ (BLACK STAR)",
-    "â–ˆ": "█ (FULL BLOCK)",
-    "â–€": "▀ (UPPER HALF BLOCK)",
-    "â–": "▄ (LOWER HALF BLOCK / general box-drawing)",
-    "â—": "○/● (geometric circle family)",
-    "â†’": "→ (RIGHTWARDS ARROW)",
-    "â†": "← (LEFTWARDS ARROW)",
-}
-
-_PATTERN_RE = re.compile(
-    "|".join(re.escape(k) for k in sorted(MOJIBAKE_PATTERNS, key=len, reverse=True))
-)
+# Detection via algorithmic round-trip: for each `â` (U+00E2, cp1252 read of
+# UTF-8 lead byte 0xE2), try interpreting the next 2 chars as cp1252 bytes,
+# reconstruct the original UTF-8 byte sequence E2 b2 b3, decode as UTF-8.
+# If the decoded char falls in the U+2000–U+27FF range (General Punctuation,
+# Arrows, Box Drawings, etc.), we've found a real mojibake — return the
+# original char in the diagnostic so the operator sees what to recover.
+#
+# V1 used a hard-coded MOJIBAKE_PATTERNS table with codepoint mismatches
+# (e.g. ASCII `"` U+0022 where the actual mojibake 3rd-char is curly `"`
+# U+201D). V1 still fired because the bare `â€` 2-char prefix matched all
+# longer variants as a fallback, but the diagnostic LABELS were wrong.
+# Algorithmic detection can't make codepoint-mismatch mistakes by
+# construction, matches the fix script's logic, and gives accurate
+# per-glyph diagnostics.
 
 
 def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
+
+
+def _try_decode_mojibake_run(text: str, start: int) -> tuple[str, int] | None:
+    """If text[start:start+3] is a 3-char cp1252 mojibake of a U+2000–U+27FF
+    codepoint, return (original_char, consumed=3). Else None."""
+    if start + 3 > len(text) or text[start] != "â":
+        return None
+    try:
+        bs = bytearray()
+        for j in range(3):
+            ch = text[start + j]
+            encoded = ch.encode("cp1252", errors="strict")
+            if len(encoded) != 1:
+                return None
+            bs.append(encoded[0])
+        if bs[0] != 0xE2:
+            return None
+        original = bs.decode("utf-8", errors="strict")
+        if len(original) != 1:
+            return None
+        if not (0x2000 <= ord(original) <= 0x27FF):
+            return None
+        return (original, 3)
+    except (UnicodeEncodeError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def _find_mojibake(text: str) -> tuple[int, str, int] | None:
+    """Walk the text; return (offset, recovered_original_char, total_count)
+    for the first mojibake run found. None if no mojibake."""
+    first: tuple[int, str] | None = None
+    total = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == "â":
+            run = _try_decode_mojibake_run(text, i)
+            if run is not None:
+                ch, consumed = run
+                if first is None:
+                    first = (i, ch)
+                total += 1
+                i += consumed
+                continue
+        i += 1
+    if first is None:
+        return None
+    return first[0], first[1], total
 
 
 def check(ctx: RepoContext) -> List[Verdict]:
@@ -95,36 +133,38 @@ def check(ctx: RepoContext) -> List[Verdict]:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        # Cheap pre-filter: skip files without the `â` lead byte.
+        # Cheap pre-filter: skip files without the `â` (U+00E2) lead byte.
         if "â" not in text:
             continue
-        rel = path.relative_to(root).as_posix()
-        # Find all distinct mojibake offsets, report at most 1 per file
-        # (one detection is enough — operator opens the file and fixes).
-        m = _PATTERN_RE.search(text)
-        if not m:
+        result = _find_mojibake(text)
+        if result is None:
             continue
-        # Identify which pattern actually matched for the diagnostic.
-        seq = m.group(0)
-        glyph_label = MOJIBAKE_PATTERNS.get(seq, "(unknown)")
-        # Total count to surface the scope of corruption.
-        total = len(_PATTERN_RE.findall(text))
+        offset, original_char, total = result
+        rel = path.relative_to(root).as_posix()
+        # Pretty-print the recovered char + its Unicode name for the
+        # diagnostic. Skip if name lookup fails (rare on the U+2000-U+27FF range).
+        try:
+            import unicodedata
+            name = unicodedata.name(original_char)
+        except (TypeError, ValueError):
+            name = f"U+{ord(original_char):04X}"
         verdicts.append(Verdict(
             rule_id=ID,
             severity=SEVERITY,
             repo=str(root),
             file=rel,
-            line=_line_of(text, m.start()),
+            line=_line_of(text, offset),
             detail=(
-                f"cp1252-mojibake byte sequence `{seq}` ({glyph_label}) "
-                f"at line {_line_of(text, m.start())}; {total} total "
-                "match(es) in file — file was likely opened in a cp1252 "
-                "editor and re-saved, corrupting all non-ASCII chars"
+                f"cp1252-mojibake of `{original_char}` ({name}) at "
+                f"line {_line_of(text, offset)}; {total} total recoverable "
+                "sequence(s) in file — file was likely opened in a "
+                "cp1252-defaulting editor and re-saved"
             ),
             fix_hint=(
-                "if the corruption dominates the diff, `git checkout` "
-                "the file and re-apply only the real change; otherwise "
-                "open in a UTF-8 editor and fix the affected glyphs"
+                "run `python F:/Sentinel/scripts/fix_cp1252_mojibake.py "
+                "--repo <root> --apply` to repair in place, OR if the "
+                "corruption dominates a diff `git checkout` the file and "
+                "re-apply only the real change"
             ),
             source=SOURCE,
             timestamp=now,
