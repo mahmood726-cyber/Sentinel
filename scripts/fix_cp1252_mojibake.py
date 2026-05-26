@@ -49,30 +49,57 @@ if sys.platform == "win32" and "pytest" not in sys.modules:
 # corruption. Algorithmic invert can't make that mistake.
 
 
+# UTF-8 lead bytes that appear in cp1252 mojibake. Each lead byte
+# determines the sequence length (2 / 3 / 4 bytes) per UTF-8's encoding
+# rules. cp1252 decodes each byte to a specific Unicode char:
+#
+#   byte 0xC2 → `Â` (U+00C2)  : 2-byte UTF-8 → U+0080-U+07FF range
+#   byte 0xC3 → `Ã` (U+00C3)  : 2-byte UTF-8 → accented Latin (À-ÿ)
+#   byte 0xE2 → `â` (U+00E2)  : 3-byte UTF-8 → U+2000-U+2FFF (punct/symbol)
+#   byte 0xEF → `ï` (U+00EF)  : 3-byte UTF-8 → e.g. U+FE00-U+FFFF (VS / arrows)
+#   byte 0xF0 → `ð` (U+00F0)  : 4-byte UTF-8 → emoji (U+1F000+)
+#
+# Acceptable target Unicode ranges, per lead byte:
+LEAD_BYTE_TARGETS = {
+    "Â": (0x0080, 0x07FF, 2),    # Latin-1 supplement + Latin Extended
+    "Ã": (0x0080, 0x07FF, 2),
+    "â": (0x2000, 0x2FFF, 3),    # General Punctuation through Supplemental Arrows
+    "ï": (0x2E00, 0xFFFD, 3),    # CJK punctuation through Special Variations
+    "ð": (0x10000, 0x1FFFF, 4),  # Supplementary Multilingual Plane (emoji etc.)
+}
+
+
 def _try_demojibake_run(text: str, start: int) -> tuple[str, int] | None:
-    """If text[start:start+3] is a 3-char mojibake of a U+2000-U+2FFF
-    codepoint, return (original_char, 3). Otherwise None."""
-    if start + 3 > len(text) or text[start] != "â":
+    """If text[start:start+N] is an N-char cp1252-mojibake of an acceptable-
+    range Unicode codepoint, return (original_char, N). Otherwise None.
+
+    The acceptable range varies by lead byte — see LEAD_BYTE_TARGETS.
+    Conservative ranges keep false positives near zero: legitimate French
+    `âge` / `câble` have `â` followed by ASCII chars that can't encode
+    back to UTF-8 continuation bytes, so the round-trip fails harmlessly.
+    """
+    if start >= len(text):
+        return None
+    target = LEAD_BYTE_TARGETS.get(text[start])
+    if target is None:
+        return None
+    lo, hi, n_bytes = target
+    if start + n_bytes > len(text):
         return None
     try:
         bs = bytearray()
-        for j in range(3):
+        for j in range(n_bytes):
             ch = text[start + j]
             encoded = ch.encode("cp1252", errors="strict")
             if len(encoded) != 1:
                 return None
             bs.append(encoded[0])
-        if bs[0] != 0xE2:
-            return None
         original = bs.decode("utf-8", errors="strict")
         if len(original) != 1:
             return None
-        # Only accept "interesting punctuation / symbol" range, not
-        # arbitrary 3-byte UTF-8 (which might legitimately appear in
-        # Chinese / Arabic / etc. text).
-        if not (0x2000 <= ord(original) <= 0x27FF):
+        if not (lo <= ord(original) <= hi):
             return None
-        return (original, 3)
+        return (original, n_bytes)
     except (UnicodeEncodeError, UnicodeDecodeError, ValueError):
         return None
 
@@ -84,7 +111,7 @@ def _fix_text(text: str) -> tuple[str, int]:
     n = len(text)
     total = 0
     while i < n:
-        if text[i] == "â":
+        if text[i] in LEAD_BYTE_TARGETS:
             recovered = _try_demojibake_run(text, i)
             if recovered is not None:
                 ch, consumed = recovered

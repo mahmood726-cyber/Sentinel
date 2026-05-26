@@ -72,27 +72,46 @@ def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+# UTF-8 lead bytes whose cp1252 decoding is a recognisable character, plus
+# the acceptable original-codepoint range. Conservative ranges keep false
+# positives near zero — legitimate French `âge` / `câble` has `â` followed
+# by ASCII chars whose cp1252-encode-then-utf8-decode round-trip fails.
+LEAD_BYTE_TARGETS = {
+    "Â": (0x0080, 0x07FF, 2),    # Latin-1 supplement + Latin Extended
+    "Ã": (0x0080, 0x07FF, 2),
+    "â": (0x2000, 0x2FFF, 3),    # General Punctuation through Arrows / Box
+    "ï": (0x2E00, 0xFFFD, 3),    # CJK Symbols, Variation Selectors, etc.
+    "ð": (0x10000, 0x1FFFF, 4),  # SMP — emoji
+}
+
+
 def _try_decode_mojibake_run(text: str, start: int) -> tuple[str, int] | None:
-    """If text[start:start+3] is a 3-char cp1252 mojibake of a U+2000–U+27FF
-    codepoint, return (original_char, consumed=3). Else None."""
-    if start + 3 > len(text) or text[start] != "â":
+    """If text[start:start+N] is an N-char cp1252-mojibake of an acceptable
+    codepoint, return (original_char, consumed=N). Else None.
+
+    Sequence length N varies by UTF-8 lead byte (2 / 3 / 4) per the spec."""
+    if start >= len(text):
+        return None
+    target = LEAD_BYTE_TARGETS.get(text[start])
+    if target is None:
+        return None
+    lo, hi, n_bytes = target
+    if start + n_bytes > len(text):
         return None
     try:
         bs = bytearray()
-        for j in range(3):
+        for j in range(n_bytes):
             ch = text[start + j]
             encoded = ch.encode("cp1252", errors="strict")
             if len(encoded) != 1:
                 return None
             bs.append(encoded[0])
-        if bs[0] != 0xE2:
-            return None
         original = bs.decode("utf-8", errors="strict")
         if len(original) != 1:
             return None
-        if not (0x2000 <= ord(original) <= 0x27FF):
+        if not (lo <= ord(original) <= hi):
             return None
-        return (original, 3)
+        return (original, n_bytes)
     except (UnicodeEncodeError, UnicodeDecodeError, ValueError):
         return None
 
@@ -105,7 +124,7 @@ def _find_mojibake(text: str) -> tuple[int, str, int] | None:
     i = 0
     n = len(text)
     while i < n:
-        if text[i] == "â":
+        if text[i] in LEAD_BYTE_TARGETS:
             run = _try_decode_mojibake_run(text, i)
             if run is not None:
                 ch, consumed = run
@@ -133,8 +152,9 @@ def check(ctx: RepoContext) -> List[Verdict]:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        # Cheap pre-filter: skip files without the `â` (U+00E2) lead byte.
-        if "â" not in text:
+        # Cheap pre-filter: skip files without any of the recognised lead
+        # bytes. `â` is by far the most common; `Â`/`Ã`/`ï`/`ð` also count.
+        if not any(b in text for b in LEAD_BYTE_TARGETS):
             continue
         result = _find_mojibake(text)
         if result is None:
