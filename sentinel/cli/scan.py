@@ -19,8 +19,11 @@ import traceback
 from pathlib import Path
 from typing import List
 
+import subprocess
+
 from sentinel.core import RepoContext, ScanMode, Severity, Verdict
 from sentinel.io import write_findings
+from sentinel.io.git_files import set_path_filter
 from sentinel.io.paths import SARIF_OUT
 from sentinel.io.sarif import verdicts_to_sarif
 from sentinel.registry.registry import Registry
@@ -53,6 +56,17 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
         "--timing", action="store_true",
         help="Print per-rule wall-clock timings to stdout. Off by default; "
              "intended for diagnosing which rule is the bottleneck.",
+    )
+    p.add_argument(
+        "--diff", action="store_true",
+        help="Only scan files changed vs --base-ref plus staged / "
+             "unstaged / untracked. Sub-second on most PRs.",
+    )
+    p.add_argument(
+        "--base-ref", default="HEAD",
+        help="Base ref for --diff comparison (default HEAD — only "
+             "uncommitted+untracked). Use 'origin/main' for PR-style "
+             "'what's new on this branch' scans.",
     )
     p.set_defaults(func=_run)
 
@@ -109,17 +123,38 @@ def _run_inner(args: argparse.Namespace) -> int:
         )
         write_root = args.project_index
 
+    # --diff: compute changed-file set, install as path filter for iter_repo_files.
+    # The filter is module-level on sentinel.io.git_files; we clear it in finally.
+    diff_filter_set = None
+    if getattr(args, "diff", False) and args.repo:
+        diff_filter_set = _collect_changed_files(args.repo, args.base_ref)
+        if not diff_filter_set:
+            print(
+                f"[Sentinel] --diff: no changed files vs {args.base_ref} "
+                "(plus staged/unstaged/untracked) — nothing to scan",
+            )
+            return 0
+        print(
+            f"[Sentinel] --diff: scanning {len(diff_filter_set)} changed "
+            f"file(s) vs {args.base_ref}",
+        )
+        set_path_filter(frozenset(diff_filter_set))
+
     reg = Registry.from_dir(RULES_ROOT)
 
     verdicts: List[Verdict] = []
     timings: list[tuple[str, float]] = []
-    for rule in reg.all_rules():
-        if args.timing:
-            t0 = time.perf_counter()
-            verdicts.extend(rule.check(ctx))
-            timings.append((rule.id, time.perf_counter() - t0))
-        else:
-            verdicts.extend(rule.check(ctx))
+    try:
+        for rule in reg.all_rules():
+            if args.timing:
+                t0 = time.perf_counter()
+                verdicts.extend(rule.check(ctx))
+                timings.append((rule.id, time.perf_counter() - t0))
+            else:
+                verdicts.extend(rule.check(ctx))
+    finally:
+        if diff_filter_set is not None:
+            set_path_filter(None)
 
     write_findings(write_root, verdicts)
 
@@ -139,6 +174,40 @@ def _run_inner(args: argparse.Namespace) -> int:
         _print_timings(timings)
 
     return 1 if any(v.severity == Severity.BLOCK for v in verdicts) else 0
+
+
+def _collect_changed_files(repo: Path, base_ref: str) -> set[str]:
+    """Return the set of changed files (forward-slash relative paths) under
+    `repo`, combining:
+      - committed changes between `base_ref` and HEAD
+      - staged changes (`git diff --cached`)
+      - unstaged changes (`git diff`)
+      - untracked-but-not-ignored files (`git ls-files --others
+        --exclude-standard`)
+
+    Any individual command failing (e.g. base_ref doesn't exist) is
+    skipped — other sources still contribute. Returns empty set on
+    full failure rather than raising.
+    """
+    out: set[str] = set()
+    cmds: list[list[str]] = [
+        ["git", "-C", str(repo), "diff", "--name-only", f"{base_ref}...HEAD"],
+        ["git", "-C", str(repo), "diff", "--name-only"],
+        ["git", "-C", str(repo), "diff", "--name-only", "--cached"],
+        ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard"],
+    ]
+    for cmd in cmds:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            line = line.strip().replace("\\", "/")
+            if line:
+                out.add(line)
+    return out
 
 
 def _print_timings(timings: list[tuple[str, float]]) -> None:

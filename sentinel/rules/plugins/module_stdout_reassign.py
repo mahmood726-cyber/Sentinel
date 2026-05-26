@@ -111,7 +111,7 @@ def _is_guarded(lines: list[str], line_idx: int) -> bool:
 
 
 PY_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "build", "dist",
-                   ".tox", ".pytest_cache", "node_modules")
+                   ".tox", ".pytest_cache", "node_modules", "archive")
 
 
 def check(ctx: RepoContext) -> List[Verdict]:

@@ -73,6 +73,24 @@ def _is_git_worktree(root: Path) -> bool:
     return (root / ".git").exists()
 
 
+# Scan-scoped path filter. When non-None, iter_repo_files only yields
+# files whose forward-slash relative path is in this set. Set by
+# `sentinel scan --diff` before the rule loop; reset to None after.
+# Module-level (not threadlocal) because Sentinel scans single-threaded;
+# moving to a context-var if/when we go parallel is mechanical.
+_ACTIVE_PATH_FILTER: frozenset[str] | None = None
+
+
+def set_path_filter(paths: frozenset[str] | None) -> None:
+    """Set or clear the scan-scoped path filter. Pass None to disable."""
+    global _ACTIVE_PATH_FILTER
+    _ACTIVE_PATH_FILTER = paths
+
+
+def get_path_filter() -> frozenset[str] | None:
+    return _ACTIVE_PATH_FILTER
+
+
 def iter_repo_files(
     root: Path,
     pattern: str | Sequence[str] = "*",
@@ -110,10 +128,13 @@ def iter_repo_files(
             return
         if result.returncode != 0:
             return
+        active_filter = _ACTIVE_PATH_FILTER
         for rel in result.stdout.split("\x00"):
             if not rel:
                 continue
             if excludes and any(p in excludes for p in Path(rel).parts):
+                continue
+            if active_filter is not None and rel.replace("\\", "/") not in active_filter:
                 continue
             path = root / rel
             # `is_file()` can raise OSError on OneDrive placeholders,
@@ -128,6 +149,7 @@ def iter_repo_files(
         return
 
     seen: set[Path] = set()
+    active_filter = _ACTIVE_PATH_FILTER
     for p in patterns:
         for path in root.rglob(p):
             if path in seen:
@@ -140,4 +162,11 @@ def iter_repo_files(
                 continue
             if excludes and any(part in excludes for part in path.parts):
                 continue
+            if active_filter is not None:
+                try:
+                    rel = path.relative_to(root).as_posix()
+                except ValueError:
+                    continue
+                if rel not in active_filter:
+                    continue
             yield path
