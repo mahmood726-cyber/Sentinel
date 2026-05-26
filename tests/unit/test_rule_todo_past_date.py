@@ -1,3 +1,4 @@
+# sentinel:skip-file — test fixtures literally contain past-date TODO markers.
 """Tests for P2-todo-past-date.
 
 INFO-tier rule that re-surfaces TODO/FIXME/HACK markers whose
