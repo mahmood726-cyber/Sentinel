@@ -55,7 +55,35 @@ if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   exit 0
 fi
 
-output="$(python -m sentinel scan --repo "$(git rev-parse --show-toplevel)" 2>&1)"
+# Pre-push by default scans only the diff vs the remote's HEAD —
+# typical PRs touch <10 files so this drops a 2-minute full scan to
+# ~1s. Operators who want the old whole-tree behavior can set
+# SENTINEL_DIFF_BASE=full. Set SENTINEL_DIFF_BASE=<ref> to pick a
+# specific base (e.g. origin/main, origin/master, HEAD~5).
+#
+# Auto-detection tries origin/HEAD first (the GitHub default-branch
+# pointer), then origin/main, then origin/master, then HEAD~1.
+# If nothing resolves, fall back to full-tree scan rather than skipping
+# the scan entirely — "no diff base" should never silently bypass.
+REPO_TOPLEVEL="$(git rev-parse --show-toplevel)"
+DIFF_BASE="${{SENTINEL_DIFF_BASE:-}}"
+
+if [ "$DIFF_BASE" = "full" ]; then
+  SCAN_ARGS=""
+elif [ -n "$DIFF_BASE" ]; then
+  SCAN_ARGS="--diff --base-ref $DIFF_BASE"
+else
+  # Auto-detect base ref
+  for candidate in origin/HEAD origin/main origin/master HEAD~1; do
+    if git -C "$REPO_TOPLEVEL" rev-parse --verify --quiet "$candidate" >/dev/null 2>&1; then
+      SCAN_ARGS="--diff --base-ref $candidate"
+      break
+    fi
+  done
+  SCAN_ARGS="${{SCAN_ARGS:-}}"
+fi
+
+output="$(python -m sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS 2>&1)"
 rc=$?
 printf '%s\\n' "$output"
 
