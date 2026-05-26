@@ -116,3 +116,33 @@ def test_quiet_on_syntax_error_file(tmp_path):
     (tmp_path / "broken.py").write_text("def foo(:\n    pass\n", encoding="utf-8")
     # Should return cleanly with no verdicts.
     assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_quiet_on_submodule_import(tmp_path):
+    """`from unittest import mock` is valid even though `getattr(unittest, 'mock')`
+    is False until something imports unittest.mock. The rule must consult
+    find_spec on the dotted path to recognise submodule shapes."""
+    (tmp_path / "good.py").write_text(
+        "from unittest import TestCase, main, mock\n", encoding="utf-8"
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_quiet_on_logging_submodule(tmp_path):
+    """`from logging import handlers` — `handlers` is a submodule of logging,
+    not an attribute until imported. Same submodule-recognition path."""
+    (tmp_path / "good.py").write_text(
+        "from logging import getLogger, handlers\n", encoding="utf-8"
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_fires_on_typo_in_expanded_allowlist(tmp_path):
+    """The 2026-05 allowlist expansion added unittest/dataclasses/logging/
+    csv/etc. Typos in those should now fire."""
+    (tmp_path / "bad.py").write_text(
+        "from unittest import assertEquals\n", encoding="utf-8"
+    )
+    verdicts = _rule().check(_ctx(tmp_path))
+    assert len(verdicts) == 1
+    assert "assertEquals" in verdicts[0].detail

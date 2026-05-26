@@ -67,10 +67,26 @@ PY_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "build", "dist",
 #   3. The package is widely-enough installed that "not installed in
 #      scan env" is rare in practice
 ALLOWLIST_PACKAGES = frozenset({
+    # Original 23-package set (data-science, web, testing, stdlib basics)
     "pandas", "numpy", "scipy", "sklearn", "statsmodels", "matplotlib",
     "seaborn", "requests", "httpx", "pytest", "hypothesis", "json",
     "os", "sys", "pathlib", "collections", "itertools", "functools",
     "re", "math", "random", "datetime", "time",
+    # 2026-05 expansion — all safe to import for reflection (no network,
+    # no side effects). Stdlib first:
+    "argparse",      # CLI parsing — LLMs hallucinate add_arg vs add_argument
+    "csv",           # CSV reader/writer — common reader= keyword hallucinations
+    "dataclasses",   # field vs Field, MISSING vs missing
+    "logging",       # getLogger vs get_logger common hallucination
+    "subprocess",    # run vs call vs Popen confusion
+    "tomllib",       # Py 3.11+ stdlib TOML reader (read-only)
+    "typing",        # List vs list, Tuple vs tuple, Annotated patterns
+    "unittest",      # assertEquals (Java-style) vs assertEqual hallucination
+    # Popular 3rd-party — installed in most data/AI workspaces:
+    "polars",        # modern dataframe lib; LLMs port pandas patterns wrongly
+    "pydantic",      # v1 vs v2 API rename (BaseModel.dict vs .model_dump)
+    "openai",        # SDK v0 vs v1 churn; LLMs frequently mix the two
+    "anthropic",     # Same churn pattern; small canonical API
 })
 
 # Lazy-loaded module cache: { package_name: module_or_None }
@@ -157,6 +173,17 @@ def _check_import_from(
             continue
         if name in avail_set:
             continue
+        # `from X import Y` also succeeds when Y is a SUBMODULE of X
+        # (Python's import system imports the submodule on the fly).
+        # `getattr(unittest, 'mock')` is False until something imports
+        # unittest.mock, but `from unittest import mock` works regardless.
+        # Verify via find_spec rather than triggering the import.
+        try:
+            sub_spec = importlib.util.find_spec(f"{node.module}.{name}")
+            if sub_spec is not None:
+                continue
+        except (ImportError, ValueError, AttributeError):
+            pass
         # Hallucinated. Suggest closest match.
         line_no = node.lineno
         cur = source_lines[line_no - 1] if line_no - 1 < len(source_lines) else ""
