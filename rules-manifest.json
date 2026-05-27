@@ -21,7 +21,7 @@
     "plugins/fabrication_temporal_impossibility.py": "311b9f4d86f154b2a08c8b2c0bccb2eab314b763dac626400b99001d83ec2496",
     "plugins/hallucinated_python_import.py": "8473e66cac856b0f12e7915c1d053b42d9dd41b1d2b45e840c04e7f31c59e390",
     "plugins/hallucination_classifier.py": "634b63ebd116bafd2080dca0d51bf031e55e09dbbc9fb6d802b08e9cb75ccd97",
-    "plugins/hmac_compare_eq.py": "0cca46ad03a243793eb640d8914d0ac793a96558b2c090fbad221dd47112174c",
+    "plugins/hmac_compare_eq.py": "4daeff2fb5ab493af10bb27c93b52e5adb03956646a69c198087769b6cfc4350",
     "plugins/html_a11y_basics.py": "8868a8eb37e4f19a8ac39eb40a43b9bc911b53254c041b3c4c3b0209326ded23",
     "plugins/js_lockfile_present.py": "c89a40dad5c447824849b1a65275651637703bb859fab18b9612352c80ef2beb",
     "plugins/js_parse_check.py": "6ae9c9a0e78afad433e3d2ff89dec5b3cd103ea7ffeeb79ab43ebd2355f6990d",

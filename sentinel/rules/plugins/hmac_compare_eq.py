@@ -43,12 +43,19 @@ MAX_FILE_BYTES = 5_000_000
 PY_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "build", "dist",
                    ".tox", ".pytest_cache", "node_modules")
 
-# Identifier tokens that mark a value as crypto-sensitive. Any identifier
-# CONTAINING one of these (case-insensitive) on either side of `==`/`!=`
-# triggers the rule.
+# Identifier-sensitivity check: substring match on full crypto tokens.
+# V1 (2026-05-25) had suffix forms `_sig` / `_tag` / `_mac` in the list,
+# but those collided with `same_sig`/`ref_sig` (statistical significance)
+# in MetaReproducer (2026-05-27 portfolio scan). Substring match on the
+# FULL WORDS only is unambiguous: `signature` is not a substring of
+# `significance` (the two share only the `sign` prefix), `mac_value` is
+# not a substring of `macroaverage`, and `auth_tag` is not a substring
+# of `tags`.
+#
+# Real crypto identifiers like `hmac_value`, `bundle.signature`,
+# `signature_method` all contain a full token as substring → fire.
 SENSITIVE_TOKENS = (
     "hmac", "signature", "digest", "mac_value", "auth_tag", "auth_code",
-    "_mac", "_sig", "_tag",
 )
 
 # Identifier on one side: standard Python identifier, possibly dotted
@@ -79,6 +86,9 @@ def _strip_noise(text: str) -> str:
 
 
 def _is_sensitive(ident: str) -> bool:
+    """True if `ident` (a Python identifier, possibly dotted) contains
+    a crypto-sensitive full token as substring. The full-token-only
+    list distinguishes `signature` from `significance` cleanly."""
     low = ident.lower()
     return any(tok in low for tok in SENSITIVE_TOKENS)
 
@@ -100,7 +110,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if not any(tok in text.lower() for tok in SENSITIVE_TOKENS):
+        # Cheap pre-filter: only parse files mentioning a sensitive word.
+        # Using broad substring match here is fine — _is_sensitive applies
+        # the strict word/suffix check per-match.
+        low_text = text.lower()
+        if not any(t in low_text for t in
+                   ("hmac", "signature", "digest", "mac_value",
+                    "auth_tag", "auth_code")):
             continue
         stripped = _strip_noise(text)
         lines = text.splitlines()

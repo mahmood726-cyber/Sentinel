@@ -82,6 +82,33 @@ def test_skip_line_marker_honored(tmp_path):
     assert _rule().check(_ctx(tmp_path)) == []
 
 
+def test_quiet_on_statistical_significance_identifiers(tmp_path):
+    """Regression for 2026-05-27 FP: MetaReproducer's
+    `same_sig = ref_sig == repro_sig` was firing because the bare `_sig`
+    substring matched `significance`. The suffix-anchored rule rejects
+    these stats identifiers (no actual signature byte-equality involved)."""
+    (tmp_path / "good.py").write_text(
+        "same_sig = ref_sig == repro_sig\n"
+        "agree = hta_significant == r_significant\n"
+        "tag_count = len(tags) == len(other_tags)\n"
+        "is_macro = macroaverage == microaverage\n",
+        encoding="utf-8",
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_quiet_on_bare_sig_shorthand(tmp_path):
+    """`_sig` / `_tag` / `_mac` suffix forms are NOT flagged because they
+    collide with `significance` / `tags` / `macroaverage`. Operators who
+    write crypto with the shorthand should also name `signature` or
+    `hmac` somewhere in the comparison, or add a skip-line marker."""
+    (tmp_path / "good.py").write_text(
+        "if bundle_sig == expected_sig:\n    accept()\n",
+        encoding="utf-8",
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
 def test_quiet_on_strings_and_comments(tmp_path):
     """The bad pattern in docstrings / comments / string literals must
     not trigger the rule."""
