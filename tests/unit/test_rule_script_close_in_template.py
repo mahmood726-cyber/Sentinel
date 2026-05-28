@@ -44,6 +44,38 @@ def test_fires_on_template_literal_with_literal_close(tmp_path):
     assert "template literal" in verdicts[0].detail.lower() or "string" in verdicts[0].detail.lower()
 
 
+def test_quiet_on_minified_bundle_with_legit_close(tmp_path):
+    """Regression for 2026-05-28 portfolio FPs: a minified library bundle
+    (e.g. a Plotly export) contains backticks AND a legitimate `</script>`
+    closing the bundle's block. The char-scanner can't track template
+    boundaries across a 9000-char minified line, so it used to flag the
+    real close as 'inside a template'. Files with any very long line are
+    now skipped entirely."""
+    minified = "var t=`x`;" + "a=1;" * 2000 + "function f(){return `y`}"  # >3000-char line
+    (tmp_path / "plotly_export.html").write_text(
+        "<html><body><script>\n"
+        f"{minified}\n"
+        "</script></body></html>\n",
+        encoding="utf-8",
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_quiet_on_far_apart_backtick_and_close(tmp_path):
+    """Defense-in-depth: even on normal-length lines, a `</script>` more
+    than MAX_TEMPLATE_SPAN chars from the opening backtick is not flagged
+    (the real bug is compact)."""
+    filler = "x" * 1500
+    (tmp_path / "spread.html").write_text(
+        "<html><body><script>\n"
+        f"const s = `{filler}`;\n"          # backtick closes well before
+        "const ok = 1;\n"
+        "</script></body></html>\n",
+        encoding="utf-8",
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
 def test_quiet_when_split_token_used(tmp_path):
     """The canonical fix: `${'<'}/script>` interpolation splits the token."""
     (tmp_path / "good.html").write_text(
