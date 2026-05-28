@@ -6,7 +6,7 @@
     "plugins/autogen_tracked.py": "cede70919c0e4a78b8eba18f5648db538fe3483f6d0ca1d98810f0ad2d0d11eb",
     "plugins/baseline_drift.py": "6ac85a72ec9132f5a038d5ee6f616bfcfe7e6e2e8f5ba97b580ba4531ed171c3",
     "plugins/blueprint_implementation_match.py": "da818dade1a1e4502d87fed6c17ef31aaba6cc17b45dd879ae3fbe5bea2c70d9",
-    "plugins/citation_cascade.py": "31490c4169d95ce32ca103ae0aabc02436742cd29b88c4ae1795e0d01dd0ba64",
+    "plugins/citation_cascade.py": "61d6e0cd4bb00e2d6105b69ba2aa961f77afd109c7b7207468189c2e27ef38f0",
     "plugins/claim_language.py": "bbb9420130c0a81075e10df9f7d575e5036de65cb7a23d10b2131454478e7ab8",
     "plugins/cochrane_v65_invariants.py": "abdbd930355335e60d9d0e690e5c95585076894a58800d0b67a9f599c60eb918",
     "plugins/cp1252_mojibake.py": "2c6b1cd2137c3548eacf30c57655bab2f98d32c802a1aedd81c9bb4f85ba89cf",

@@ -69,6 +69,15 @@ PLACEHOLDER_DOI_VALUES = frozenset({
     "10.x/y", "10.xxxx/yyyy",
 })
 
+# E156 capsule convention: unpublished micro-papers carry the internal
+# namespace `10.156/<slug>` as a stable pre-registration identifier (the
+# "156" matches the E156 format name). These are deliberate placeholders,
+# not malformed real-DOI attempts — same category as 10.x/y, but with a
+# variable suffix so they can't be enumerated as fixed values.
+# Confirmed intentional by the operator (2026-05-28) after the portfolio
+# scan surfaced 134 such capsules in AfricaRCT.
+E156_PLACEHOLDER_DOI_RE = re.compile(r"^10\.156/\S+$")
+
 
 def _looks_like_attempted_doi(candidate: str) -> bool:
     """True if the candidate looks like SOMEONE TRIED to write a DOI but got
@@ -79,6 +88,8 @@ def _looks_like_attempted_doi(candidate: str) -> bool:
         return False
     if c.lower() in PLACEHOLDER_DOI_VALUES:
         return False
+    if E156_PLACEHOLDER_DOI_RE.match(c):
+        return False  # E156 capsule pre-registration namespace
     if "/" not in c:
         # Real DOIs always contain at least one slash. A capture without "/"
         # is overwhelmingly likely to be a JS identifier or template token.
