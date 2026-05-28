@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![tests](https://img.shields.io/badge/tests-regression--backed-brightgreen.svg)](#testing)
-[![rules](https://img.shields.io/badge/rules-49%20built--in-blue.svg)](#built-in-rules)
+[![rules](https://img.shields.io/badge/rules-53%20built--in-blue.svg)](#built-in-rules)
 [![pre--push](https://img.shields.io/badge/pre--push-~2s-brightgreen.svg)](#how-fast)
 
 A **pre-push rule engine** for the Claude-Code / Cursor / Copilot / Codex era. Turns "don't commit `C:\Users\...` paths" and "don't ship placeholder HMAC signatures" and "don't claim an agent-config version your `pyproject.toml` disagrees with" into **executable checks that run before every `git push`** — in under 2 seconds, with zero CI.
@@ -82,7 +82,7 @@ Both are auto-added to the target repo's `.gitignore` on install.
 
 ## Built-in rules
 
-Sentinel currently ships **49 built-in rules** (6 YAML + 43 Python plugins). Run `python -m sentinel list-rules` for the live count on your checkout.
+Sentinel currently ships **53 built-in rules** (6 YAML + 47 Python plugins). Run `python -m sentinel list-rules` for the live count on your checkout.
 
 ### Generic code-quality
 
