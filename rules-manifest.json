@@ -26,7 +26,7 @@
     "plugins/js_lockfile_present.py": "c89a40dad5c447824849b1a65275651637703bb859fab18b9612352c80ef2beb",
     "plugins/js_parse_check.py": "6ae9c9a0e78afad433e3d2ff89dec5b3cd103ea7ffeeb79ab43ebd2355f6990d",
     "plugins/js_scripts_resolvable.py": "c63e6278a10a766f1c6463a37ec610cf5c2b4cc6824ae089534f40ceebd7d329",
-    "plugins/leaked_secret.py": "80d7b5dc76eafec61a2c0423f6e9ed4a6258555c8c2b2d2f4d6f70a76cecc036",
+    "plugins/leaked_secret.py": "0c53c92cfe53013ebe8002ad0e42b1a3ccbd9a6b9fa71abe65aca6446485c520",
     "plugins/license_compliance.py": "799921cf2ab6ef72245366b5e4372573bc3d7961641b8f8ccaf9afe473263ddf",
     "plugins/livingmeta_drift.py": "e1aae4815feee0085be70dca8a54b839740173573bfc4092465e6b9f4264ba27",
     "plugins/localstorage_key_collision.py": "6c8777a69423de4105b0fb792b733fac96b3d07a6fee286cd952bb654c928533",

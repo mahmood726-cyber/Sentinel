@@ -49,6 +49,22 @@ def test_aws_access_key_flagged(tmp_path: Path):
     assert "AWS access key" in verdicts[0].detail
 
 
+def test_skip_file_marker_suppresses(tmp_path: Path):
+    """A file with the sentinel:skip-file marker is not scanned — even if
+    it contains a real-looking key. Regression for 2026-05-28:
+    e156-student-starter/tools/get_unstuck.py (a secret-REDACTION tool)
+    tripped the rule on its own private-key-header regex. The rule's
+    docstring claimed the scanner handled the marker, but the repo-scan
+    path never applied it."""
+    (tmp_path / "redactor.py").write_text(
+        "# sentinel:skip-file — redaction tool, patterns are detectors\n"
+        'PRIVKEY_RE = "-----BEGIN OPENSSH PRIVATE KEY-----"\n'
+        'AWS_RE = "AKIA' + "Z" * 16 + '"\n',
+        encoding="utf-8",
+    )
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
 def test_anthropic_key_flagged(tmp_path: Path):
     # Format: sk-ant-api01-<base64-like 95 chars>
     fake_body = "A1b2C3d4E5f6" * 8  # 96 chars, matches {32,}

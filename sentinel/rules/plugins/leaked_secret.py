@@ -38,6 +38,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import DEFAULT_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.skip_marker import has_skip_marker
 
 
 ID = "P1-leaked-secret"
@@ -110,6 +111,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
     for path in iter_repo_files(ctx.repo_root, "*", SCAN_EXCLUDE_DIRS):
         if not _is_scannable(path):
+            continue
+        # Honor the file-level skip marker — secret-redaction tools and
+        # secret-format documentation legitimately contain key patterns.
+        # The module docstring claimed the scanner handled this, but the
+        # repo-scan path never applied it (fixed 2026-05-28 after
+        # e156-student-starter/tools/get_unstuck.py — a redaction utility —
+        # tripped the rule on its own private-key-header regex).
+        if has_skip_marker(path):
             continue
         try:
             if path.stat().st_size > MAX_FILE_BYTES:
