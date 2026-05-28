@@ -87,6 +87,46 @@ def test_hardcoded_local_path_silent_on_windows_system_paths(tmp_path: Path):
     assert verdicts == [], f"system paths must not fire: {[v.detail for v in verdicts]}"
 
 
+def test_hardcoded_local_path_silent_on_placeholder_examples(tmp_path: Path):
+    """Regression for the portfolio-wide B=2 floor surfaced 2026-05-28:
+    CONTRIBUTING.md + PULL_REQUEST_TEMPLATE.md templates seeded across
+    ~40 repos contain the line `No hardcoded local paths (C:\\Users\\...,
+    /home/<user>/...)`. The literal ellipsis `...` and angle-bracket
+    `<user>` are documentation placeholders, not real paths. The rule
+    must not fire on them.
+
+    Fix: negative lookaheads `(?!\\.\\.\\.)` and `(?!<)` immediately after
+    `C:\\Users\\` etc. The POSIX side already rejects placeholders because
+    `/home/` requires `[a-z_]` next (which `<` and `.` are not)."""
+    (tmp_path / "CONTRIBUTING.md").write_text(
+        "- [ ] No hardcoded local paths (`C:\\Users\\...`, "
+        "`/home/<user>/...`) in shipped code\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "PR_TEMPLATE.md").write_text(
+        "Checklist:\n- no `C:\\Users\\<user>\\` style paths\n",
+        encoding="utf-8",
+    )
+    rule = load_yaml_rule(RULE_PATH)
+    verdicts = rule.check(RepoContext(repo_root=tmp_path, mode=ScanMode.REPO))
+    assert verdicts == [], (
+        f"placeholder examples must not fire: {[v.detail for v in verdicts]}"
+    )
+
+
+def test_hardcoded_local_path_still_fires_on_real_user_after_fix(tmp_path: Path):
+    """Companion to the placeholder test: a REAL username after C:\\Users\\
+    (not `...` or `<`) must still fire. Guards against the lookahead
+    accidentally suppressing genuine hardcoded paths."""
+    (tmp_path / "loader.py").write_text(
+        'DATA = r"C:\\Users\\mahmo\\Projects\\scratch\\data.csv"\n',
+        encoding="utf-8",
+    )
+    rule = load_yaml_rule(RULE_PATH)
+    verdicts = rule.check(RepoContext(repo_root=tmp_path, mode=ScanMode.REPO))
+    assert len(verdicts) >= 1, "real C:\\Users\\<name>\\ path must still fire"
+
+
 def test_hardcoded_local_path_silent_on_keyboard_shortcut_prose(tmp_path: Path):
     """Regression for false positive surfaced 2026-04-16 against
     Finrenone/MANUSCRIPT_LIVINGMETA.md and F1000_LivingMeta_Article_v2.md:

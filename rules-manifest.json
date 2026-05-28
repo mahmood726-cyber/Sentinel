@@ -46,7 +46,7 @@
     "plugins/todo_past_date.py": "32c5d59ac96c6dd3da5bc745551ec86e279be389e0a1bdc2d98ff6544c9ce631",
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
     "yaml/P0-claude-config-committed.yaml": "11487d0b0444c105f4851b5c78ca39f00e3292336ab3209f54068d27b4a7eaa1",
-    "yaml/P0-hardcoded-local-path.yaml": "6dbb4dc73c7840af76544a623ca96ed85d323e02a68ce4448491b3d6123f0038",
+    "yaml/P0-hardcoded-local-path.yaml": "db7672c4ffd77c48ee601e3929317ec49c5c320ca7743446893f8d72191cbd76",
     "yaml/P0-placeholder-hmac.yaml": "6816aed574a75ffa9cb8fd01a27e90007b3a3de9e2fbd273a214959dba7f953a",
     "yaml/P1-empty-dataframe-access.yaml": "e4c6d4685e21179233654fdf0a1e482685279aed2e17345ae80ffb3511d08b3f",
     "yaml/P1-silent-failure-sentinel.yaml": "4f3437c7efb75f50a21a42cc59da952b385365fff1fe506a34bc70da23e86e3e",
