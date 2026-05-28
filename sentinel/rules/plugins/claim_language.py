@@ -97,6 +97,24 @@ CAUSAL_OVERCLAIM_RE = re.compile(
 # context-sensitive enough that we want operator review rather than auto-rejection.
 OVERCLAIM_SOFT_RE = re.compile(r"\bconfirm(?:s|ed)\b", re.IGNORECASE)
 
+# Comparative-confidence overclaim — closes the synonym-evasion hole
+# (2026-05-28 red-team #2): strong directional language that uses NO banned
+# trigger word, e.g. "clearly reduces", "markedly improves", "strong signal".
+# Always WARN (higher-FP heuristic than the causal list); operator overrides
+# and <script> skipping still apply.
+INTENSIFIER_CAUSAL_RE = re.compile(
+    r"\b(clearly|markedly|robustly|strongly|dramatically|substantially|"
+    r"convincingly|unequivocally|decisively|powerfully)\s+"
+    r"(reduc\w+|increas\w+|improv\w+|lower\w+|rais\w+|prevent\w+|protect\w+|"
+    r"cut\w+|boost\w+|worsen\w+)\b",
+    re.IGNORECASE,
+)
+STRONG_EVIDENCE_RE = re.compile(
+    r"\b(strong|compelling|overwhelming|robust|marked|dramatic|unequivocal)\s+"
+    r"(signal|evidence|association|effect|benefit|protection|reduction)\b",
+    re.IGNORECASE,
+)
+
 # WARN-tier certainty words. Singular regex for readability.
 CERTAINTY_PHRASES = [
     r"\bsafe\b",
@@ -277,6 +295,35 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
             source=SOURCE,
             timestamp=now,
         ))
+
+    # 1c. WARN on comparative-confidence overclaim (intensifier + directional
+    # verb, or "strong/compelling <evidence-noun>") with no banned trigger word.
+    for rx in (INTENSIFIER_CAUSAL_RE, STRONG_EVIDENCE_RE):
+        for m in rx.finditer(text):
+            if _is_overridden(m.start()):
+                continue
+            pre = text[max(0, m.start() - 500):m.start()]
+            if pre.rfind("<script") > pre.rfind("</script>"):
+                continue
+            verdicts.append(Verdict(
+                rule_id=ID,
+                severity=Severity.WARN,
+                repo=None,
+                file=rel,
+                line=_line_of(text, m.start()),
+                detail=(
+                    f"comparative-confidence overclaim {m.group(0)!r} — strong "
+                    f"directional language without an uncertainty qualifier in a "
+                    f"156-word meta-analytic body"
+                ),
+                fix_hint=(
+                    "soften to 'was associated with' / 'suggests' / 'is "
+                    "consistent with', and state the certainty (GRADE) and the "
+                    "interval; reserve 'strong'/'clear' for high-certainty evidence"
+                ),
+                source=SOURCE,
+                timestamp=now,
+            ))
 
     # 2. WARN if certainty phrase + heterogeneity language coexist in same body.
     # Body unit: an entry block in rewrite-workbook.txt is delimited by the
