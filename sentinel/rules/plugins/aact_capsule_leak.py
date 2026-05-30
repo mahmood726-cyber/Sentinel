@@ -38,6 +38,10 @@ _PROSE_PATS = [
     (re.compile(r"\bNone (?:trials|participants|studies)\b"), "leaked None count"),
 ]
 _SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE)
+# Only the interpolated CAPSULE JSON literal can carry a Python->JS leak. The
+# static engine code legitimately uses Infinity/NaN handling, so we scan only
+# the payload (FP-audit lesson: narrow the match, don't weaken detection).
+_CAPSULE_LITERAL_RE = re.compile(r"const\s+CAPSULE\s*=\s*(\{.*\});")
 
 
 def _line_of(text: str, off: int) -> int:
@@ -60,12 +64,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
             continue
         rel = p.relative_to(root).as_posix()
 
-        script_text = "\n".join(m.group(1) for m in _SCRIPT_BLOCK_RE.finditer(text))
+        lit = _CAPSULE_LITERAL_RE.search(text)
+        payload = lit.group(1) if lit else ""
         for rx, why in _SCRIPT_PATS:
-            m = rx.search(script_text)
+            m = rx.search(payload)
             if m:
                 out.append(Verdict(rule_id=ID, severity=sev, repo=str(root), file=rel,
-                    line=None, detail=f"placeholder leak in capsule script: {why} ({m.group(0)!r})",
+                    line=None, detail=f"placeholder leak in capsule payload: {why} ({m.group(0)!r})",
                     fix_hint="route every Python->JS value through js_val(); rebuild the capsule",
                     source=SOURCE, timestamp=now))
         for rx, why in _PROSE_PATS:
