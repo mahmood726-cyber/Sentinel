@@ -10,6 +10,7 @@ from sentinel.cli import install_hook as install_hook_cmd
 from sentinel.cli import list_rules as list_rules_cmd
 from sentinel.cli import scan as scan_cmd
 from sentinel.cli import sweep as sweep_cmd
+from sentinel.cli import triage as triage_cmd
 from sentinel.cli import verify_rules as verify_rules_cmd
 
 
@@ -38,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     sweep_cmd.add_subparser(sub)
     dashboard_cmd.add_subparser(sub)
     verify_rules_cmd.add_subparser(sub)
+    triage_cmd.add_subparser(sub)
     args = parser.parse_args(argv)
     return args.func(args)
 
