@@ -9,9 +9,10 @@ review caught it; this rule catches the class of error at pre-push, portfolio-wi
 
 Narrow by design (low FP, see MEMORY.md Sentinel FP audit):
   - WARN, not BLOCK (these are confirm-the-meaning prompts, not certain bugs).
-  - Fires ONLY when a listed field is immediately followed by a comparison
-    operator (= == != <> IN LIKE) — i.e. used as a FILTER, not merely mentioned
-    in prose or a comment.
+  - Fires ONLY when a listed field is used as a FILTER: a comparison operator
+    (== != <>), or a single '=' to a SHORT quoted literal (the SQL `= 't'` shape).
+    A single '=' to an unquoted/long value (Python assignment / kwarg / fixture
+    like `why_stopped=None`) and bare prose mentions do NOT fire.
   - Skips node_modules / minified bundles / vendored copies and `sentinel:skip-file`.
 
 Known-legitimate FP shape: a field-semantics registry that documents these fields
@@ -55,16 +56,18 @@ MISLEADING_FIELDS = {
                         "mixes planned and realised counts"),
 }
 
-# field immediately followed by a SYMBOLIC comparison operator -> used as a FILTER.
-# Only symbolic operators (= == != <>) are matched: the word-operators IN/LIKE/IS
-# false-positive on prose ("is_us_export is the flag", "...in the table"), and these
-# boolean flags are almost always filtered with `= 't'` anyway.
-_CMP = r"(?:==?|!=|<>)"
+# A FILTER is: a comparison operator (== != <>), OR a single '=' to a SHORT quoted
+# literal (the SQL boolean/code-filter shape: `= 't'`, `= 'Randomized'`). A single
+# '=' to an unquoted or long value is a Python assignment / keyword argument / test
+# fixture, NOT a field filter — excluding it kills the `why_stopped=None` and
+# `why_stopped="long sentence"` false positives found in the portfolio FP audit.
+# Word-operators (IN/LIKE/IS) are omitted to avoid prose FPs.
+_FILTER = r"""(?:==|!=|<>|=\s*['"][^'"]{1,12}['"])"""
 # lookbehind rejects only a preceding word char (so `xis_us_export` is not matched)
 # but ALLOWS a dot, so `s.is_us_export` (SQL alias) and `row.field` (attribute) match —
 # those are exactly how the field gets filtered.
 _PATTERNS = {
-    f: re.compile(rf"(?<!\w){re.escape(f)}\s*{_CMP}", re.IGNORECASE)
+    f: re.compile(rf"(?<!\w){re.escape(f)}\s*{_FILTER}", re.IGNORECASE)
     for f in MISLEADING_FIELDS
 }
 

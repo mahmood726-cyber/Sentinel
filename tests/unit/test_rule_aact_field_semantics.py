@@ -62,3 +62,24 @@ def test_dedups_per_field_per_line(tmp_path):
         "x = (is_us_export = 't') or (is_us_export = 't')\n", encoding="utf-8")
     vs = _rule().check(_ctx(tmp_path))
     assert len(vs) == 1  # one field, one line -> deduped
+
+
+def test_silent_on_python_kwarg_and_assignment(tmp_path):
+    # portfolio FP audit: kwargs/assignments are NOT filters (single '=' to
+    # unquoted or long value). These must NOT fire.
+    (tmp_path / "fixtures.py").write_text(
+        "make(why_stopped=None)\n"
+        "why_stopped = status_mod.get('whyStoppedDescription', '')\n"
+        "make(why_stopped='Safety concerns: increased adverse events observed')\n",
+        encoding="utf-8")
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_fires_on_real_comparison_and_short_sql_literal(tmp_path):
+    (tmp_path / "use.py").write_text(
+        "if record.why_stopped == 'terminated': pass\n"          # comparison -> fire
+        "sql = \"WHERE last_known_status = 'Completed'\"\n",      # short quoted literal -> fire
+        encoding="utf-8")
+    vs = _rule().check(_ctx(tmp_path))
+    flags = {v.detail.split("'")[1] for v in vs}
+    assert flags == {"why_stopped", "last_known_status"}
