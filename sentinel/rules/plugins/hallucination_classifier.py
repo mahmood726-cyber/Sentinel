@@ -8,8 +8,8 @@ unsupportedness — the classifier is asked: given the surrounding context
 (the workbook DATA line + references), is this body sentence plausibly
 derivable from the cited evidence?
 
-Phase 3 status: SCAFFOLD. The rule is registered, manifest is clean,
-zero firings on live e156 in default mode. It activates when:
+Status: LOCAL heuristic active by default (no API/model); semantic API path
+is opt-in. It activates when:
 
   - HF_API_KEY env var is set: routes each body to HuggingFace Inference
     API for PatronusAI/Lynx-8B (preferred) or vectara/hallucination_evaluation_model.
@@ -160,6 +160,69 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
     return verdicts
 
 
+# --- Local, no-API heuristic (Phase 4, lightweight): "no naked numbers" -----
+# Enforces AGENTS.md "No naked numbers: important numeric claims need evidence".
+# Flags an EFFECT ESTIMATE stated in a CURRENT BODY (HR/OR/RR/aHR + CI, or a
+# p-value) whose numeric token appears NOWHERE in that entry's evidence (the
+# block minus the body — DATA line, references, metadata). Conservative: only
+# effect-estimate decimals and p-values (NOT plain percentages/integers/years,
+# which are commonly derived), so false positives stay low. WARN, non-blocking.
+# Default ON; disable with HALLUCINATION_LOCAL=0.
+_LOCAL_ON = os.environ.get("HALLUCINATION_LOCAL", "1") != "0"
+_EFFECT_RE = re.compile(
+    r"\b(?:a?HR|OR|RR|hazard ratio|odds ratio|risk ratio|95%\s*CI|CI)\b[^\n]{0,18}?(\d+\.\d+)",
+    re.IGNORECASE,
+)
+_PVAL_RE = re.compile(r"\bp\s*[=<]\s*(0?\.\d+|\d\.\d+(?:e-?\d+)?)", re.IGNORECASE)
+
+
+def _evidence_has(token: str, evidence: str) -> bool:
+    # Match the number as a token (avoid 0.72 matching inside 10.725).
+    return re.search(rf"(?<!\d){re.escape(token)}(?!\d)", evidence) is not None
+
+
+def _check_local(text: str, rel: str, now: datetime) -> List[Verdict]:
+    verdicts: List[Verdict] = []
+    for blk in text.split(SEP):
+        hm = ENTRY_HEAD_RE.search(blk)
+        if not hm:
+            continue
+        body_m = CURRENT_BODY_RE.search(blk)
+        if not body_m:
+            continue
+        body = body_m.group(1)
+        # Evidence = the entry block minus the body span.
+        evidence = blk[:body_m.start()] + blk[body_m.end():]
+        seen: set[str] = set()
+        for rx, kind in ((_EFFECT_RE, "effect estimate"), (_PVAL_RE, "p-value")):
+            for m in rx.finditer(body):
+                tok = m.group(1)
+                if tok in seen:
+                    continue
+                seen.add(tok)
+                if _evidence_has(tok, evidence):
+                    continue
+                line_no = text.count("\n", 0, text.find(blk) + body_m.start() + m.start(1)) + 1
+                verdicts.append(Verdict(
+                    rule_id=ID,
+                    severity=Severity.WARN,
+                    repo=None,
+                    file=rel,
+                    line=line_no,
+                    detail=(
+                        f"entry #{hm.group(1)} body states {kind} '{tok}' not "
+                        "found in the entry's DATA/evidence — possible naked/unsupported number"
+                    ),
+                    fix_hint=(
+                        "verify the value is derivable from (or present in) the cited DATA line; "
+                        "if computed, show the inputs; if wrong, correct it"
+                    ),
+                    source=SOURCE,
+                    timestamp=now,
+                ))
+    return verdicts
+
+
 def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
@@ -172,7 +235,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
         except OSError:
             continue
         rel = path.relative_to(root).as_posix()
-        for v in _check_one_file(text, rel, now):
+        local_findings = _check_local(text, rel, now) if _LOCAL_ON else []
+        for v in local_findings + _check_one_file(text, rel, now):
             verdicts.append(Verdict(
                 rule_id=v.rule_id,
                 severity=v.severity,
