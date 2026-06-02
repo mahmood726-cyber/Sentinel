@@ -65,6 +65,7 @@ def compute_tier(checks: dict) -> str:
     silver_ok = (
         checks.get("dashboard_match") == "pass"
         and checks.get("claim_language") == "pass"
+        and checks.get("publication_bias", "not-run") in _PASS_OR_NOT_RUN
     )
     if not silver_ok:
         return "bronze"
