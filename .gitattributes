@@ -1,0 +1,13 @@
+# Normalize line endings. Rule files + manifest are hashed in CI on LF;
+# without this, Windows checkouts get CRLF and verify-rules reports spurious drift.
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.zip  binary
