@@ -42,6 +42,16 @@ EXCLUDE_DIRS = frozenset((
 ))
 INCLUDE_EXT = frozenset((".md", ".html", ".txt", ".rst"))
 
+# Tool-generated output artifacts that QUOTE prior findings (which may themselves
+# contain effect-claim text like "hazard ratio") and therefore self-trip this rule.
+# They are machine-written logs, not authored capsules — excluding them removes
+# self-referential noise. (Observed 2026-06-03: this rule WARNed on Sentinel's own
+# sentinel-findings.md because it quoted an earlier finding.)
+EXCLUDE_NAMES = frozenset((
+    "sentinel-findings.md",
+    "stuck_failures.md",
+))
+
 # Quantitative effect-claim tells. Any one match makes the doc "claim-bearing".
 # CASE-SENSITIVE on the abbreviations: lowercase "or 3" / "rr 2" are English, not
 # effect estimates. The abbreviation must be UPPERCASE and a standalone token, and
@@ -76,6 +86,8 @@ def _iter_doc_files(root: Path):
         if not path.is_file():
             continue
         if any(d in EXCLUDE_DIRS for d in path.parts):
+            continue
+        if path.name.lower() in EXCLUDE_NAMES:
             continue
         if path.suffix.lower() in INCLUDE_EXT:
             yield path

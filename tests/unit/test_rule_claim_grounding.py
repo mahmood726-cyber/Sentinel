@@ -89,3 +89,12 @@ def test_uppercase_ratio_estimate_still_warns(tmp_path):
 def test_explicit_equals_ratio_warns(tmp_path):
     (tmp_path / "doc.md").write_text("Effect was HR = 2 in the subgroup.\n", encoding="utf-8")
     assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_tool_output_artifacts_are_excluded(tmp_path):
+    """Sentinel/Overmind generated logs quote prior findings (which may contain
+    'hazard ratio') and must not self-trip this rule. (Observed 2026-06-03.)"""
+    (tmp_path / "sentinel-findings.md").write_text(
+        "[WARN] document states a hazard ratio but carries no locator\n", encoding="utf-8")
+    (tmp_path / "STUCK_FAILURES.md").write_text("a 30% reduction was claimed\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
