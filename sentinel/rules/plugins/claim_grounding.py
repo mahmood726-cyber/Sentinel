@@ -43,8 +43,13 @@ EXCLUDE_DIRS = frozenset((
 INCLUDE_EXT = frozenset((".md", ".html", ".txt", ".rst"))
 
 # Quantitative effect-claim tells. Any one match makes the doc "claim-bearing".
+# CASE-SENSITIVE on the abbreviations: lowercase "or 3" / "rr 2" are English, not
+# effect estimates. The abbreviation must be UPPERCASE and a standalone token, and
+# be followed by a ratio-shaped value (a decimal, or an explicit = / :) so prose like
+# "OR 3 other options" does not match. (FP found 2026-06-03 on overmind docs: "or 3".)
 CLAIM_PATTERNS = (
-    re.compile(r"\b(?:a?HR|a?RR|a?OR)\s*[=:]?\s*\d", re.IGNORECASE),
+    re.compile(r"\b(?:aHR|aOR|HR|RR|OR)\b\s*(?:[=:]\s*)?\d+\.\d"),     # HR 0.74 / OR=1.2
+    re.compile(r"\b(?:aHR|aOR|HR|RR|OR)\b\s*[=:]\s*\d"),                # HR = 2 (explicit)
     re.compile(r"\b(?:hazard|risk|odds)\s+ratio\b", re.IGNORECASE),
     re.compile(r"\b95\s*%\s*CI\b", re.IGNORECASE),
     re.compile(r"\bp\s*[<>=]\s*0?\.\d", re.IGNORECASE),

@@ -69,3 +69,23 @@ def test_percent_reduction_claim_warns(tmp_path):
         "Treatment lowered hospitalization by 30% versus placebo.\n", encoding="utf-8"
     )
     assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_english_or_followed_by_number_is_not_a_claim(tmp_path):
+    """Regression (2026-06-03): lowercase 'or 3' (English conjunction) must NOT match
+    the odds-ratio pattern. Found as a false positive on overmind design docs."""
+    (tmp_path / "doc.md").write_text(
+        "Choose option 2 or 3 depending on the runner. We support rr or hr modes.\n",
+        encoding="utf-8",
+    )
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_uppercase_ratio_estimate_still_warns(tmp_path):
+    (tmp_path / "doc.md").write_text("The adjusted OR 1.45 indicated higher risk.\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_explicit_equals_ratio_warns(tmp_path):
+    (tmp_path / "doc.md").write_text("Effect was HR = 2 in the subgroup.\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
