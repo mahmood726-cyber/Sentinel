@@ -32,7 +32,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
                 file=None,
                 line=None,
                 detail=f"reconcile_counts.py not found at {script}",
-                fix_hint="restore reconcile_counts.py in C:/ProjectIndex/",
+                fix_hint="restore reconcile_counts.py in the configured project index",
                 source=SOURCE,
                 timestamp=now,
             )

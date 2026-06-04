@@ -39,7 +39,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
                 file=None,
                 line=None,
                 detail=f"{SCRIPT_NAME} not found at {script}",
-                fix_hint=f"restore {SCRIPT_NAME} in C:/ProjectIndex/",
+                fix_hint=f"restore {SCRIPT_NAME} in the configured project index",
                 source=SOURCE,
                 timestamp=now,
             )
@@ -79,7 +79,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     if result.returncode == 2:
         detail = f"LivingMeta claim-drift detected: {excerpt}"
         hint = (
-            "run `python C:/ProjectIndex/diagnose_drift.py <project>` to inspect "
+            "run `python <project-index>/diagnose_drift.py <project>` to inspect "
             "the drifting project, then repair workbook or HTML before pushing"
         )
     else:

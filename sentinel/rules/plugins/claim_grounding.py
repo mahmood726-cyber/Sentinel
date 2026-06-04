@@ -63,17 +63,33 @@ EXCLUDE_NAMES = frozenset((
     "sentinel-findings.md",
     "stuck_failures.md",
 ))
+# Generated-report filename SHAPES (machine-written docs that quote prior findings
+# and so self-trip this rule). Parametrised because the exact-name list above was
+# edited twice — per rules.md, a hardcoded batch list edited >once must become a
+# pattern. gitignore-awareness isn't available (RepoContext carries only repo_root),
+# so match the conventional generated-report name shapes instead: *findings*.md,
+# *nightly*.md, stuck_failures*, progress.md, aggregate*, review_findings*.
+EXCLUDE_NAME_RE = re.compile(
+    r"findings|nightly|stuck[_-]?failures|^progress\.|aggregate", re.IGNORECASE
+)
 
 # Quantitative effect-claim tells. Any one match makes the doc "claim-bearing".
 # CASE-SENSITIVE on the abbreviations: lowercase "or 3" / "rr 2" are English, not
 # effect estimates. The abbreviation must be UPPERCASE and a standalone token, and
 # be followed by a ratio-shaped value (a decimal, or an explicit = / :) so prose like
 # "OR 3 other options" does not match. (FP found 2026-06-03 on overmind docs: "or 3".)
+#   The `(?<!\d )` negative lookbehind rejects "<number> OR <number>" — uppercase
+#   "OR" as the English conjunction between two figures ("5 OR 3.5 ways") is not an
+#   odds-ratio estimate. A real estimate ("adjusted OR 1.45") is not preceded by a
+#   bare number. (FP found 2026-06-04.)
 CLAIM_PATTERNS = (
-    re.compile(r"\b(?:aHR|aOR|HR|RR|OR)\b\s*(?:[=:]\s*)?\d+\.\d"),     # HR 0.74 / OR=1.2
-    re.compile(r"\b(?:aHR|aOR|HR|RR|OR)\b\s*[=:]\s*\d"),                # HR = 2 (explicit)
+    re.compile(r"(?<!\d )\b(?:aHR|aOR|HR|RR|OR)\b\s*(?:[=:]\s*)?\d+\.\d"),  # HR 0.74 / OR=1.2
+    re.compile(r"(?<!\d )\b(?:aHR|aOR|HR|RR|OR)\b\s*[=:]\s*\d"),            # HR = 2 (explicit)
     re.compile(r"\b(?:hazard|risk|odds)\s+ratio\b", re.IGNORECASE),
-    re.compile(r"\b95\s*%\s*CI\b", re.IGNORECASE),
+    # "95% CI" only counts as a claim tell when an actual interval value follows it
+    # (a number or an opening bracket). Bare "95 % CI" in prose ("chapter 95 % CI of
+    # the room", or 'CI' meaning continuous-integration) is not an estimate. (FP 2026-06-04.)
+    re.compile(r"\b95\s*%\s*CI\b[\s:]*[\[(]?\s*[\d.]", re.IGNORECASE),
     re.compile(r"\bp\s*[<>=]\s*0?\.\d", re.IGNORECASE),
     # "...by 30%" (relative reduction/increase phrasing)
     re.compile(r"\bby\s+\d+(?:\.\d+)?\s*%", re.IGNORECASE),
@@ -81,10 +97,25 @@ CLAIM_PATTERNS = (
     re.compile(r"\b\d+(?:\.\d+)?\s*%\s+(?:reduction|increase|decrease|relative|lower|higher)", re.IGNORECASE),
 )
 
-# A resolvable source locator. Mirrors citation_cascade's locator set.
+# A resolvable source locator. Only SOURCE-SHAPED identifiers clear the doc — a
+# generic URL (a logo/CDN image src, a localhost link, a tracking pixel) is NOT a
+# resolvable citation and must not silence the rule (the dominant false-NEGATIVE
+# before 2026-06-04: a bare `https?://` catch-all cleared any doc with any URL).
 LOCATOR_RE = re.compile(
-    r"\b(?:doi[:=]|DOI[:=]|https?://(?:dx\.)?doi\.org/|10\.\d{4,9}/\S+|"
-    r"PMID[:=]?\s*\d|PMC\d|NCT\d{8}|https?://)",
+    r"(?:"
+    r"doi\s*[:=]\s*10\.\d{4,9}/"                              # doi: 10.xxxx/...
+    r"|https?://(?:dx\.)?doi\.org/10\.\d{4,9}/"               # DOI resolver URL
+    r"|https?://pubmed\.ncbi\.nlm\.nih\.gov/\d"               # PubMed article URL
+    r"|https?://(?:www\.)?clinicaltrials\.gov/\S*NCT\d{8}"    # ClinicalTrials.gov URL
+    r"|https?://www\.crd\.york\.ac\.uk/prospero"             # PROSPERO URL
+    r"|\bPMID\s*[:=]?\s*\d"                                   # PMID
+    r"|\bPMC\d{5,8}\b"                                         # PMCID (real ones are 5-8 digits; not 'PMC1')
+    r"|\bNCT\d{8}\b"                                           # ClinicalTrials.gov accession
+    # bare DOI in a raw reference list. Kept (dropping it would over-warn capsules
+    # that cite a raw DOI), but the suffix must be >=3 chars and not a version/build
+    # token, so 'upgraded to 10.1234/version2' no longer counts as a citation.
+    r"|\b10\.\d{4,9}/(?!(?:version|build|v)\d)[^\s\"'<>]{3,}"
+    r")",
     re.IGNORECASE,
 )
 
@@ -130,7 +161,7 @@ def _iter_doc_files(root: Path):
             continue
         if any(p.startswith(FROZEN_DIR_PREFIXES) for p in path.parts):
             continue
-        if path.name.lower() in EXCLUDE_NAMES:
+        if path.name.lower() in EXCLUDE_NAMES or EXCLUDE_NAME_RE.search(path.name):
             continue
         if path.suffix.lower() in INCLUDE_EXT:
             yield path
@@ -144,7 +175,9 @@ def check(ctx: RepoContext) -> List[Verdict]:
         try:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
-            text = path.read_text(encoding="utf-8", errors="replace")
+            # utf-8-sig strips a leading BOM (a BOM'd capsule would otherwise carry
+            # U+FEFF into the text); falls back to errors='replace' for non-UTF-8.
+            text = path.read_text(encoding="utf-8-sig", errors="replace")
         except OSError:
             continue
         if SKIP_MARKER in text:

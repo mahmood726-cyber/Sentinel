@@ -79,6 +79,12 @@ def test_scan_missing_repo_exits_2(tmp_path: Path):
     assert "does not exist" in r.stderr
 
 
+def test_scan_help_uses_projectindex_audit_default():
+    r = _run("scan", "--help")
+    assert r.returncode == 0
+    assert "C:/Projects/projectindex-audit" in r.stdout
+
+
 def test_scan_non_git_dir_exits_2(tmp_path: Path):
     """Fail-closed on a real dir that isn't a git repo."""
     r = _run("scan", "--repo", str(tmp_path))

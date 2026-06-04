@@ -13,6 +13,7 @@ Exit code contract (contract with hook/payload.py):
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
 import time
 import traceback
@@ -31,6 +32,40 @@ from sentinel.registry.registry import Registry
 RULES_ROOT = Path(__file__).parent.parent / "rules"
 EXIT_INTERNAL_ERROR = 10
 SARIF_FILENAME = SARIF_OUT
+_PROJECT_INDEX_RELATIVE_CANDIDATES = (
+    ("Projects", "projectindex-audit"),
+    ("ProjectIndex",),
+)
+
+
+def _candidate_drive_roots() -> List[Path]:
+    letters: List[str] = []
+    system_drive = os.environ.get("SystemDrive", "")
+    if len(system_drive) >= 1 and system_drive[0].isalpha():
+        letters.append(system_drive[0].upper())
+    for letter in ("C", "D"):
+        if letter not in letters:
+            letters.append(letter)
+    return [Path(f"{letter}:" + os.sep) for letter in letters]
+
+
+def _candidate_project_indexes() -> List[Path]:
+    return [
+        drive_root.joinpath(*rel_parts)
+        for drive_root in _candidate_drive_roots()
+        for rel_parts in _PROJECT_INDEX_RELATIVE_CANDIDATES
+    ]
+
+
+def _default_project_index() -> Path:
+    candidates = _candidate_project_indexes()
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[0]
+
+
+DEFAULT_PROJECT_INDEX = _default_project_index()
 
 
 def add_subparser(sub: argparse._SubParsersAction) -> None:
@@ -43,8 +78,8 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--project-index", type=Path,
-        default=Path("C:/ProjectIndex"),
-        help="Portfolio registry root (default: C:/ProjectIndex)",
+        default=DEFAULT_PROJECT_INDEX,
+        help=f"Portfolio registry root (default: {DEFAULT_PROJECT_INDEX.as_posix()})",
     )
     p.add_argument("--json", action="store_true", help="Emit verdicts as JSON")
     p.add_argument(

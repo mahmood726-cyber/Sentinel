@@ -163,6 +163,76 @@ def test_interactive_calculator_html_is_exempt(tmp_path):
     assert _warns(_rule().check(_ctx(tmp_path))) == []
 
 
+def test_bare_url_does_not_clear_the_doc(tmp_path):
+    """A2 (2026-06-04): a generic URL (logo/CDN src, footer link) is NOT a resolvable
+    citation. A capsule asserting an effect with only a boilerplate URL must still
+    warn — the bare https?:// catch-all that cleared any-doc-with-any-URL is gone."""
+    (tmp_path / "capsule.html").write_text(
+        "<html><body><p>The intervention reduced mortality (HR 0.74, 95% CI 0.65 to 0.85).</p>\n"
+        "<img src='https://cdn.example.com/logo.png'>\n"
+        "<a href='http://localhost:8080/preview'>local</a>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_source_shaped_urls_still_clear(tmp_path):
+    """A real PubMed / DOI-resolver / CT.gov URL is a resolvable locator and clears."""
+    for locator in (
+        "https://pubmed.ncbi.nlm.nih.gov/31535829/",
+        "https://doi.org/10.1056/NEJMoa1911303",
+        "https://clinicaltrials.gov/study/NCT03036124",
+    ):
+        d = tmp_path / locator.split("//")[1].split("/")[0]
+        d.mkdir(exist_ok=True)
+        (d / "c.md").write_text(f"HR 0.74 (95% CI 0.65 to 0.85). See {locator}\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_short_pmc_token_does_not_clear_but_real_pmcid_does(tmp_path):
+    """C (2026-06-04): 'PMC1'/'PMC9' (committee numbers, path fragments) are not
+    PMCIDs — only 5-8 digit PMC\\d clears. A doc cleared only by 'PMC1' must warn."""
+    (tmp_path / "fp.md").write_text(
+        "The PMC1 committee met. HR 0.74 (95% CI 0.65 to 0.85) was reported.\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+    (tmp_path / "ok.md").write_text(
+        "HR 0.74 (95% CI 0.65 to 0.85); full text PMC7654321.\n", encoding="utf-8")
+    # the real PMCID file clears; only fp.md remains -> still exactly one warn
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_version_string_does_not_clear_as_bare_doi(tmp_path):
+    """C: a free-floating dotted-number/slash token ('10.1234/version2') is a software
+    version, not a DOI, and must not clear a claim-bearing doc."""
+    (tmp_path / "v.md").write_text(
+        "Upgraded to 10.1234/version2 build. HR 0.74 (95% CI 0.65 to 0.85).\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_english_or_between_numbers_is_not_a_claim(tmp_path):
+    """C: uppercase 'OR' as the English conjunction between two figures
+    ('5 OR 3.5 ways') is not an odds-ratio estimate."""
+    (tmp_path / "doc.md").write_text("There were 5 OR 3.5 ways to route the call.\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_95pct_ci_prose_without_value_is_not_a_claim(tmp_path):
+    """C: a bare '95 % CI' not followed by an interval value ('chapter 95 % CI of the
+    room', or CI = continuous integration) is not an effect estimate."""
+    (tmp_path / "doc.md").write_text("See chapter 95 % CI of the room for the CI pipeline.\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_generated_report_names_are_excluded(tmp_path):
+    """C: generated machine-written reports (progress.md, *findings*.md, *nightly*.md)
+    quote prior claim text and must not self-trip — parametrised name shapes, not a
+    hardcoded 2-name list."""
+    for name in ("progress.md", "review_findings_x.md", "overmind_nightly_2026.md", "aggregate-findings.md"):
+        (tmp_path / name).write_text("HR 0.74 (95% CI 0.65 to 0.85); a 30% reduction.\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
 def test_static_html_manuscript_still_warns(tmp_path):
     """Guard against over-exemption: a static HTML doc with NO form controls and a
     real ungrounded claim must still warn (it's a manuscript export, not a tool)."""
