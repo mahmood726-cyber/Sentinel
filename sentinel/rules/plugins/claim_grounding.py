@@ -93,6 +93,35 @@ def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
+# <script>/<style> bodies in an interactive tool's index.html are JS/CSS source,
+# not empirical prose: `var q = p < 0.5 ? ...` trips the p-value pattern, a
+# `const KNOWN = { RR: 1, OR: 1 }` lookup trips the ratio pattern, etc. These are
+# the dominant false positives on calculator apps (2026-06-04 allmeta sweep).
+# Blank the block bodies (keeping newlines so line numbers of any *prose* claim
+# outside the block stay accurate) before claim detection.
+_SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+
+
+def _strip_code_blocks(text: str) -> str:
+    return _SCRIPT_STYLE_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+
+
+# An interactive computational tool (calculator app) is not a claim-bearing
+# document: its "95% CI" / "odds ratio" mentions are column headers, button
+# tooltips, and method-description prose, not empirical findings that need a
+# citation. Detect the data-entry surface a static manuscript never has — a
+# <textarea> (paste-in data) or two or more form controls. (Found 2026-06-04:
+# 16 allmeta calculator index.html files false-tripped this rule on UI chrome.)
+_DATA_ENTRY_RE = re.compile(r"<(?:input|select|textarea)\b", re.IGNORECASE)
+_TEXTAREA_RE = re.compile(r"<textarea\b", re.IGNORECASE)
+
+
+def _is_interactive_tool(text: str) -> bool:
+    if _TEXTAREA_RE.search(text):
+        return True
+    return len(_DATA_ENTRY_RE.findall(text)) >= 2
+
+
 def _iter_doc_files(root: Path):
     for path in root.rglob("*"):
         if not path.is_file():
@@ -121,14 +150,23 @@ def check(ctx: RepoContext) -> List[Verdict]:
         if SKIP_MARKER in text:
             continue
 
+        is_html = path.suffix.lower() in (".html", ".htm")
+        # Interactive calculator apps are tools, not claim-bearing documents.
+        if is_html and _is_interactive_tool(text):
+            continue
+
         # A single locator anywhere clears the doc — conservative by design.
+        # Checked against the FULL text (a DOI/URL in a script link still counts).
         if LOCATOR_RE.search(text):
             continue
+
+        # For HTML, detect claims on the prose only — JS/CSS source is not a claim.
+        scan_text = _strip_code_blocks(text) if is_html else text
 
         first_claim = None
         claim_hits = 0
         for pat in CLAIM_PATTERNS:
-            for m in pat.finditer(text):
+            for m in pat.finditer(scan_text):
                 claim_hits += 1
                 if first_claim is None:
                     first_claim = m

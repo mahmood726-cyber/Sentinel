@@ -130,3 +130,46 @@ def test_backup_prefixed_dir_is_excluded(tmp_path):
     d.mkdir(parents=True)
     (d / "index.html").write_text("<p>HR 0.74 (95% CI 0.65 to 0.85)</p>\n", encoding="utf-8")
     assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_claim_inside_script_block_is_not_a_claim(tmp_path):
+    """JS source inside <script> (e.g. `p < 0.5`, `RR: 1`) is code, not an empirical
+    claim. A static HTML doc whose only 'claims' live in a script must not warn."""
+    (tmp_path / "doc.html").write_text(
+        "<html><body><h1>Notes</h1>\n"
+        "<script>var q = p < 0.5 ? p : 1 - p; const K = { RR: 1, OR: 1 };</script>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_interactive_calculator_html_is_exempt(tmp_path):
+    """An interactive tool (textarea paste-in, or 2+ form controls) is a calculator,
+    not a claim-bearing document — its '95% CI' header / 'odds ratio' method prose
+    is UI chrome, not an empirical finding."""
+    (tmp_path / "index.html").write_text(
+        "<html><body>\n"
+        "<textarea id='data'></textarea><button>Compute</button>\n"
+        "<table><thead><tr><th>Effect</th><th>95% CI</th></tr></thead></table>\n"
+        "<p>Uses the Peto one-step odds ratio for rare events.</p>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+    # Two inputs (no textarea) also qualifies as a tool.
+    (tmp_path / "calc.html").write_text(
+        "<input id='a'><input id='b'>\n<th>95% CI</th>\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_static_html_manuscript_still_warns(tmp_path):
+    """Guard against over-exemption: a static HTML doc with NO form controls and a
+    real ungrounded claim must still warn (it's a manuscript export, not a tool)."""
+    (tmp_path / "paper.html").write_text(
+        "<html><body><h1>Results</h1>\n"
+        "<p>The intervention reduced mortality (HR 0.74, 95% CI 0.65 to 0.85).</p>\n"
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
