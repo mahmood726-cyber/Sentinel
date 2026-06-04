@@ -39,6 +39,10 @@ SKIP_MARKER = "sentinel:skip-file"
 EXCLUDE_DIRS = frozenset((
     "node_modules", "__pycache__", ".git", ".pytest_cache", ".venv",
     "venv", "build", "dist", ".tox", ".mypy_cache",
+    # Agent/tool working-state dirs hold generated diffs/reports that quote effect
+    # numbers from elsewhere (e.g. .workflow-state/findings_diff.md held 160 such
+    # "claims" in a 2026-06-03 portfolio sweep) — generated, not authored capsules.
+    ".workflow-state",
 ))
 INCLUDE_EXT = frozenset((".md", ".html", ".txt", ".rst"))
 

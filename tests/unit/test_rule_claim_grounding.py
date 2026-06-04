@@ -98,3 +98,12 @@ def test_tool_output_artifacts_are_excluded(tmp_path):
         "[WARN] document states a hazard ratio but carries no locator\n", encoding="utf-8")
     (tmp_path / "STUCK_FAILURES.md").write_text("a 30% reduction was claimed\n", encoding="utf-8")
     assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_workflow_state_dir_is_excluded(tmp_path):
+    """Generated agent working-state artifacts (e.g. .workflow-state/findings_diff.md
+    held 160 quoted 'claims' in the 2026-06-03 sweep) must not trip the rule."""
+    wf = tmp_path / ".workflow-state"
+    wf.mkdir()
+    (wf / "findings_diff.md").write_text("HR 0.74 (95% CI 0.65 to 0.85) appeared in a finding\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
