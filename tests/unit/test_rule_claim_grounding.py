@@ -107,3 +107,26 @@ def test_workflow_state_dir_is_excluded(tmp_path):
     wf.mkdir()
     (wf / "findings_diff.md").write_text("HR 0.74 (95% CI 0.65 to 0.85) appeared in a finding\n", encoding="utf-8")
     assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_archive_and_snapshot_dirs_are_excluded(tmp_path):
+    """Frozen historical copies (archive/, release-snapshots/) are not the live
+    authored capsule — re-auditing their grounding is noise (~70 such hits in one
+    app's archive/ in the 2026-06-04 allmeta sweep)."""
+    for sub in ("archive", "release-snapshots"):
+        d = tmp_path / "app" / sub
+        d.mkdir(parents=True)
+        (d / "old.md").write_text("HR 0.74 (95% CI 0.65 to 0.85); p < 0.001\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+    # ...but the live copy at the app root still warns.
+    (tmp_path / "app" / "index.md").write_text("HR 0.74 (95% CI 0.65 to 0.85)\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+
+
+def test_backup_prefixed_dir_is_excluded(tmp_path):
+    """backup_<date> dirs carry a varying suffix, so they're caught by prefix, not
+    exact name. A frozen backup copy must not trip the rule."""
+    d = tmp_path / "app" / "backup_2026_01_13"
+    d.mkdir(parents=True)
+    (d / "index.html").write_text("<p>HR 0.74 (95% CI 0.65 to 0.85)</p>\n", encoding="utf-8")
+    assert _warns(_rule().check(_ctx(tmp_path))) == []

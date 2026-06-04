@@ -43,7 +43,15 @@ EXCLUDE_DIRS = frozenset((
     # numbers from elsewhere (e.g. .workflow-state/findings_diff.md held 160 such
     # "claims" in a 2026-06-03 portfolio sweep) — generated, not authored capsules.
     ".workflow-state",
+    # Frozen historical copies: old versions, release snapshots. These are not
+    # the live authored capsule, so re-auditing their citation grounding is pure
+    # noise (a single app's `archive/` held ~70 such "claims" in a 2026-06-04
+    # allmeta sweep). `backup_*` dirs handled by the prefix check below.
+    "archive", "release-snapshots",
 ))
+# Path-part prefixes that mark a frozen/backup copy (e.g. backup_2026_01_13).
+# Exact-name EXCLUDE_DIRS can't catch these because the date suffix varies.
+FROZEN_DIR_PREFIXES = ("backup_", "backup-")
 INCLUDE_EXT = frozenset((".md", ".html", ".txt", ".rst"))
 
 # Tool-generated output artifacts that QUOTE prior findings (which may themselves
@@ -90,6 +98,8 @@ def _iter_doc_files(root: Path):
         if not path.is_file():
             continue
         if any(d in EXCLUDE_DIRS for d in path.parts):
+            continue
+        if any(p.startswith(FROZEN_DIR_PREFIXES) for p in path.parts):
             continue
         if path.name.lower() in EXCLUDE_NAMES:
             continue

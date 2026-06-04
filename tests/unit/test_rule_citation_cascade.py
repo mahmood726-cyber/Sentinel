@@ -74,3 +74,35 @@ def test_existing_placeholder_values_still_pass(tmp_path):
         "DOI: 10.x/y\nDOI: pending\n", encoding="utf-8"
     )
     assert _doi_blocks(_rule().check(_ctx(tmp_path))) == []
+
+
+_BARE_REF = (
+    "# Doc\n\n## References\n\n"
+    "1. **Greenland S, Longnecker MP.** (1992). Methods for trend estimation.\n"
+)
+
+
+def _all(verdicts):
+    return [v for v in verdicts if v.rule_id == "P0-citation-cascade"]
+
+
+def test_archive_and_snapshot_dirs_are_excluded(tmp_path):
+    """Frozen copies (archive/, release-snapshots/) hold old reference lists that
+    should not be re-audited — ~76 bare-reference hits came from one app's archive/
+    in the 2026-06-04 allmeta sweep."""
+    for sub in ("archive", "release-snapshots"):
+        d = tmp_path / "app" / sub
+        d.mkdir(parents=True)
+        (d / "old.md").write_text(_BARE_REF, encoding="utf-8")
+    assert _all(_rule().check(_ctx(tmp_path))) == []
+    # The live copy at the app root still warns on the same bare reference.
+    (tmp_path / "app" / "refs.md").write_text(_BARE_REF, encoding="utf-8")
+    assert len(_all(_rule().check(_ctx(tmp_path)))) >= 1
+
+
+def test_backup_prefixed_dir_is_excluded(tmp_path):
+    """backup_<date> dirs carry a varying suffix — caught by prefix, not exact name."""
+    d = tmp_path / "app" / "backup_2026_01_13"
+    d.mkdir(parents=True)
+    (d / "refs.md").write_text(_BARE_REF, encoding="utf-8")
+    assert _all(_rule().check(_ctx(tmp_path))) == []
