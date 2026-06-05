@@ -68,6 +68,34 @@ def test_valid_doi_passes(tmp_path):
     assert _doi_blocks(_rule().check(_ctx(tmp_path))) == []
 
 
+def test_dashboard_js_doi_handling_not_flagged(tmp_path):
+    """The kit engine's minified DOI-HANDLING JavaScript must not be mistaken
+    for malformed citation DOIs. `doi=src.match(...)`, `doi.org/${doi[1]}`,
+    `doi=work.doi?.replace(...)` are code, not references — none begin with the
+    10. directory indicator. Regression for the 55 finerenone *_REVIEW.html
+    dashboards (all sharing this engine JS) false-flagged on 2026-06-05."""
+    (tmp_path / "dash.html").write_text(
+        "<script>"
+        r"const doi=src.match(/(?:doi[:\s]*|https?:\/\/doi\.org\/)(\S+)/);"
+        "let url=`https://doi.org/${doi[1]}`;"
+        "obj.doi=this.sanitizeText(trial.doi);"
+        r"x.doi=work.doi?.replace(/^doi:/,'');"
+        "</script>",
+        encoding="utf-8",
+    )
+    assert _doi_blocks(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_doi_org_url_with_valid_doi_still_passes(tmp_path):
+    """Sanity: a real doi.org/10.x reference in HTML still passes (the 10.
+    prefix gate doesn't break legitimate DOI URLs)."""
+    (tmp_path / "d.html").write_text(
+        '<a href="https://doi.org/10.1056/NEJMoa2034975">NAVIGATOR</a>\n',
+        encoding="utf-8",
+    )
+    assert _doi_blocks(_rule().check(_ctx(tmp_path))) == []
+
+
 def test_existing_placeholder_values_still_pass(tmp_path):
     """The pre-existing enumerated placeholders (10.x/y) keep passing."""
     (tmp_path / "ref.md").write_text(

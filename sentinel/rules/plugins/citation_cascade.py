@@ -90,11 +90,21 @@ def _looks_like_attempted_doi(candidate: str) -> bool:
         return False
     if E156_PLACEHOLDER_DOI_RE.match(c):
         return False  # E156 capsule pre-registration namespace
+    if not c.startswith("10."):
+        # Every real DOI — even a botched one — begins with the "10." directory
+        # indicator (DOI Handbook §2.2). A capture that doesn't is not a
+        # malformed DOI but a JS identifier / template token / URL path that
+        # merely followed a `doi:`/`doi=`/`doi.org/` substring in minified
+        # dashboard code (e.g. `doi=src.match(/.../)`, `doi.org/${doi[1]}`,
+        # `doi=work.doi?.replace(...)`). Requiring the 10. prefix removes that
+        # whole false-positive class — which fired on 55 kit-engine dashboards
+        # (every *_REVIEW.html sharing the engine's DOI-handling JS) on
+        # 2026-06-05 — without weakening detection of genuinely malformed
+        # 10.<bad>/suffix DOIs (those still start with 10.).
+        return False
     if "/" not in c:
         # Real DOIs always contain at least one slash. A capture without "/"
         # is overwhelmingly likely to be a JS identifier or template token.
-        return False
-    if "." not in c:
         return False
     return True
 
