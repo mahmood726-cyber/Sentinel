@@ -51,6 +51,7 @@
     "plugins/realdata_provenance.py": "84a54a0d604ea73071a000d26ba1b34c7318dd15ca77492d192ee3419aae613c",
     "plugins/regex_catastrophic_backtrack.py": "a5d2db24dad7ec0864b4d95a8ac42aa2e46285e7b3a4f4ac91e28c4a12d08663",
     "plugins/registry_drift.py": "8db40cc093f73548708eef3a647817ba0ea6369edbd16435f94614624b4e91fb",
+    "plugins/reuse_available.py": "f7c21f5db4bd1fc4d7eb64deb96d85a7183b0392f2fefd31d1f2cd37331eb9ef",
     "plugins/rules_index_integrity.py": "287e05cdbd841386d90354351ee5ecd19aad9c54ea630fce00b5ef398233fcba",
     "plugins/script_close_in_template.py": "4f82e25dba92c6a417c0c2e32042dc34a5e79b49e2bebb807a7bce3f050d744d",
     "plugins/test_module_collision.py": "0aced5da4a3be300aa33ecdb3953b432b627d066c9cfd8c30a6bce55b19d0285",
