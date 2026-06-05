@@ -18,8 +18,8 @@ unsupportedness — the classifier is asked: given the surrounding context
 (the workbook DATA line + references), is this body sentence plausibly
 derivable from the cited evidence?
 
-Phase 3 status: SCAFFOLD. The rule is registered, manifest is clean,
-zero firings on live e156 in default mode. It activates when:
+Status: LOCAL heuristic active by default (no API/model); semantic API path
+is opt-in. It activates when:
 
   - HF_API_KEY env var is set: routes each body to HuggingFace Inference
     API for PatronusAI/Lynx-8B (preferred) or vectara/hallucination_evaluation_model.
