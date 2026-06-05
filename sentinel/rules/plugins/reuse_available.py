@@ -22,8 +22,17 @@ WHAT IT FLAGS (high-signal, low-false-positive by design):
       `def resolve_aact_location(...)` -- the `AACT`/`resolve_aact_` names are
       distinctive enough on their own.
 
-WARN, not BLOCK, per the leaked_secret promotion precedent: ship at WARN; promote
-only after a portfolio sweep shows zero false positives.
+SEVERITY — stays WARN (not a BLOCK candidate). A 2026-06-05 portfolio sweep ran
+this rule across 709 repos (C:/Projects + C:/Users/mahmo/code + C:/E156): zero
+false positives AND zero true positives. The leaked_secret precedent promotes a
+rule to BLOCK only when it catches a real ship-blocking defect; this is a
+token/quality advisory, and hard-blocking a push over a reuse suggestion is a
+sharp edge for no benefit. It is a high-precision regression guard (the exact
+kit contract, verbatim) — real reimplementations use different names
+(`drawForest`, not `renderForest`), so near-zero recall is expected and is the
+correct trade: the reuse value is delivered proactively by `reuse.py find` and
+the handoff prompts, with this rule as a cheap, zero-FP safety net. Do NOT chase
+recall with fuzzy structural detection — that would reintroduce false positives.
 
 FALSE-POSITIVE DISCIPLINE:
   - Skips any file that already REFERENCES the owning kit (imports it, or mentions
