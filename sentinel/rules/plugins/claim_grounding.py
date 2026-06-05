@@ -85,7 +85,17 @@ EXCLUDE_NAME_RE = re.compile(
 CLAIM_PATTERNS = (
     re.compile(r"(?<!\d )\b(?:aHR|aOR|HR|RR|OR)\b\s*(?:[=:]\s*)?\d+\.\d"),  # HR 0.74 / OR=1.2
     re.compile(r"(?<!\d )\b(?:aHR|aOR|HR|RR|OR)\b\s*[=:]\s*\d"),            # HR = 2 (explicit)
-    re.compile(r"\b(?:hazard|risk|odds)\s+ratio\b", re.IGNORECASE),
+    # Spelled-out "hazard/risk/odds ratio" only counts as a quantitative CLAIM when a
+    # number sits next to it (same sentence span). A bare phrase with no value is a
+    # methodological mention or an illustrative example — e.g. "hazard ratio edge case
+    # failed" in a design-doc table — not an ungrounded estimate. (FP 2026-06-05 on
+    # overmind docs/specs/2026-04-07-memory-and-dreaming-design.md.) Numeric forms with
+    # an abbreviation (HR 0.74) are already covered by the two patterns above.
+    re.compile(
+        r"\b(?:hazard|risk|odds)\s+ratio\b[^\n.]{0,25}?\d"   # ...ratio of 0.74
+        r"|\d[^\n.]{0,25}?\b(?:hazard|risk|odds)\s+ratio\b",  # a 0.74 hazard ratio
+        re.IGNORECASE,
+    ),
     # "95% CI" only counts as a claim tell when an actual interval value follows it
     # (a number or an opening bracket). Bare "95 % CI" in prose ("chapter 95 % CI of
     # the room", or 'CI' meaning continuous-integration) is not an estimate. (FP 2026-06-04.)

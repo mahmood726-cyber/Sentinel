@@ -81,6 +81,29 @@ def test_english_or_followed_by_number_is_not_a_claim(tmp_path):
     assert _warns(_rule().check(_ctx(tmp_path))) == []
 
 
+def test_bare_ratio_phrase_without_number_is_not_a_claim(tmp_path):
+    """Regression (2026-06-05): a spelled-out 'hazard/risk/odds ratio' with NO adjacent
+    number is a methodological mention or an illustrative example, not a quantitative
+    claim. Found as a false positive on overmind's memory-and-dreaming design doc, whose
+    table cell read '...hazard ratio edge case failed'."""
+    (tmp_path / "design.md").write_text(
+        "| Verification failed | regression | \"prognostic-meta: hazard ratio edge case failed\" |\n"
+        "We compute an odds ratio internally and may report the risk ratio later.\n",
+        encoding="utf-8",
+    )
+    assert _warns(_rule().check(_ctx(tmp_path))) == []
+
+
+def test_spelled_out_ratio_with_number_still_warns(tmp_path):
+    """Counterpart: the spelled-out phrase WITH a value next to it is a real ungrounded
+    claim and must still warn (kept recall while killing the bare-phrase FP)."""
+    (tmp_path / "a.md").write_text("The hazard ratio of 0.74 favored treatment.\n", encoding="utf-8")
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
+    (tmp_path / "b.md").write_text("A 0.74 hazard ratio favored treatment.\n", encoding="utf-8")
+    # two separate claim-bearing files -> two warns
+    assert len(_warns(_rule().check(_ctx(tmp_path)))) == 2
+
+
 def test_uppercase_ratio_estimate_still_warns(tmp_path):
     (tmp_path / "doc.md").write_text("The adjusted OR 1.45 indicated higher risk.\n", encoding="utf-8")
     assert len(_warns(_rule().check(_ctx(tmp_path)))) == 1
