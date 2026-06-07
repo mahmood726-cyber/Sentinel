@@ -168,6 +168,11 @@ def _run_inner(args: argparse.Namespace) -> int:
                 f"[Sentinel] --diff: no changed files vs {args.base_ref} "
                 "(plus staged/unstaged/untracked) — nothing to scan",
             )
+            # Emit the verdicts marker so callers (e.g. the pre-push hook's
+            # proof-of-run check) can tell a clean no-op from a crash. A push
+            # with no scannable files — notably a branch/tag DELETION — is a
+            # legitimate 0-findings pass, not a Sentinel crash.
+            _print_summary([])
             return 0
         print(
             f"[Sentinel] --diff: scanning {len(diff_filter_set)} changed "

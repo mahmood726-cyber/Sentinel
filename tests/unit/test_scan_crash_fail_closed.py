@@ -66,6 +66,37 @@ def test_scan_returns_10_on_registry_load_failure(tmp_path, monkeypatch):
     assert "NOT a clean scan" in res.stderr
 
 
+def test_empty_diff_emits_verdicts_marker(tmp_path):
+    """A --diff scan with no changed files (e.g. a branch/tag DELETION push)
+    must still print the verdicts marker so the hook's proof-of-run check
+    reads it as a clean 0-findings pass, not a crash.
+
+    Regression: previously this path returned 0 WITHOUT a marker, so the
+    pre-push hook blocked every branch deletion and forced SENTINEL_BYPASS.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path),
+                    "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-q", "--allow-empty", "-m", "init"], check=True)
+
+    # --diff against HEAD with a clean tree -> no changed files.
+    res = subprocess.run(
+        [sys.executable, "-m", "sentinel", "scan", "--repo", str(tmp_path),
+         "--diff", "--base-ref", "HEAD"],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+        env=subprocess.os.environ, timeout=30,
+    )
+    assert res.returncode == 0, (
+        f"empty diff should exit 0, got {res.returncode}. "
+        f"stdout={res.stdout[:300]} stderr={res.stderr[:300]}"
+    )
+    assert "nothing to scan" in res.stdout
+    assert "[Sentinel] verdicts:" in res.stdout, (
+        "empty-diff scan must emit the verdicts marker (proof-of-run) so the "
+        f"hook does not misread it as a crash. stdout={res.stdout[:300]}"
+    )
+
+
 def test_hook_payload_fails_closed_on_crash_exit_code():
     """Static check: hook payload script explicitly handles rc>=10 as BLOCK,
     AND requires a verdicts-marker in scan output (proof-of-run).
