@@ -11,7 +11,7 @@
     "plugins/baseline_drift.py": "6ac85a72ec9132f5a038d5ee6f616bfcfe7e6e2e8f5ba97b580ba4531ed171c3",
     "plugins/blueprint_implementation_match.py": "da818dade1a1e4502d87fed6c17ef31aaba6cc17b45dd879ae3fbe5bea2c70d9",
     "plugins/capsule_stats_invariant.py": "9e6ad0f4d37c0a7959594af59fb1ecf03d19def1ad76e732ded66c455c397ada",
-    "plugins/citation_cascade.py": "ec5b23aa8ad34c9650ffd7473b5d2fea168ca5bab7976fdaebd26244a99c9c1c",
+    "plugins/citation_cascade.py": "7a2b0680c3a194a1c8de0ac2f3849bcbce2ac35276caac49b62aa0a6aaad3db9",
     "plugins/citation_resolution.py": "1c0cd89dfb23f8d5615216d3c070652aec2397b6ece91c074e00ab873a146f8b",
     "plugins/claim_grounding.py": "111e76f118405cae47e4c9b4fa76ba3c954dc7a7418658c339e1faf7ce9e9627",
     "plugins/claim_language.py": "41a2c1c512bea64b03da639734ba4898198e986377bc52acee3582c0b26ce74c",
