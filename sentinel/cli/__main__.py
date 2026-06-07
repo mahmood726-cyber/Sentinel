@@ -8,6 +8,7 @@ from sentinel.cli import dashboard as dashboard_cmd
 from sentinel.cli import explain as explain_cmd
 from sentinel.cli import install_hook as install_hook_cmd
 from sentinel.cli import list_rules as list_rules_cmd
+from sentinel.cli import llm_review as llm_review_cmd
 from sentinel.cli import scan as scan_cmd
 from sentinel.cli import sweep as sweep_cmd
 from sentinel.cli import triage as triage_cmd
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     dashboard_cmd.add_subparser(sub)
     verify_rules_cmd.add_subparser(sub)
     triage_cmd.add_subparser(sub)
+    llm_review_cmd.add_subparser(sub)
     args = parser.parse_args(argv)
     return args.func(args)
 

@@ -48,3 +48,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Transient llm-review packets (contain a diff; never commit)
+.sentinel-llm-review-request.json
