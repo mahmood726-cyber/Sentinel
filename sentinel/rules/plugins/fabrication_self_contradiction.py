@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 
 ID = "P1-fabrication-self-contradiction"
@@ -80,6 +81,8 @@ def _line_of(text: str, offset: int) -> int:
 def _iter_target_files(root: Path):
     """Same target set as denominator_logic."""
     for p in root.glob("*_REVIEW.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         yield p
     sp = root / "students.html"
     if sp.is_file():

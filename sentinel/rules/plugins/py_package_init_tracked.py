@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 
 ID = "P1-py-package-init-tracked"
@@ -100,6 +101,8 @@ def _walk_py_dirs(repo: Path, tracked: Set[str]):
             tracked_key = fname if rel_dir == "." else f"{rel_dir}/{fname}"
             if tracked_key not in tracked:
                 continue
+            if not path_allowed(repo, Path(dirpath) / fname):
+                continue  # honor `scan --diff` changed-file scope
             try:
                 text = (Path(dirpath) / fname).read_text(encoding="utf-8", errors="ignore")
             except OSError:

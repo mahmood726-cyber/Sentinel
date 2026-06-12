@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_tree_or_filter
 from sentinel.io.skip_marker import has_skip_marker
 
 ID = "P2-reuse-available"
@@ -115,7 +116,7 @@ def _line_of(text: str, offset: int) -> int:
 
 
 def _iter_files(root: Path):
-    for path in root.rglob("*"):
+    for path in iter_tree_or_filter(root):  # changed-file scope under --diff
         if not path.is_file():
             continue
         if path.suffix.lower() not in INCLUDE_EXT:

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 ID = "P0-aact-snapshot-provenance"
 SEVERITY = Severity.BLOCK
@@ -48,6 +49,8 @@ def _capsule_json(text: str):
 
 def _iter_capsules(root: Path):
     for p in root.rglob("*-capsule.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         if any(part in EXCLUDE_DIRS for part in p.parts):
             continue
         yield p

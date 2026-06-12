@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 
 ID = "P1-fabrication-round-number-cluster"
@@ -63,6 +64,8 @@ def _line_of(text: str, offset: int) -> int:
 
 def _iter_target_files(root: Path):
     for p in root.glob("*_REVIEW.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         yield p
     wb = root / "rewrite-workbook.txt"
     if wb.is_file():

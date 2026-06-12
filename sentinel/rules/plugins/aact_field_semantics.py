@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_tree_or_filter
 
 ID = "P1-aact-field-semantics"
 SEVERITY = Severity.WARN
@@ -73,7 +74,9 @@ _PATTERNS = {
 
 
 def _iter_files(root: Path):
-    for p in root.rglob("*"):
+    for p in iter_tree_or_filter(root):  # changed-file scope under --diff
+        if not p.is_file():
+            continue
         if p.suffix.lower() not in EXTS:
             continue
         if any(part in EXCLUDE_DIRS for part in p.parts):

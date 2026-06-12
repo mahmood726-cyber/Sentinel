@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import iter_tree_or_filter
 
 ID = "P1-claim-grounding"
 SEVERITY = Severity.WARN
@@ -164,7 +165,7 @@ def _is_interactive_tool(text: str) -> bool:
 
 
 def _iter_doc_files(root: Path):
-    for path in root.rglob("*"):
+    for path in iter_tree_or_filter(root):  # changed-file scope under --diff
         if not path.is_file():
             continue
         if any(d in EXCLUDE_DIRS for d in path.parts):

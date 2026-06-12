@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 from sentinel.rules.plugins.denominator_logic import (
     _iter_realdata_entries,
     _line_of,
@@ -55,6 +56,8 @@ LOOSE_N_CEILING = 500      # ... at very small cohorts (n<500)
 
 def _iter_html_files(root: Path):
     for p in root.glob("*_REVIEW.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         yield p
     sp = root / "students.html"
     if sp.is_file():

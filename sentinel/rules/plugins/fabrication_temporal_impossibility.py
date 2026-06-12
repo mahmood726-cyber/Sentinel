@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 from sentinel.rules.plugins.denominator_logic import (
     _iter_realdata_entries,
     _line_of,
@@ -55,6 +56,8 @@ EXTRA_FIELD_RE = re.compile(
 
 def _iter_html_files(root: Path):
     for p in root.glob("*_REVIEW.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         yield p
 
 

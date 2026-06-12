@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 
 ID = "P0-denominator-logic"
@@ -221,6 +222,8 @@ def _iter_html_files(root: Path):
     """Scan files likely to contain a realData block."""
     # rapidmeta dashboards are *_REVIEW.html at root
     for p in root.glob("*_REVIEW.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         yield p
     # Also students.html if present
     sp = root / "students.html"

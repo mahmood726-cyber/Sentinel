@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 
 ID = "P1-assurance-badge-integrity"
@@ -82,6 +83,8 @@ def _severity() -> Severity:
 
 def _iter_badges(root: Path):
     for p in root.rglob(BADGE_NAME):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         if any(d in EXCLUDE_DIRS for d in p.parts):
             continue
         if p.is_file():

@@ -91,6 +91,55 @@ def get_path_filter() -> frozenset[str] | None:
     return _ACTIVE_PATH_FILTER
 
 
+def path_allowed(root: Path, path: Path) -> bool:
+    """True if `path` passes the active `--diff` path filter.
+
+    Rules that do their OWN filesystem walk (`rglob` / `os.walk`) instead of
+    `iter_repo_files` MUST guard each candidate with this — otherwise they read
+    every matching file in the repo regardless of the changed-file scope, and
+    `--diff` is no faster than a full scan. That is exactly what stalled a
+    `--diff` scan to 18+ min / >1.7 GB on a 14k-file dashboard repo, because
+    `citation_cascade` / `claim_grounding` `rglob`-read every 5 MB `*.html`
+    (incident 2026-06-12).
+
+    Returns True when no filter is active (i.e. a full scan), so callers can
+    guard unconditionally with zero behavior change outside `--diff`. A path
+    outside `root` returns False (it cannot be in the changed-file set).
+    """
+    active = _ACTIVE_PATH_FILTER
+    if active is None:
+        return True
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return False
+    return rel in active
+
+
+def iter_tree_or_filter(root: Path) -> Iterator[Path]:
+    """Yield candidate file `Path`s for a rule that would otherwise `rglob("*")`
+    the whole tree, then apply its own extension / exclude-dir filtering.
+
+    When a `--diff` filter is active, yield ONLY the changed files (no tree
+    walk at all) — otherwise `rglob("*")`-walking + `stat`-ing every entry in a
+    16k-file repo costs ~3 s PER rule even when the reads are skipped, which
+    keeps `--diff` seconds-slow instead of the intended sub-second. When no
+    filter is active, fall back to the full `root.rglob("*")` walk (unchanged
+    full-scan behavior). Only existing regular files are yielded.
+    """
+    active = _ACTIVE_PATH_FILTER
+    if active is not None:
+        for rel in active:
+            p = root / rel
+            try:
+                if p.is_file():
+                    yield p
+            except OSError:
+                continue
+        return
+    yield from root.rglob("*")
+
+
 def iter_repo_files(
     root: Path,
     pattern: str | Sequence[str] = "*",

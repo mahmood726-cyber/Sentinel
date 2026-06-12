@@ -11,6 +11,7 @@ from typing import List, Optional, Sequence, Set
 import yaml
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import get_path_filter
 from sentinel.io.paths import global_exclude_patterns
 
 
@@ -267,7 +268,15 @@ def _iter_matching_files(
     else:
         rels = _rglob_relpaths(root)
 
+    # Honor `sentinel scan --diff`: when a changed-file filter is active, scope
+    # to that subset. Without this every YAML rule read_text()s every matching
+    # file regardless of --diff — the dominant cost that ran an 18+ min --diff
+    # scan on a 14k-file repo (incident 2026-06-12). Forward-slash both sides.
+    active_filter = get_path_filter()
+
     for rel in rels:
+        if active_filter is not None and rel.replace("\\", "/") not in active_filter:
+            continue
         if ".." in rel.split("/"):
             continue
         if not any(_fnmatch_with_doublestar(rel, pat) for pat in include):

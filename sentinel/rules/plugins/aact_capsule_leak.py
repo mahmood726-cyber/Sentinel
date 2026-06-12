@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import path_allowed
 
 ID = "P1-aact-capsule-leak"
 SEVERITY = Severity.WARN
@@ -54,6 +55,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
     out: List[Verdict] = []
     root = ctx.repo_root
     for p in root.rglob("*-capsule.html"):
+        if not path_allowed(root, p):
+            continue  # honor `scan --diff` changed-file scope
         if any(part in EXCLUDE_DIRS for part in p.parts):
             continue
         try:
