@@ -80,9 +80,18 @@ def test_scan_missing_repo_exits_2(tmp_path: Path):
 
 
 def test_scan_help_uses_projectindex_audit_default():
+    # The default project-index root is resolved dynamically from the candidate
+    # drive roots present on the host (see scan._default_project_index), so the
+    # exact path is machine-dependent. Assert against the *computed* default
+    # rather than a hardcoded path — the previous literal `C:/Projects/...`
+    # assertion failed on any host where that exact dir is absent but a sibling
+    # candidate (e.g. C:/ProjectIndex) exists.
+    from sentinel.cli.scan import DEFAULT_PROJECT_INDEX
+
     r = _run("scan", "--help")
     assert r.returncode == 0
-    assert "C:/Projects/projectindex-audit" in r.stdout
+    assert "--project-index" in r.stdout
+    assert DEFAULT_PROJECT_INDEX.as_posix() in r.stdout
 
 
 def test_scan_non_git_dir_exits_2(tmp_path: Path):
