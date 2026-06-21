@@ -1,0 +1,32 @@
+id: P0-force-push-config
+severity: BLOCK
+scope: repo
+description: >
+  Force-push must never be enabled in committed config. The infra audit
+  (2026-06-20) found `git-always-force-push = true` in an agent config, which
+  directly contradicts the non-negotiable "never force-push" rule — a headless
+  agent could rewrite remote history. This rule blocks the setting (or a
+  force-push git alias) reappearing in any tracked file.
+pattern: '(?im)^\s*git[-_]always[-_]force[-_]push\s*=\s*[\"'']?true[\"'']?\s*$|push\s*=\s*!?git\s+push\s+--force(?!-with-lease)'
+files:
+  - '**/*.toml'
+  - '**/*.ini'
+  - '**/*.cfg'
+  - '**/*.conf'
+  - '**/*.yaml'
+  - '**/*.yml'
+  - '**/*.sh'
+  - '**/*.bat'
+  - '**/*.ps1'
+  - '**/.gitconfig'
+  - '**/config'
+exclude:
+  - 'sentinel/rules/**'
+  - '**/sentinel/rules/**'
+  - 'skills/**'
+  - '**/skills/**'
+fix_hint: >
+  Set git-always-force-push = false (or remove it). If a force push is
+  genuinely required, do it manually with --force-with-lease after review —
+  never as a standing config default. See AGENTS.md security posture.
+source: outputs/infra-audit/AUDIT_2026-06-20.md#P0-1
