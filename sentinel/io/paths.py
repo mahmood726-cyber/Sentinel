@@ -34,4 +34,8 @@ def global_exclude_patterns() -> tuple[str, ...]:
     out: list[str] = []
     for name in OUTPUT_FILENAMES + LEGACY_FILENAMES:
         out.append(f"**/{name}")
+        # Rotated backups (e.g. STUCK_FAILURES.md.1) — see io.rotation. Without
+        # these, a rolled-over log would re-enter the scan as a fresh file and
+        # produce a self-reference cascade.
+        out.append(f"**/{name}.[0-9]")
     return tuple(out)

@@ -43,7 +43,20 @@ if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   fi
   repo="$(git rev-parse --show-toplevel 2>/dev/null || echo unknown)"
   user="$(git config user.name 2>/dev/null || echo unknown)"
-  if ! printf '%s\\t%s\\t%s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user" >> "$log_path" 2>/dev/null; then
+  # Tamper-evident hash chain: each entry's trailing field is
+  # sha256(prev_chain + this_entry). Editing or deleting any past line breaks
+  # the chain for every line after it, so the user-writable log can no longer
+  # be silently rewritten to hide a bypass. `sentinel bypass-log --verify`
+  # validates the chain. Degrades to an unchained line if sha256sum is absent.
+  entry="$(printf '%s\\t%s\\t%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user")"
+  if command -v sha256sum >/dev/null 2>&1; then
+    prev_chain="$(tail -n 1 "$log_path" 2>/dev/null | awk -F'\\t' 'NF>=4{{print $4}}')"
+    chain="$(printf '%s%s' "$prev_chain" "$entry" | sha256sum | cut -d' ' -f1)"
+    line="$(printf '%s\\t%s' "$entry" "$chain")"
+  else
+    line="$entry"
+  fi
+  if ! printf '%s\\n' "$line" >> "$log_path" 2>/dev/null; then
     echo "[Sentinel] failed to append to bypass log ($log_path). Push BLOCKED — check file permissions." >&2
     exit 1
   fi
