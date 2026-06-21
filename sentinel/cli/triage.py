@@ -15,8 +15,28 @@ from typing import List
 
 from sentinel.core import Verdict
 from sentinel import triage as triage_mod
+from sentinel.io.paths import OUTPUT_FILENAMES
 
 EXIT_USER_ERROR = 2
+
+
+def _reject_canonical_output(out: Path | None) -> str | None:
+    """Refuse to write triage output over a canonical aggregation file.
+
+    P2-10: triage is advisory. The deterministic finding logs Overmind reads
+    (STUCK_FAILURES.*, sentinel-findings.*) must never be silently overwritten
+    by an LLM-demoted verdict set. Returns an error string if `out` targets one
+    of those names, else None.
+    """
+    if out is None:
+        return None
+    if out.name in OUTPUT_FILENAMES:
+        return (
+            f"refusing to write triage output to canonical aggregation file "
+            f"{out.name!r}. Triage is advisory and must not overwrite the "
+            f"deterministic record Overmind reads. Write to a different path."
+        )
+    return None
 
 
 def add_subparser(sub: argparse._SubParsersAction) -> None:
@@ -49,6 +69,12 @@ def add_subparser(sub: argparse._SubParsersAction) -> None:
 
 
 def _run(args: argparse.Namespace) -> int:
+    # 0. advisory-only guard: never overwrite a canonical aggregation file (P2-10)
+    canonical_err = _reject_canonical_output(args.out)
+    if canonical_err:
+        print(f"[Sentinel] error: {canonical_err}", file=sys.stderr)
+        return EXIT_USER_ERROR
+
     # 1. obtain verdicts
     if args.repo:
         if not args.repo.is_dir():
