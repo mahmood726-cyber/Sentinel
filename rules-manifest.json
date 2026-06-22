@@ -17,6 +17,7 @@
     "plugins/claim_language.py": "41a2c1c512bea64b03da639734ba4898198e986377bc52acee3582c0b26ce74c",
     "plugins/cochrane_v65_invariants.py": "abdbd930355335e60d9d0e690e5c95585076894a58800d0b67a9f599c60eb918",
     "plugins/cp1252_mojibake.py": "2c6b1cd2137c3548eacf30c57655bab2f98d32c802a1aedd81c9bb4f85ba89cf",
+    "plugins/csp_external_resource.py": "d7b92c8130430515845fa1a2ca8714db66aa9b51e66cfdbfa477920e9b44679c",
     "plugins/dashboard_match.py": "e50a488e57393bb973071751d141674b6e70d3aabf3f5766faaa1eab2ba924de",
     "plugins/dashboard_stat_orphan.py": "bd07f231ccb1a6b1c7ef6a8bcbd2d289d253a54f9b53ac6a76f09c565e04229c",
     "plugins/denominator_logic.py": "14336be1a5639e259e8856ecf70daf7ecb423c59e580cb0faac1c4b219fe56ef",
