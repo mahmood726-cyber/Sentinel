@@ -1,9 +1,10 @@
 """P2-memory-paths-resolve: WARN on Claude memory files referencing non-existent paths.
 
 Portfolio-scope rule. Reads memory files under the configured memory
-dir (defaults to `C:\\Users\\user\\.claude\\projects\\C--Users-user\\memory`
-on Windows), grep-extracts Windows absolute paths from backtick-wrapped
-references, verifies each `path.exists()`, WARNs on MISSING.
+dir (defaults to `<home>/.claude/projects/<home-slug>/memory`, derived from
+the live home dir so it stays portable across machines/users),
+grep-extracts Windows absolute paths from backtick-wrapped references,
+verifies each `path.exists()`, WARNs on MISSING.
 
 Triggering incident: 2026-04-16 reconcile. sentinel.md shipped 3 paths
 that were wrong — Denominator_Calibrated_Living_NMA, metasprint-autopilot,
@@ -41,9 +42,27 @@ SEVERITY = Severity.WARN
 SOURCE = "lessons.md#portfolio-audit-patterns"
 SCOPE = "portfolio"
 
-DEFAULT_MEMORY_DIR = Path(
-    r"C:\Users\user\.claude\projects\C--Users-user\memory"
-)
+def _home_project_slug() -> str:
+    """Claude-Code project-dir slug for the user's home path.
+
+    Claude Code stores per-root memory under
+    `~/.claude/projects/<slug>/memory`, where <slug> is the absolute root path
+    with the drive colon and every path separator replaced by '-'
+    (e.g. `C:\\Users\\mahmo` -> `C--Users-mahmo`). Deriving the slug from the
+    live home dir keeps the default portable — the previous literal
+    `C--Users-user` silently disabled this rule on every machine whose user is
+    not named `user` (verified: it returned no findings on the author's own
+    box), which is exactly the silent mis-target the audit flagged.
+    """
+    home = str(Path.home())
+    return home.replace(":", "-").replace("\\", "-").replace("/", "-")
+
+
+def _default_memory_dir() -> Path:
+    return Path.home() / ".claude" / "projects" / _home_project_slug() / "memory"
+
+
+DEFAULT_MEMORY_DIR = _default_memory_dir()
 
 # Backtick-wrapped Windows path: `C:\...` or `C:/...`
 BACKTICK_PATH_RE = re.compile(r"`([A-Z]):([\\/][^`]+?)`")

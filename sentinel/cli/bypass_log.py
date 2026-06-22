@@ -1,6 +1,7 @@
-"""`sentinel bypass-log` — view or clear the bypass log."""
+"""`sentinel bypass-log` — view, verify, or clear the bypass log."""
 from __future__ import annotations
 import argparse
+import hashlib
 import os
 from pathlib import Path
 
@@ -36,9 +37,45 @@ def _log_path() -> Path:
     return Path(normalized)
 
 
+def verify_chain(lines: list[str]) -> tuple[bool, int | None, str]:
+    """Validate the bypass log's tamper-evident hash chain.
+
+    Each chained line is ``ts<TAB>repo<TAB>user<TAB>chain`` where
+    ``chain = sha256(prev_chain + "ts<TAB>repo<TAB>user")``. Returns
+    ``(ok, first_bad_lineno, message)``. Unchained legacy lines (3 fields) are
+    tolerated but reset the running chain to empty so a later chained entry
+    still validates against them — they are reported as advisory, not failures.
+    """
+    prev_chain = ""
+    legacy = 0
+    for lineno, raw in enumerate(lines, start=1):
+        line = raw.rstrip("\n")
+        if not line:
+            continue
+        fields = line.split("\t")
+        if len(fields) < 4:
+            # Pre-chain entry — can't be cryptographically verified.
+            legacy += 1
+            prev_chain = ""
+            continue
+        entry = "\t".join(fields[:3])
+        recorded = fields[3]
+        expected = hashlib.sha256((prev_chain + entry).encode("utf-8")).hexdigest()
+        if recorded != expected:
+            return (False, lineno, f"chain broken at line {lineno}: recorded hash does not match")
+        prev_chain = recorded
+    suffix = f" ({legacy} unchained legacy line(s) skipped)" if legacy else ""
+    return (True, None, f"bypass log chain intact{suffix}")
+
+
 def add_subparser(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser("bypass-log", help="View or clear the bypass log")
-    p.add_argument("--clear", action="store_true", help="Empty the bypass log file")
+    p = sub.add_parser("bypass-log", help="View, verify, or clear the bypass log")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--clear", action="store_true", help="Empty the bypass log file")
+    g.add_argument(
+        "--verify", action="store_true",
+        help="Validate the tamper-evident hash chain (exit 1 if broken)",
+    )
     p.set_defaults(func=_run)
 
 
@@ -48,6 +85,15 @@ def _run(args: argparse.Namespace) -> int:
     except BypassLogPathError as exc:
         print(f"[Sentinel] {exc}", flush=True)
         return 1
+    if getattr(args, "verify", False):
+        if not path.exists() or path.stat().st_size == 0:
+            print(f"[Sentinel] bypass log is empty ({path}) — nothing to verify")
+            return 0
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        ok, bad_line, message = verify_chain(lines)
+        print(f"[Sentinel] {message}")
+        return 0 if ok else 1
+
     if args.clear:
         if path.exists():
             path.write_text("", encoding="utf-8")

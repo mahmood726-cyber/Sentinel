@@ -44,6 +44,21 @@ def patched_memory_dir(tmp_path: Path, monkeypatch):
     return memory
 
 
+def test_default_memory_dir_derives_from_home():
+    """Regression (P1-6): the default memory dir must derive from the live
+    home dir, not a hardcoded `C:\\Users\\user\\...C--Users-user...` literal.
+    The literal silently disabled the rule on every machine whose user is not
+    `user`. Assert the default sits under home and the slug tracks home."""
+    from sentinel.rules.plugins import memory_paths_resolve as mod
+
+    default = mod._default_memory_dir()
+    assert str(default).startswith(str(Path.home()))
+    assert default.name == "memory"
+    assert "user" not in mod._home_project_slug() or "user" in str(Path.home()).lower()
+    # The slug must encode the home path with separators flattened to '-'.
+    assert mod._home_project_slug() == str(Path.home()).replace(":", "-").replace("\\", "-").replace("/", "-")
+
+
 def test_no_memory_dir_no_verdict(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SENTINEL_MEMORY_DIR", str(tmp_path / "nonexistent"))
     rule = load_plugin_rule(PLUGIN_PATH)

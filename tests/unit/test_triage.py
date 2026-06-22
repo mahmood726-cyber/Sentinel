@@ -133,6 +133,25 @@ def test_apply_never_drops_findings():
     assert len(out) == 3
 
 
+# --------------------------- advisory-only (P2-10) ------------------------ #
+def test_demoted_verdict_carries_advisory_marker():
+    """A downgraded verdict must be machine-detectable as LLM-advisory so the
+    Overmind aggregator never counts it as a deterministic WARN."""
+    v = _v(severity=Severity.BLOCK, source="lessons.md#x")
+    res = [t.TriageResult(v.rule_id, v.file, v.line, "BLOCK", "likely_fp", 0.95, "fp")]
+    out = t.apply_triage([v], res, min_confidence=0.8)
+    assert t.ADVISORY_MARKER in out[0].source
+    assert "lessons.md#x" in out[0].source  # original provenance preserved
+    assert "advisory" in out[0].detail.lower()
+
+
+def test_kept_verdict_has_no_advisory_marker():
+    v = _v(severity=Severity.BLOCK, source="lessons.md#x")
+    res = [t.TriageResult(v.rule_id, v.file, v.line, "BLOCK", "keep", 1.0, "real")]
+    out = t.apply_triage([v], res, min_confidence=0.8)
+    assert t.ADVISORY_MARKER not in out[0].source
+
+
 # --------------------------- load_verdicts_json --------------------------- #
 def test_load_verdicts_json_roundtrip(tmp_path):
     v = _v()

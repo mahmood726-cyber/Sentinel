@@ -19,6 +19,7 @@ from typing import Sequence
 
 from sentinel.core import Severity, Verdict
 from sentinel.io.paths import BLOCK_MD, BLOCK_JSONL, WARN_MD, WARN_JSONL
+from sentinel.io.rotation import rotate_if_needed
 
 
 STUCK_HEADER = f"# {BLOCK_MD}\n\n*Written by Sentinel — BLOCK-tier violations.*\n"
@@ -38,6 +39,7 @@ def _format_verdict(v: Verdict) -> str:
 
 
 def _append_jsonl(path: Path, verdicts: Sequence[Verdict]) -> None:
+    rotate_if_needed(path)
     with path.open("a", encoding="utf-8") as f:
         for v in verdicts:
             f.write(json.dumps(v.to_dict(), ensure_ascii=False) + "\n")
@@ -53,6 +55,7 @@ def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
     if blocks:
         _append_jsonl(repo_root / BLOCK_JSONL, blocks)
         md_path = repo_root / BLOCK_MD
+        rotate_if_needed(md_path)
         if not md_path.exists():
             md_path.write_text(STUCK_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:
@@ -62,6 +65,7 @@ def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
     if warns:
         _append_jsonl(repo_root / WARN_JSONL, warns)
         md_path = repo_root / WARN_MD
+        rotate_if_needed(md_path)
         if not md_path.exists():
             md_path.write_text(REVIEW_HEADER, encoding="utf-8")
         with md_path.open("a", encoding="utf-8") as f:

@@ -14,6 +14,11 @@ Design constraints (non-negotiable):
   backend yields verdict ``keep`` — a real finding is never silently dropped.
 - **Downgrade-only, never delete.** Applying triage can demote BLOCK -> WARN; it
   never removes a verdict and never touches WARN/INFO severities.
+- **Advisory, not authoritative (P2-10).** A demotion is a suggestion: the new
+  verdict carries ADVISORY_MARKER in its `source` so the Overmind aggregator can
+  tell it from a deterministic WARN, and the CLI refuses to write triage output
+  over the canonical finding logs Overmind reads. An LLM never silently weakens
+  the gate.
 - **Optional dependency.** Sentinel core stays dependency-free. Triage no-ops if
   no backend is configured (no ANTHROPIC_API_KEY and no local ollama).
 
@@ -36,6 +41,13 @@ from sentinel.core import RepoContext, ScanMode, Severity, Verdict
 LLMCall = Callable[[str], str]
 
 VALID_VERDICTS = ("keep", "downgrade", "likely_fp")
+
+# Stable provenance marker stamped into the `source` of any verdict an LLM
+# triage pass demotes. Consumers (Overmind aggregation, dashboards) MUST treat a
+# verdict carrying this marker as advisory — it must never count as a
+# deterministic gate result. Kept as a module constant so both Sentinel and
+# downstream tooling reference one literal.
+ADVISORY_MARKER = "[llm-triage-advisory]"
 
 
 @dataclass
@@ -229,11 +241,18 @@ def apply_triage(
     out: List[Verdict] = []
     for v in verdicts:
         if v.severity == Severity.BLOCK and (v.rule_id, v.file, v.line) in demote:
+            # Advisory-only (P2-10): an LLM downgrade is a *suggestion*, not a
+            # deterministic verdict. Stamp a stable, machine-detectable marker
+            # (ADVISORY_MARKER) into source so any consumer — especially the
+            # Overmind aggregator — can tell an LLM-triaged WARN from a real
+            # deterministic WARN and refuse to let it silently weaken the gate.
             out.append(Verdict(
                 rule_id=v.rule_id, severity=Severity.WARN, repo=v.repo,
                 file=v.file, line=v.line,
-                detail=f"{v.detail}  [triage: downgraded from BLOCK]",
-                fix_hint=v.fix_hint, source=v.source, timestamp=v.timestamp))
+                detail=f"{v.detail}  [triage: downgraded from BLOCK — advisory]",
+                fix_hint=v.fix_hint,
+                source=f"{v.source} {ADVISORY_MARKER}",
+                timestamp=v.timestamp))
         else:
             out.append(v)
     return out
