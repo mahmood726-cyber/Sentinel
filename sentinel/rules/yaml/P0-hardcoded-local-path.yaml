@@ -58,6 +58,15 @@ exclude:
   # instructions describing dev-time workflow, not shipped code.
   - 'docs/plans/**'
   - '**/docs/plans/**'
+  # vault/** and harness/** (Overmind): Obsidian SOP/spec/knowledge-base notes
+  # and harness design docs — dev-time .md only (verified: 0 code files). They
+  # legitimately reference real config paths (e.g. C:\Users\mahmo\.codex in the
+  # Codex-agy auth SOP) as DOCUMENTATION, not shipped code. Same dev-notes
+  # category as docs/plans/**. (2026-07-06)
+  - 'vault/**'
+  - '**/vault/**'
+  - 'harness/**'
+  - '**/harness/**'
   # truthcert1_work/** — convention for vendored research archives
   # (snapshots imported from sibling projects as reference). Paths in
   # these archives describe the original environment, not the current
