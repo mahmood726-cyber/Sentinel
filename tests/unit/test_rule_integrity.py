@@ -11,10 +11,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+import os
+
+import pytest
+
 from sentinel.registry.rule_integrity import (
+    KEY_FILE_ENV,
+    SIGNING_KEY_ENV,
+    SignatureStatus,
+    canonical_signing_bytes,
+    check_signature,
     compare,
     compute_manifest,
+    compute_signature,
     load_manifest,
+    load_manifest_full,
+    load_signing_key,
+    verify_signature,
     write_manifest,
 )
 
@@ -202,3 +215,221 @@ def test_cli_json_output_shape(tmp_path: Path):
     assert "removed" in data
     assert "modified" in data
     assert isinstance(data["in_sync_count"], int)
+
+
+# ── keyed signing (v2) ───────────────────────────────────────────────
+#
+# Signature layer added 2026-07-11 (benchmark item #5 / ★3). These tests
+# NEVER touch the real repo key — they use throwaway keys in tmp_path.
+
+
+TEST_KEY = b"test-key-not-the-real-one-0123456789abcdef"
+OTHER_KEY = b"a-different-key-ffffffffffffffffffffffffff"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_signing_env(monkeypatch):
+    """Ensure no ambient key leaks in from the developer's environment."""
+    monkeypatch.delenv(SIGNING_KEY_ENV, raising=False)
+    monkeypatch.delenv(KEY_FILE_ENV, raising=False)
+
+
+def test_canonical_bytes_are_deterministic_and_order_independent():
+    a = canonical_signing_bytes(2, {"b": "2" * 64, "a": "1" * 64})
+    b = canonical_signing_bytes(2, {"a": "1" * 64, "b": "2" * 64})
+    assert a == b  # sorted keys → key-order irrelevant
+
+
+def test_canonical_bytes_change_with_version_and_rules():
+    base = canonical_signing_bytes(2, {"a": "1" * 64})
+    assert canonical_signing_bytes(1, {"a": "1" * 64}) != base
+    assert canonical_signing_bytes(2, {"a": "2" * 64}) != base
+
+
+def test_sign_then_verify_ok():
+    rules = {"a": "1" * 64, "b": "2" * 64}
+    sig = compute_signature(2, rules, TEST_KEY)
+    assert verify_signature(2, rules, sig, TEST_KEY) is True
+
+
+def test_verify_fails_with_wrong_key():
+    rules = {"a": "1" * 64}
+    sig = compute_signature(2, rules, TEST_KEY)
+    assert verify_signature(2, rules, sig, OTHER_KEY) is False
+
+
+def test_verify_fails_when_rules_edited_after_signing():
+    """The core guarantee: editing a rule hash after signing invalidates
+    the signature even though the (recomputed) hash-check would pass."""
+    rules = {"a": "1" * 64}
+    sig = compute_signature(2, rules, TEST_KEY)
+    tampered = {"a": "9" * 64}
+    assert verify_signature(2, tampered, sig, TEST_KEY) is False
+
+
+def test_write_signed_manifest_embeds_signature(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    rules = {"plugins/x.py": "c" * 64}
+    write_manifest(manifest, rules, key=TEST_KEY)
+    doc = load_manifest_full(manifest)
+    assert doc is not None
+    assert doc.version == 2
+    assert doc.algo == "HMAC-SHA256"
+    assert doc.signature is not None
+    assert check_signature(doc, TEST_KEY) == SignatureStatus.OK
+
+
+def test_write_unsigned_manifest_is_legacy_v1(tmp_path: Path):
+    """No key → byte-compatible v1 output, no signature block."""
+    manifest = tmp_path / "rules-manifest.json"
+    write_manifest(manifest, {"a": "1" * 64})
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    assert raw["version"] == 1
+    assert "signature" not in raw
+    doc = load_manifest_full(manifest)
+    assert check_signature(doc, TEST_KEY) == SignatureStatus.NO_SIGNATURE
+
+
+def test_editing_note_does_not_break_signature(tmp_path: Path):
+    """The note is excluded from the signed payload by design."""
+    manifest = tmp_path / "rules-manifest.json"
+    rules = {"a": "1" * 64}
+    write_manifest(manifest, rules, note="original", key=TEST_KEY)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["note"] = "edited by a human, harmlessly"
+    manifest.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    doc = load_manifest_full(manifest)
+    assert check_signature(doc, TEST_KEY) == SignatureStatus.OK
+
+
+def test_tampered_rule_hash_yields_mismatch(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    write_manifest(manifest, {"a": "1" * 64}, key=TEST_KEY)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["rules"]["a"] = "2" * 64  # flip hash, keep old signature
+    manifest.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    doc = load_manifest_full(manifest)
+    assert check_signature(doc, TEST_KEY) == SignatureStatus.MISMATCH
+
+
+def test_check_signature_no_key(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    write_manifest(manifest, {"a": "1" * 64}, key=TEST_KEY)
+    doc = load_manifest_full(manifest)
+    assert check_signature(doc, None) == SignatureStatus.NO_KEY
+
+
+# ── key resolution ───────────────────────────────────────────────────
+
+
+def test_load_signing_key_from_env(monkeypatch):
+    monkeypatch.setenv(SIGNING_KEY_ENV, "supersecret")
+    assert load_signing_key() == b"supersecret"
+
+
+def test_load_signing_key_blank_env_is_absent(monkeypatch):
+    monkeypatch.setenv(SIGNING_KEY_ENV, "   ")
+    assert load_signing_key() is None
+
+
+def test_load_signing_key_from_file(monkeypatch, tmp_path: Path):
+    kf = tmp_path / "key"
+    kf.write_bytes(b"filekey123\n")
+    monkeypatch.setenv(KEY_FILE_ENV, str(kf))
+    assert load_signing_key() == b"filekey123"  # trailing newline stripped
+
+
+def test_load_signing_key_env_beats_file(monkeypatch, tmp_path: Path):
+    kf = tmp_path / "key"
+    kf.write_bytes(b"filekey")
+    monkeypatch.setenv(KEY_FILE_ENV, str(kf))
+    monkeypatch.setenv(SIGNING_KEY_ENV, "envkey")
+    assert load_signing_key() == b"envkey"
+
+
+def test_load_signing_key_default_repo_file(monkeypatch, tmp_path: Path):
+    (tmp_path / ".sentinel-manifest-key").write_bytes(b"repokey")
+    assert load_signing_key(tmp_path) == b"repokey"
+
+
+def test_load_signing_key_absent_returns_none(tmp_path: Path):
+    assert load_signing_key(tmp_path) is None
+
+
+# ── CLI: signature behaviour matrix ──────────────────────────────────
+
+
+def _run_cli_env(env_extra: dict, *args: str) -> subprocess.CompletedProcess:
+    env = dict(os.environ)
+    env.pop(SIGNING_KEY_ENV, None)
+    env.pop(KEY_FILE_ENV, None)
+    env.update(env_extra)
+    return subprocess.run(
+        [sys.executable, "-m", "sentinel", "verify-rules", *args],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=str(SENTINEL_ROOT), env=env,
+    )
+
+
+def test_cli_update_signs_when_key_present(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    res = _run_cli_env({SIGNING_KEY_ENV: "k"}, "--update", "--manifest", str(manifest))
+    assert res.returncode == 0
+    assert "SIGNED" in res.stdout
+    doc = load_manifest_full(manifest)
+    assert doc.signature is not None
+    assert check_signature(doc, b"k") == SignatureStatus.OK
+
+
+def test_cli_update_unsigned_without_key(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    res = _run_cli_env({KEY_FILE_ENV: str(tmp_path / "nope")}, "--update", "--manifest", str(manifest))
+    assert res.returncode == 0
+    assert "UNSIGNED" in res.stdout
+    assert load_manifest_full(manifest).signature is None
+
+
+def test_cli_require_signature_refuses_unsigned_update(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    res = _run_cli_env(
+        {KEY_FILE_ENV: str(tmp_path / "nope")},
+        "--update", "--require-signature", "--manifest", str(manifest),
+    )
+    assert res.returncode == 2
+    assert not manifest.is_file()
+
+
+def test_cli_require_signature_passes_signed(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    _run_cli_env({SIGNING_KEY_ENV: "k"}, "--update", "--manifest", str(manifest))
+    res = _run_cli_env({SIGNING_KEY_ENV: "k"}, "--require-signature", "--manifest", str(manifest))
+    assert res.returncode == 0
+    assert "signature OK" in res.stdout
+
+
+def test_cli_require_signature_fails_wrong_key(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    _run_cli_env({SIGNING_KEY_ENV: "k"}, "--update", "--manifest", str(manifest))
+    res = _run_cli_env({SIGNING_KEY_ENV: "WRONG"}, "--require-signature", "--manifest", str(manifest))
+    assert res.returncode == 1
+    assert "MISMATCH" in res.stdout
+
+
+def test_cli_signed_manifest_verifies_hashes_without_key(tmp_path: Path):
+    """No-regression: a signed manifest with no key still passes the hash
+    check (soft), only reporting the signature as unverified."""
+    manifest = tmp_path / "rules-manifest.json"
+    _run_cli_env({SIGNING_KEY_ENV: "k"}, "--update", "--manifest", str(manifest))
+    res = _run_cli_env({KEY_FILE_ENV: str(tmp_path / "nope")}, "--manifest", str(manifest))
+    assert res.returncode == 0
+    assert "UNVERIFIED" in res.stdout
+
+
+def test_cli_json_reports_signature_field(tmp_path: Path):
+    manifest = tmp_path / "rules-manifest.json"
+    _run_cli_env({SIGNING_KEY_ENV: "k"}, "--update", "--manifest", str(manifest))
+    res = _run_cli_env({SIGNING_KEY_ENV: "k"}, "--manifest", str(manifest), "--json")
+    data = json.loads(res.stdout)
+    assert data["signature"] == "ok"
+    assert data["signature_algo"] == "HMAC-SHA256"
+    assert data["signature_failed"] is False

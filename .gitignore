@@ -51,3 +51,8 @@ Thumbs.db
 
 # Transient llm-review packets (contain a diff; never commit)
 .sentinel-llm-review-request.json
+
+# Manifest signing key (HMAC). NEVER commit — the whole point of the keyed
+# signature is that regenerating the manifest hash isn't enough to forge it.
+# Provision on CI/Overmind via the SENTINEL_MANIFEST_HMAC_KEY secret instead.
+.sentinel-manifest-key
