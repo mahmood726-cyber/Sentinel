@@ -39,12 +39,20 @@ from typing import Iterator, List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 
 
 ID = "P2-html-a11y-basics"
 SEVERITY = Severity.INFO
 SOURCE = "lessons.md#html-apps"
 SCOPE = "repo"
+
+# Population: PUBLISHED -- `git ls-files --cached`, i.e. the index. This
+# is a DISCLOSURE rule: the harm requires the world to see the file. The
+# index, not the commit, is the boundary -- a file becomes visible to
+# this rule the moment it is `git add`ed, before any push. Migrated
+# 2026-08-30; earlier counts used the same set, so they ARE comparable.
+POPULATION = Population.PUBLISHED
 
 MAX_FILE_BYTES = 5_000_000  # skip giants; same as dashboard_stat_orphan
 
@@ -179,4 +187,4 @@ def _check_file(
 
 
 def _iter_html_files(root: Path) -> Iterator[Path]:
-    return iter_repo_files(root, "*.html", HTML_EXCLUDE_DIRS)
+    return iter_repo_files(root, "*.html", HTML_EXCLUDE_DIRS, population=POPULATION)

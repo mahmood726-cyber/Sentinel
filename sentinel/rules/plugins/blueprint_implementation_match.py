@@ -26,12 +26,20 @@ from typing import List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 
 
 ID = "P1-blueprint-implementation-match"
 SEVERITY = Severity.WARN
 SOURCE = "lessons.md#html-apps"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored. This is a
+# CORRECTNESS rule: the defect it finds runs when someone runs the file,
+# whether or not git is tracking it. Migrated 2026-08-30; counts from
+# before that date were taken over the tracked set only and are NOT
+# comparable with counts after it.
+POPULATION = Population.PRESENT
 
 _DOM_TOKEN_RE = re.compile(
     r'(?:id|class|data-[a-z0-9-]+)\s*=\s*["\']([^"\']+)["\']',
@@ -125,7 +133,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     if not declared:
         return []
 
-    html_files = sorted(iter_repo_files(ctx.repo_root, "*.html", HTML_EXCLUDE_DIRS))
+    html_files = sorted(iter_repo_files(ctx.repo_root, "*.html", HTML_EXCLUDE_DIRS, population=POPULATION))
 
     if not html_files:
         return [Verdict(

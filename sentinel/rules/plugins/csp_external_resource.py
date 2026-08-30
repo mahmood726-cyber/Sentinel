@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_repo_files
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -36,6 +37,13 @@ ID = "P2-csp-external-resource"
 SEVERITY = Severity.WARN
 SOURCE = "rules.md#html-apps (Fully offline — no external CDN)"
 SCOPE = "repo"
+
+# Population: PUBLISHED -- `git ls-files --cached`, i.e. the index. This
+# is a DISCLOSURE rule: the harm requires the world to see the file. The
+# index, not the commit, is the boundary -- a file becomes visible to
+# this rule the moment it is `git add`ed, before any push. Migrated
+# 2026-08-30; earlier counts used the same set, so they ARE comparable.
+POPULATION = Population.PUBLISHED
 
 MAX_FILE_BYTES = 5_000_000
 HTML_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "node_modules", "dist",
@@ -70,7 +78,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
     root = ctx.repo_root
-    for path in iter_repo_files(root, ("*.html", "*.htm"), HTML_EXCLUDE_DIRS):
+    for path in iter_repo_files(root, ("*.html", "*.htm"), HTML_EXCLUDE_DIRS, population=POPULATION):
         if has_skip_marker(path) or ".backup-" in path.name:
             continue
         try:

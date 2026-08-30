@@ -36,12 +36,20 @@ from typing import Iterator, List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 
 
 ID = "P1-cochrane-v65-invariants"
 SEVERITY = Severity.WARN
 SOURCE = "advanced-stats.md#cochrane-v65-revman-2025-bit-reproducibility"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored. This is a
+# CORRECTNESS rule: the defect it finds runs when someone runs the file,
+# whether or not git is tracking it. Migrated 2026-08-30; counts from
+# before that date were taken over the tracked set only and are NOT
+# comparable with counts after it.
+POPULATION = Population.PRESENT
 
 MAX_FILE_BYTES = 10_000_000
 
@@ -204,5 +212,5 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
 
 def _iter_html_files(root: Path) -> Iterator[Path]:
-    for path in iter_repo_files(root, '*_REVIEW.html', HTML_EXCLUDE_DIRS):
+    for path in iter_repo_files(root, '*_REVIEW.html', HTML_EXCLUDE_DIRS, population=POPULATION):
         yield path

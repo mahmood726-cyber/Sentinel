@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -205,6 +206,10 @@ def _run_inner(args: argparse.Namespace) -> int:
             encoding="utf-8",
         )
 
+    if not args.json:
+        _print_scope(ctx, diff_filter_set, getattr(args, 'base_ref', None))
+        _print_coverage(ctx)
+
     if args.json:
         print(json.dumps({"verdicts": [v.to_dict() for v in verdicts]}, indent=2))
     else:
@@ -214,6 +219,127 @@ def _run_inner(args: argparse.Namespace) -> int:
         _print_timings(timings)
 
     return 1 if any(v.severity == Severity.BLOCK for v in verdicts) else 0
+
+
+def _rule_population_census(rules_root: Path) -> dict:
+    """Which file population each rule reads, measured from the discovery call
+    it actually makes rather than from a declaration it does not yet carry.
+
+    This is a static read of the plugin sources. It is deliberately crude and
+    deliberately printed: the point is that the four populations exist and were
+    invisible, not that this classifier is subtle.
+    """
+    counts = {"PUBLISHED": 0, "PRESENT": 0, "DISK": 0, "no-walk": 0,
+              "declared": 0, "undeclared": 0}
+    plugins = rules_root / "plugins"
+    if plugins.is_dir():
+        for p in sorted(plugins.glob("*.py")):
+            if p.stem == "__init__":
+                continue
+            try:
+                src = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            # A DECLARED population wins over inference. Undeclared rules are
+            # counted by the discovery call they make, and reported as
+            # undeclared so the opt-in progress is visible rather than assumed.
+            # Match DECLARATIONS, not substrings. A comment that mentions
+            # POPULATION_EXEMPT or os.walk while explaining that the rule no
+            # longer uses them re-triggered this census and kept reporting a
+            # rule as exempt after it had been migrated. Third instance today
+            # of a detector matching the text that DESCRIBES the thing it
+            # looks for, so: strip comments, then anchor on an assignment.
+            code = re.sub(r"(?m)^\s*#.*$", "", src)
+            if re.search(r"(?m)^POPULATION_EXEMPT\s*=", code):
+                counts["declared"] += 1
+                counts["hybrid"] = counts.get("hybrid", 0) + 1
+                continue
+            m = re.search(r"^POPULATION\s*=\s*Population\.(\w+)", code, re.M)
+            if m:
+                counts["declared"] += 1
+                counts[m.group(1)] = counts.get(m.group(1), 0) + 1
+            elif "iter_repo_files" in code:
+                counts["PUBLISHED"] += 1
+                counts["undeclared"] += 1
+            elif ("iter_tree_or_filter" in code or ".rglob(" in code
+                  or "os.walk(" in code):
+                counts["DISK"] += 1
+                counts["undeclared"] += 1
+            else:
+                counts["no-walk"] += 1
+    yaml_dir = rules_root / "yaml"
+    if yaml_dir.is_dir():
+        counts["n_yaml"] = len(list(yaml_dir.glob("*.yaml")))
+    return counts
+
+
+def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
+    """State the SCAN SCOPE before any count, because a count over a subset is
+    not a count over the repo.
+
+    Measured 2026-08-30 on F:/E156: the pre-push default auto-detects
+    origin/HEAD and scans the changed+untracked set -- 614 of 4,246 files,
+    14.5% of the repo. A scan in that mode reported "155 BLOCK / 1,900 WARN";
+    the same tree scanned whole reports 76 BLOCK / 3,732 WARN. The WARN tier
+    was under-reported by nearly half, and nothing in the output said the
+    number described a seventh of the repo.
+    """
+    try:
+        from sentinel.io.population import repo_files, Population
+        present = repo_files(ctx.repo_root, Population.PRESENT)
+        total = len(present) if present is not None else None
+    except Exception:  # noqa: BLE001
+        total = None
+    if diff_filter is None:
+        if total:
+            print(f"[Sentinel] scope: FULL TREE - {total} of {total} files (100%)")
+        else:
+            print("[Sentinel] scope: FULL TREE")
+        return
+    n = len(diff_filter)
+    if total:
+        pct = 100.0 * n / total
+        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} of {total} files "
+              f"({pct:.1f}%) - counts below are for this subset, NOT the repo")
+    else:
+        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} files - counts "
+              f"below are for this subset, NOT the repo")
+
+
+def _print_coverage(ctx: "RepoContext") -> None:
+    """Publish the file population every rule family reads. Never raises: a
+    coverage line that can abort a scan would be worse than no coverage line."""
+    try:
+        from sentinel.io.population import coverage
+        cov = coverage(ctx.repo_root)
+        census = _rule_population_census(RULES_ROOT)
+        n_yaml = census.pop("n_yaml", 0)
+    except Exception as e:  # noqa: BLE001
+        print(f"[Sentinel] coverage: unavailable ({type(e).__name__}: {e})")
+        return
+    if not cov.get("git"):
+        print("[Sentinel] coverage: not a git worktree - rules fall back to a "
+              "bounded filesystem walk; population is unbounded")
+    else:
+        print(
+            f"[Sentinel] population: PUBLISHED(tracked)={cov['published']}  "
+            f"PRESENT(+untracked-not-ignored)={cov['present']}  "
+            f"present-only={cov['present_only']}"
+        )
+    total = (census["PUBLISHED"] + census["PRESENT"] + census["DISK"]
+             + census["no-walk"] + census.get("hybrid", 0) + n_yaml)
+    print(
+        f"[Sentinel] rules read: PUBLISHED={census['PUBLISHED']} "
+        f"PRESENT={census['PRESENT']} DISK={census['DISK']} "
+        f"no-walk={census['no-walk']} hybrid={census.get('hybrid', 0)} "
+        f"(+{n_yaml} yaml)"
+    )
+    print(
+        f"[Sentinel] population declared by {census['declared']} of {total} "
+        f"rules; {census['undeclared']} still inferred from their discovery "
+        f"call" + ("  <-- an inferred population is an assumption, not a "
+                   "declaration" if census["undeclared"] else "")
+    )
 
 
 def _collect_changed_files(repo: Path, base_ref: str) -> set[str]:

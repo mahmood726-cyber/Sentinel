@@ -31,13 +31,23 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import path_allowed
+from sentinel.io.git_files import iter_repo_files, path_allowed
+from sentinel.io.population import Population
 
 
 ID = "P1-assurance-badge-integrity"
 SEVERITY = Severity.WARN
 SOURCE = "F:\\e156\\docs\\assurance-standard.md#the-assurancejson-schema"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored.
+#
+# This rule walked the raw filesystem with a recursive glob: on F:/E156
+# that is 49,079 files against PRESENT's 4,246, and 91.3% of the excess is
+# .git internals, caches and build output that cannot be pushed. Migrated
+# 2026-08-30. Counts from before that date were taken over a DIFFERENT and
+# larger file set and are NOT comparable with counts after it.
+POPULATION = Population.PRESENT
 
 SKIP_MARKER = "sentinel:skip-file"
 BADGE_NAME = "assurance.json"
@@ -82,7 +92,7 @@ def _severity() -> Severity:
 
 
 def _iter_badges(root: Path):
-    for p in root.rglob(BADGE_NAME):
+    for p in iter_repo_files(root, BADGE_NAME, (), population=POPULATION):
         if not path_allowed(root, p):
             continue  # honor `scan --diff` changed-file scope
         if any(d in EXCLUDE_DIRS for d in p.parts):

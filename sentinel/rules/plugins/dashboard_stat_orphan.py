@@ -31,12 +31,20 @@ from typing import Iterator, List, Optional, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 
 
 ID = "P2-dashboard-stat-orphan"
 SEVERITY = Severity.INFO
 SOURCE = "lessons.md#portfolio-audit-patterns"
 SCOPE = "repo"
+
+# Population: PUBLISHED -- `git ls-files --cached`, i.e. the index. This
+# is a DISCLOSURE rule: the harm requires the world to see the file. The
+# index, not the commit, is the boundary -- a file becomes visible to
+# this rule the moment it is `git add`ed, before any push. Migrated
+# 2026-08-30; earlier counts used the same set, so they ARE comparable.
+POPULATION = Population.PUBLISHED
 
 # ReDoS guard: STAT_CARD_BLOCK_RE uses lazy `.*?` with DOTALL. On very
 # large HTML files with unbalanced stat-card divs, backtracking could
@@ -169,4 +177,4 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
 
 def _iter_html_files(root: Path) -> Iterator[Path]:
-    return iter_repo_files(root, "*.html", HTML_EXCLUDE_DIRS)
+    return iter_repo_files(root, "*.html", HTML_EXCLUDE_DIRS, population=POPULATION)

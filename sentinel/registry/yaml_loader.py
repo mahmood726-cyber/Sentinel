@@ -13,6 +13,7 @@ import yaml
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import get_path_filter
 from sentinel.io.paths import global_exclude_patterns
+from sentinel.io.roles import load_roles, parse_roles_declaration
 
 
 REQUIRED_FIELDS = ("id", "severity", "description", "pattern", "source", "fix_hint")
@@ -109,6 +110,17 @@ class YamlRule:
     # Empty string disables guard recognition (default).
     guard_pattern: str = ""
     guard_lookback_lines: int = 5
+    # Optional file-ROLE scoping (sentinel/io/roles.py). A rule that
+    # declares nothing applies to EVERY role, so adding this cannot make
+    # an existing rule quieter by omission.
+    roles: List[str] = field(default_factory=list)
+    # Optional per-role severity. The ruling is "blocking tier =
+    # shipped only; scratch/record stay REPORTABLE, non-blocking" --
+    # so those verdicts must still be EMITTED, just downgraded. A role
+    # filter that drops them would shrink the denominator instead of
+    # scoping the gate, which is the exact failure this whole lane is
+    # about.
+    severity_by_role: dict = field(default_factory=dict)
     _compiled: Optional[re.Pattern] = field(default=None, init=False, repr=False)
     _guard_compiled: Optional[re.Pattern] = field(default=None, init=False, repr=False)
 
@@ -129,7 +141,13 @@ class YamlRule:
 
         effective_exclude = list(self.exclude) + list(GLOBAL_EXCLUDES)
         tracked = _git_tracked_files(root)
+        allowed_roles = parse_roles_declaration(self.roles or None)
+        use_roles = bool(self.roles) or bool(self.severity_by_role)
+        role_map = load_roles(root) if use_roles else None
         for file_path, rel in _iter_matching_files(root, self.files, effective_exclude, tracked):
+            file_role = role_map.role_of(rel) if role_map is not None else None
+            if role_map is not None and self.roles and file_role not in allowed_roles:
+                continue
             try:
                 if file_path.stat().st_size > MAX_SCAN_BYTES:
                     continue
@@ -147,6 +165,8 @@ class YamlRule:
                     prev_line = lines[lineno - 2] if lineno >= 2 else ""
                     if _line_is_suppressed(line, prev_line, self.id):
                         continue
+                    if _line_declares_host(line, prev_line):
+                        continue
                     # Guard suppression: skip if a preceding line within the
                     # lookback window matches the rule's guard pattern.
                     if guard_compiled is not None:
@@ -157,10 +177,15 @@ class YamlRule:
                             for i in range(start_idx, end_idx)
                         ):
                             continue
+                    eff_sev = self.severity
+                    if file_role is not None and self.severity_by_role:
+                        override = self.severity_by_role.get(file_role.value)
+                        if override is not None:
+                            eff_sev = override
                     verdicts.append(
                         Verdict(
                             rule_id=self.id,
-                            severity=self.severity,
+                            severity=eff_sev,
                             repo=str(root),
                             file=rel,
                             line=lineno,
@@ -172,6 +197,27 @@ class YamlRule:
                     )
         return verdicts
 
+
+# Host-declaration marker. See rules/yaml conventions and the 2026-08-30
+# ruling: an absolute path whose HOST is declared is correct, not debt.
+# A BARE `sentinel:host` with no name does NOT suppress -- that would be
+# `skip-line` under a nicer word, and the whole point is that the host is
+# named.
+HOST_MARKER = "sentinel:host"
+
+
+def _line_declares_host(current_line: str, prev_line: str) -> bool:
+    for candidate in (current_line, prev_line):
+        idx = candidate.find(HOST_MARKER)
+        if idx == -1:
+            continue
+        after = candidate[idx + len(HOST_MARKER):].strip()
+        # Require an actual host token, not just punctuation or a comment tail.
+        token = after.split()[0] if after.split() else ""
+        token = token.strip("`\"'(),;:-")
+        if token:
+            return True
+    return False
 
 def _line_is_suppressed(current_line: str, prev_line: str, rule_id: str) -> bool:
     """True if a `sentinel:skip-line` marker on current or previous line
@@ -373,4 +419,9 @@ def load_yaml_rule(path: Path) -> YamlRule:
         fix_hint=str(raw.get("fix_hint", "")),
         guard_pattern=guard_pattern,
         guard_lookback_lines=guard_lookback_lines,
+        roles=list(raw.get("roles", [])),
+        severity_by_role={
+            str(k).lower(): Severity[str(v).upper()]
+            for k, v in (raw.get("severity_by_role") or {}).items()
+        },
     )

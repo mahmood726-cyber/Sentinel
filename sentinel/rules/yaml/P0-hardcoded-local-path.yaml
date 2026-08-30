@@ -1,11 +1,17 @@
 id: P0-hardcoded-local-path
 severity: BLOCK
+# Blocking tier = SHIPPED only (ruling 2026-08-30). record/scratch stay
+# REPORTABLE at WARN rather than dropped: a role filter that removed them
+# would shrink the denominator instead of scoping the gate.
+severity_by_role:
+  record: WARN
+  scratch: WARN
 scope: repo
 description: >
   Shipped code must not contain absolute local paths like `C:\Users\...` or
   `/home/<user>/...` per lessons.md#code-quality. These leak developer
   environment details and break portability.
-pattern: '(?i)([A-Z]:[\\/](Users|projects|ProgramData|OneDrive)[\\/](?!\.\.\.)(?!<)[^\s\"\\/]+|(?:^|(?<=[\s\"''(=:,]))/(?:Users|home)/[a-z_][\w-]*)'
+pattern: '(?i)([A-Z]:[\\/](?!(?:Windows|Program Files|ProgramFiles|PerfLogs|inetpub|Recovery|System Volume|tmp|temp)[\\/])[^\s\"''\\/<>|*?]+[\\/](?!\.\.\.)(?!<)[^\s\"\\/]+|(?:^|(?<=[\s\"''(=:,]))/(?:Users|home)/[a-z_][\w-]*)'
 files:
   - '**/*.html'
   - '**/*.js'

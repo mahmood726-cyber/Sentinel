@@ -52,12 +52,23 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_tree_or_filter
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 ID = "P2-reuse-available"
 SEVERITY = Severity.WARN
 SOURCE = "rules.md#portfolio-recon-before-any-new-project"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored.
+#
+# This rule walked the raw filesystem: every path under the repo root. On
+# F:/E156 that is 49,079 files against PRESENT's 4,246, and 91.3% of the
+# excess is .git internals, caches and build output that no push can
+# ship. Migrated 2026-08-30. Counts from before that date were taken over
+# a DIFFERENT and larger file set and are NOT comparable with counts
+# after it.
+POPULATION = Population.PRESENT
 
 MAX_FILE_BYTES = 2_000_000
 INCLUDE_EXT = frozenset((".js", ".py", ".html", ".htm"))
@@ -116,7 +127,7 @@ def _line_of(text: str, offset: int) -> int:
 
 
 def _iter_files(root: Path):
-    for path in iter_tree_or_filter(root):  # changed-file scope under --diff
+    for path in iter_tree_or_filter(root, population=POPULATION):  # changed-file scope under --diff
         if not path.is_file():
             continue
         if path.suffix.lower() not in INCLUDE_EXT:
