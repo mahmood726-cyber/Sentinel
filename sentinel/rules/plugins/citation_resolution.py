@@ -36,6 +36,7 @@ from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.rules.plugins.citation_cascade import (
     DOI_PREFIX_RE,
     VALID_DOI_RE,
+    _clean_doi_candidate,
     _looks_like_attempted_doi,
     _iter_doc_files,
     _line_of,
@@ -89,7 +90,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         rel = path.relative_to(root).as_posix()
         seen: set[str] = set()
         for m in DOI_PREFIX_RE.finditer(text):
-            cand = m.group(1).strip(".,)]\"'").rstrip(".")
+            cand = _clean_doi_candidate(m.group(1))
             if not _looks_like_attempted_doi(cand):
                 continue
             if not VALID_DOI_RE.match(cand):
