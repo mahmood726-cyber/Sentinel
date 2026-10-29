@@ -59,7 +59,7 @@ DOI_PREFIX_RE = re.compile(
     r"(?:^|[\s\(\[\{>;,])"
     r"(?:doi[:=]\s*|DOI[:=]\s*|https?://(?:dx\.)?doi\.org/)"
     r"(\S+?)"
-    r"(?=[\s)\]}<;,\"']|\.\s|\.$|$)",
+    r"(?=[\s\]}<;,\"']|\.\s|\.$|$)",
     re.MULTILINE,
 )
 
@@ -80,11 +80,23 @@ PLACEHOLDER_DOI_VALUES = frozenset({
 E156_PLACEHOLDER_DOI_RE = re.compile(r"^10\.156/\S+$")
 
 
+def _clean_doi_candidate(candidate: str) -> str:
+    """Remove formatting punctuation, but preserve balanced DOI parentheses.
+
+    The 2026 E156 publication used DOI 10.1016/S2215-0366(26)00015-5.
+    A trailing Markdown ')' is decoration; its matching inner ')' is not.
+    """
+    candidate = candidate.strip(".,;]\\\"'").rstrip(".")
+    while candidate.endswith(")") and candidate.count(")") > candidate.count("("):
+        candidate = candidate[:-1]
+    return candidate
+
+
 def _looks_like_attempted_doi(candidate: str) -> bool:
     """True if the candidate looks like SOMEONE TRIED to write a DOI but got
     it wrong. False for clearly-non-DOI strings that happened to follow a
     'doi:' substring (JS identifiers, template placeholders, prose)."""
-    c = candidate.strip(".,)]\"'").rstrip(".")
+    c = _clean_doi_candidate(candidate)
     if len(c) < 6:
         return False
     if c.lower() in PLACEHOLDER_DOI_VALUES:
@@ -160,7 +172,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
 
     # 1. BLOCK on malformed DOIs (only flag attempts that look real-ish)
     for m in DOI_PREFIX_RE.finditer(text):
-        candidate = m.group(1).strip(".,)]\"'").rstrip(".")
+        candidate = _clean_doi_candidate(m.group(1))
         if not _looks_like_attempted_doi(candidate):
             continue
         if not VALID_DOI_RE.match(candidate):
