@@ -86,7 +86,7 @@ def _clean_doi_candidate(candidate: str) -> str:
     The 2026 E156 publication used DOI 10.1016/S2215-0366(26)00015-5.
     A trailing Markdown ')' is decoration; its matching inner ')' is not.
     """
-    candidate = candidate.strip(".,;]\\\"'").rstrip(".")
+    candidate = candidate.strip(".,;]\"'").rstrip(".")
     while candidate.endswith(")") and candidate.count(")") > candidate.count("("):
         candidate = candidate[:-1]
     return candidate
