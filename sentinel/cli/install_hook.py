@@ -11,8 +11,8 @@ def add_install_subparser(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("install-hook", help="Install the Sentinel pre-push hook")
     p.add_argument("--repo", type=Path, required=True, help="Target repo root")
     p.add_argument(
-        "--mode", choices=["warn", "block"], default="warn",
-        help="Hook mode (default: warn). Warn: findings logged, push allowed. "
+        "--mode", choices=["warn", "block"], default="block",
+        help="Hook mode (default: block). Warn: explicit opt-in; findings logged, push allowed. "
              "Block: push aborted on BLOCK. Override per-push via SENTINEL_MODE.",
     )
     p.set_defaults(func=_run_install)
