@@ -23,7 +23,19 @@ def test_install_hook_cli_writes_hook(tmp_path: Path):
     repo = _make_git_repo(tmp_path)
     res = _run("install-hook", "--repo", str(repo))
     assert res.returncode == 0, f"stderr: {res.stderr}"
-    assert (repo / ".git" / "hooks" / "pre-push").exists()
+    hook = repo / ".git" / "hooks" / "pre-push"
+    assert hook.exists()
+    assert 'MODE="${SENTINEL_MODE:-block}"' in hook.read_text(encoding="utf-8")
+    assert "mode=block" in res.stdout
+
+
+def test_install_hook_cli_warn_requires_explicit_option(tmp_path: Path):
+    repo = _make_git_repo(tmp_path)
+    res = _run("install-hook", "--repo", str(repo), "--mode", "warn")
+    assert res.returncode == 0, f"stderr: {res.stderr}"
+    hook = repo / ".git" / "hooks" / "pre-push"
+    assert 'MODE="${SENTINEL_MODE:-warn}"' in hook.read_text(encoding="utf-8")
+    assert "mode=warn" in res.stdout
 
 
 def test_install_hook_cli_non_git_errors(tmp_path: Path):
