@@ -71,3 +71,26 @@ def test_malformed_doi_not_resolution_concern(tmp_path):
     (tmp_path / "refs.md").write_text("doi: 10.999/x\n", encoding="utf-8")
     _cache(tmp_path, {"10.999/x": {"status": "unresolved", "http_status": 404}})
     assert _rule().check(_ctx(tmp_path)) == []
+
+def test_parenthesized_doi_resolves_against_full_cache_key(tmp_path):
+    """A stale '(26' cache entry must not falsely block the real DOI."""
+    full = "10.1016/S2215-0366(26)00015-5"
+    (tmp_path / "refs.md").write_text(
+        f"## References\nhttps://doi.org/{full})\n",
+        encoding="utf-8",
+    )
+    _cache(tmp_path, {
+        "10.1016/S2215-0366(26": {
+            "status": "unresolved", "http_status": 404,
+        },
+    })
+    assert _rule().check(_ctx(tmp_path)) == []
+
+    # Failure injection: a real unresolved *full* DOI must still BLOCK.
+    _cache(tmp_path, {full: {"status": "unresolved", "http_status": 404}})
+    blocks = [v for v in _rule().check(_ctx(tmp_path))
+              if v.severity == Severity.BLOCK]
+    assert len(blocks) == 1
+    assert full in blocks[0].detail
+
+
