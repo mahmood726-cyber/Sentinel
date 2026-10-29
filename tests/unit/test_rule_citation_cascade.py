@@ -134,3 +134,23 @@ def test_backup_prefixed_dir_is_excluded(tmp_path):
     d.mkdir(parents=True)
     (d / "refs.md").write_text(_BARE_REF, encoding="utf-8")
     assert _all(_rule().check(_ctx(tmp_path))) == []
+
+def test_balanced_publisher_doi_survives_markdown_link_punctuation():
+    """Incident: E156's 2026 Lancet DOI was truncated at '(26)' in CI."""
+    from sentinel.rules.plugins.citation_cascade import (
+        DOI_PREFIX_RE, _clean_doi_candidate,
+    )
+
+    full = "10.1016/S2215-0366(26)00015-5"
+    source = f"https://doi.org/{full})"
+    found = [_clean_doi_candidate(m.group(1))
+             for m in DOI_PREFIX_RE.finditer(source)]
+    assert found == [full]
+
+    # Ordinary unparenthesized links keep their existing behaviour.
+    simple = "https://doi.org/10.1136/bmj.n2387)"
+    found_simple = [_clean_doi_candidate(m.group(1))
+                    for m in DOI_PREFIX_RE.finditer(simple)]
+    assert found_simple == ["10.1136/bmj.n2387"]
+
+
