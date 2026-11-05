@@ -140,3 +140,44 @@ def test_git_nested_test_names_respect_excluded_and_untracked_paths(
         )
     }
     assert found == {"tests/test_visible.py"}
+
+
+def test_git_untracked_package_markers_cannot_hide_collision(tmp_path: Path):
+    """Untracked __init__.py files will not exist after a push.
+
+    Both test modules are tracked, but both package markers are untracked.
+    Checking only Path.is_file() falsely treats the modules as distinct.
+    """
+    (tmp_path / "test_duplicate.py").write_text("def test_a(): pass\n", encoding="utf-8")
+    nested = tmp_path / "tests"
+    nested.mkdir()
+    (nested / "test_duplicate.py").write_text("def test_b(): pass\n", encoding="utf-8")
+    _stage_synthetic_files(tmp_path)
+
+    (tmp_path / "__init__.py").write_text("", encoding="utf-8")
+    (nested / "__init__.py").write_text("", encoding="utf-8")
+
+    findings = _rule().check(_ctx(tmp_path))
+    assert {v.file for v in findings} == {
+        "test_duplicate.py", "tests/test_duplicate.py"
+    }
+    assert all(v.severity == Severity.BLOCK for v in findings)
+
+
+def test_git_diff_filter_keeps_tracked_package_markers_as_context(tmp_path: Path):
+    """Changing test modules must not make staged package markers invisible."""
+    from sentinel.io.git_files import set_path_filter
+
+    (tmp_path / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "test_duplicate.py").write_text("def test_a(): pass\n", encoding="utf-8")
+    nested = tmp_path / "tests"
+    nested.mkdir()
+    (nested / "__init__.py").write_text("", encoding="utf-8")
+    (nested / "test_duplicate.py").write_text("def test_b(): pass\n", encoding="utf-8")
+    _stage_synthetic_files(tmp_path)
+
+    set_path_filter(frozenset({"test_duplicate.py", "tests/test_duplicate.py"}))
+    try:
+        assert _rule().check(_ctx(tmp_path)) == []
+    finally:
+        set_path_filter(None)
