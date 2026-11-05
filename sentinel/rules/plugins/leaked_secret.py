@@ -124,8 +124,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # An unreadable candidate has not been checked for credentials.
+            # Returning a clean scan here silently permits a real BLOCK.
+            # Use the fatal scanner error contract, without private OS paths.
+            from sentinel.io.git_files import GitFileEnumerationError
+            raise GitFileEnumerationError(
+                f"secret scan could not inspect candidate ({type(exc).__name__})"
+            ) from None
 
         rel = path.relative_to(ctx.repo_root).as_posix()
         lines = text.splitlines()
