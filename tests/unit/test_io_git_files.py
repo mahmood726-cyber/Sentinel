@@ -295,7 +295,7 @@ def test_tracked_file_stat_error_fails_closed_through_cli(
 
     def fake_is_file(self: Path) -> bool:
         if self.name == "inaccessible.py":
-            raise OSError(1920, "simulated unreadable tracked candidate")
+            raise OSError(1920, "SYNTHETIC_PRIVATE_OS_DETAIL")
         return real_is_file(self)
 
     monkeypatch.setattr(Path, "is_file", fake_is_file)
@@ -307,6 +307,7 @@ def test_tracked_file_stat_error_fails_closed_through_cli(
     assert rc == 10
     assert "[Sentinel] verdicts:" not in output.out
     assert "tracked file" in output.err
+    assert "SYNTHETIC_PRIVATE_OS_DETAIL" not in output.err
 
 
 def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
