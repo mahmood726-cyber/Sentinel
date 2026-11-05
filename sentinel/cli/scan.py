@@ -245,7 +245,11 @@ def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
     ]
     for cmd in cmds:
         try:
-            # Git -z emits UTF-8 path bytes; Windows' locale codec can\n            # otherwise decode names differently from the filesystem.\n            r = subprocess.run(\n                cmd, capture_output=True, text=True, encoding="utf-8", timeout=15,\n            )
+            # Git -z emits UTF-8 path bytes; Windows' locale codec can
+            # otherwise decode names differently from the filesystem.
+            r = subprocess.run(
+                cmd, capture_output=True, text=True, encoding="utf-8", timeout=15,
+            )
         except (FileNotFoundError, subprocess.TimeoutExpired):
             return None
         if r.returncode != 0:
