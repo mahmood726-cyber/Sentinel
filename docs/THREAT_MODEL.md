@@ -187,10 +187,18 @@ excluded documentation remains out of scope. The diagnostic does not propagate
 private filesystem errors. Synthetic negative and legitimate controls are in
 `test_rule_leaked_secret.py`.
 
+**Additional guarded path:** `P0-e156-placeholder-leak` now treats
+filesystem status or read failures on its root-level `students.html` and
+`rewrite-workbook.txt` candidates as fatal scan errors rather than a clean
+scan. Missing artifacts remain optional, and unrelated files are untouched.
+The internal-error diagnostic does not chain private OS exception messages.
+Synthetic failure and valid-artifact controls live in
+`test_rule_e156_placeholder_access.py`.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
-certified by the YAML controls.
+certified by the YAML or E156 placeholder controls.
 
 ---
 
