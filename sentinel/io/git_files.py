@@ -178,10 +178,18 @@ def iter_repo_files(
     excludes = frozenset(exclude_dirs)
     patterns: list[str] = [pattern] if isinstance(pattern, str) else list(pattern)
 
+    # Match Path.rglob(pattern) semantics: Git's ordinary 'test_*.py'
+    # pathspec only matches root-level paths, not tests/test_foo.py.
+    # That omission silently hid duplicate pytest module names (BLOCK).
+    # :(glob)**/ searches the repo root AND nested directories.
+    git_pathspecs = [
+        ":(glob)**/" + p.replace("\\", "/") for p in patterns
+    ]
+
     if _is_git_worktree(root):
         try:
             result = subprocess.run(
-                ["git", "-C", str(root), "ls-files", "-z", "--", *patterns],
+                ["git", "-C", str(root), "ls-files", "-z", "--", *git_pathspecs],
                 capture_output=True, text=True, encoding="utf-8", timeout=30,
             )
         except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
