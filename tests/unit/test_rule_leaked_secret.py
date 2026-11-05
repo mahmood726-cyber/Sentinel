@@ -7,6 +7,7 @@ historical false positives don't break existing pushes.
 from __future__ import annotations
 
 from pathlib import Path
+import traceback
 
 import pytest
 
@@ -227,6 +228,7 @@ def test_inaccessible_tracked_secret_candidate_fails_closed(tmp_path: Path, monk
     with pytest.raises(GitFileEnumerationError) as exc:
         _rule().check(_ctx(tmp_path))
     assert "PRIVATE_TEST_PATH_SHOULD_NOT_LEAK" not in str(exc.value)
+    assert "PRIVATE_TEST_PATH_SHOULD_NOT_LEAK" not in "".join(traceback.format_exception(exc.value))
 
 
 def test_excluded_unreadable_secret_fixture_does_not_block(tmp_path: Path, monkeypatch):
