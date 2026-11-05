@@ -71,38 +71,46 @@ def check(ctx: RepoContext) -> List[Verdict]:
     for name, paths in by_name.items():
         if len(paths) < 2:
             continue
-        # Group is a collision candidate. Check: does at least one parent
-        # dir lack __init__.py? If yes, pytest's importer will dedupe.
-        offending: list[Path] = []
+
+        # Pytest uses the longest contiguous package path when importing
+        # test modules. A tracked init in the immediate parent is not enough:
+        # north/sub/test_x.py and south/sub/test_x.py both import as
+        # sub.test_x if north/ and south/ lack tracked package markers.
+        # Distinct inner packages, however, must remain clean.
+        by_import_name: dict[str, list[Path]] = defaultdict(list)
         for p in paths:
-            init = p.parent / "__init__.py"
-            if init not in package_markers:
-                offending.append(p)
-        if not offending:
-            continue
-        # Report each collision pair. The first file in `paths` is the
-        # "kept" one; the rest are "dropped" by pytest's importer.
-        for p in offending:
-            rel = p.relative_to(root).as_posix()
-            other_rels = ", ".join(
-                sorted(q.relative_to(root).as_posix() for q in paths if q != p)
-            )
-            verdicts.append(Verdict(
-                rule_id=ID,
-                severity=SEVERITY,
-                repo=str(root),
-                file=rel,
-                line=1,
-                detail=(
-                    f"`{name}` collides with: {other_rels}. "
-                    "pytest's rootdir importer keeps one and silently "
-                    "drops the others — tests become invisible"
-                ),
-                fix_hint=(
-                    f"add `__init__.py` to `{p.parent.relative_to(root).as_posix() or '.'}`, "
-                    "or rename one of the colliding files"
-                ),
-                source=SOURCE,
-                timestamp=now,
-            ))
+            parts = [p.stem]
+            parent = p.parent
+            while parent != root and (parent / "__init__.py") in package_markers:
+                parts.append(parent.name)
+                parent = parent.parent
+            by_import_name[".".join(reversed(parts))].append(p)
+
+        for module_name, colliding in by_import_name.items():
+            if len(colliding) < 2:
+                continue
+            for p in colliding:
+                rel = p.relative_to(root).as_posix()
+                other_rels = ", ".join(sorted(
+                    q.relative_to(root).as_posix()
+                    for q in colliding if q != p
+                ))
+                verdicts.append(Verdict(
+                    rule_id=ID,
+                    severity=SEVERITY,
+                    repo=str(root),
+                    file=rel,
+                    line=1,
+                    detail=(
+                        f"{name} imports as {module_name} and collides with: "
+                        f"{other_rels}. Pytest cannot collect both modules "
+                        "under the default prepend importer"
+                    ),
+                    fix_hint=(
+                        "track missing ancestor __init__.py package markers, "
+                        "or rename one of the colliding files"
+                    ),
+                    source=SOURCE,
+                    timestamp=now,
+                ))
     return verdicts
