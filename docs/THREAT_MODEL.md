@@ -266,6 +266,18 @@ the root-plus-nested collision, correctly packaged duplicates, and
 excluded/untracked candidates. This does not expand scanning to
 untracked or excluded files.
 
+**Tracked package-marker integrity (5 November 2026):** A worktree-local
+but untracked \`__init__.py\` marker is not present after push and must not
+silence a \`P1-test-module-collision\` BLOCK. The rule now uses the bounded
+tracked-file inventory for package markers rather than only checking the
+working-tree filesystem. This context lookup deliberately ignores the
+\`--diff\` path filter: unchanged, tracked package markers must still keep
+valid distinct modules clean. Test candidates remain subject to their
+existing diff and exclusion policies. Synthetic tests cover untracked
+markers that previously hid a BLOCK and tracked markers in a filtered,
+legitimate package layout. Git enumeration failures retain the fatal
+scan-error contract.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
