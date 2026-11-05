@@ -204,6 +204,15 @@ error even in warn-mode hooks, without chaining private filesystem messages.
 a readable BLOCK, a literal-only valid file, and an excluded unreadable
 directory.
 
+**Additional guarded path:** `P1-py-parse-check` now treats a
+file-content read error for a discovered Python candidate as a fatal scanner
+error (exit 10), rather than an ordinary BLOCK verdict that a warn-mode
+hook could allow. A readable syntax error continues to produce its existing
+BLOCK verdict. Synthetic controls cover an inaccessible candidate,
+valid Python, an actual syntax BLOCK and an excluded unreadable virtualenv
+file in `test_rule_py_parse_access.py`. The original OS exception is
+not exposed in the formatted traceback.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
