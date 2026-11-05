@@ -213,6 +213,21 @@ valid Python, an actual syntax BLOCK and an excluded unreadable virtualenv
 file in `test_rule_py_parse_access.py`. The original OS exception is
 not exposed in the formatted traceback.
 
+**JavaScript parser runtime completeness (5 November 2026):**
+The BLOCK-tier `P1-js-parse-check` previously returned clean when the
+`node` executable was unavailable, and returned an ordinary BLOCK on
+parser timeout (which warn-mode hooks can allow). A parser launch error
+could similarly become an ordinary plugin BLOCK. For a non-excluded JS
+candidate, unavailable Node, launcher errors, undecodable output and
+timeouts now raise a sanitized fatal scan error (CLI exit 10). A scan
+with no applicable JavaScript candidates, including correctly excluded
+or explicitly skip-marked files, remains clean. Actual syntax errors
+still emit the rule's ordinary BLOCK. Synthetic tests in
+`test_rule_js_parser_runtime.py` cover absent Node, launch failure,
+timeout, clean-code and syntax-failure cases. This does not guarantee
+the external Node parser's correctness or attest that every subprocess
+nonzero status is a syntax error.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
