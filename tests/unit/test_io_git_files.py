@@ -291,3 +291,74 @@ def test_git_utf8_filename_path_identity(tmp_path: Path):
     (tmp_path / filename).write_text("VALUE = 1\n", encoding="utf-8")
     _git_init_commit_all(tmp_path)
     assert [p.name for p in iter_repo_files(tmp_path, "*.py")] == [filename]
+
+
+# Role 06 regression (2026-11-05): Git enumeration errors must not
+# masquerade as an empty rule result. An empty result would make
+# syntax-invalid committed code appear clean during a complete scan.
+
+def test_git_listing_error_raises_instead_of_masquerading_as_clean(
+    tmp_path: Path, monkeypatch,
+):
+    (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_run = subprocess.run
+
+    def reject_listing(cmd: list[str], **kwargs: Any) -> Any:
+        if cmd[:2] == ["git", "-C"] and "ls-files" in cmd:
+            return subprocess.CompletedProcess(
+                cmd, returncode=128, stdout="", stderr="synthetic failure"
+            )
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(git_files.subprocess, "run", reject_listing)
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
+
+
+def test_git_listing_error_blocks_clean_scan_result(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    """When a plugin cannot enumerate tracked files, scan must exit 10."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_run = subprocess.run
+
+    def reject_listing(cmd: list[str], **kwargs: Any) -> Any:
+        if cmd[:2] == ["git", "-C"] and "ls-files" in cmd:
+            return subprocess.CompletedProcess(
+                cmd, returncode=128, stdout="", stderr="synthetic failure"
+            )
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(git_files.subprocess, "run", reject_listing)
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    captured = capsys.readouterr()
+    assert rc == 10, "incomplete rule scan must never return clean"
+    assert "git ls-files" in captured.err
+    assert "[Sentinel] verdicts:" not in captured.out
+
+
+def test_git_listing_valid_code_still_passes_clean(
+    tmp_path: Path, capsys,
+):
+    """Normal tracked valid code remains clean, without rglob fallback."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "good.py").write_text("answer = 42\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    assert [p.name for p in iter_repo_files(tmp_path, "*.py")] == ["good.py"]
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "[Sentinel] verdicts: BLOCK=0" in captured.out
