@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import PY_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, PY_EXCLUDE_DIRS, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -48,18 +48,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
         try:
             source = path.read_text(encoding="utf-8", errors="replace")
         except OSError as e:
-            verdicts.append(Verdict(
-                rule_id=ID,
-                severity=SEVERITY,
-                repo=repo_prefix,
-                file=rel,
-                line=None,
-                detail=f"unreadable ({type(e).__name__})",
-                fix_hint=f"restore file permissions on {rel}",
-                source=SOURCE,
-                timestamp=now,
-            ))
-            continue
+            # A tracked parse candidate was not inspected. Ordinary BLOCK
+            # verdicts may be downgraded by warn-mode hooks; abort the scan
+            # through the fatal internal-error contract instead.
+            # Do not chain the original OS error: it can expose private paths.
+            raise GitFileEnumerationError(
+                f"Python parse candidate could not be read ({type(e).__name__})"
+            ) from None
 
         try:
             compile(source, rel, "exec")
