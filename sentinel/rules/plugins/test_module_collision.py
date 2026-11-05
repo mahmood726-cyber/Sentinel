@@ -1,6 +1,5 @@
 """P1-test-module-collision: BLOCK when two `test_*.py` files share a
-basename across directories AND at least one directory lacks
-`__init__.py`.
+basename across directories with the same pytest import name.
 
 Past incident (lessons.md "Module-name collision hides tests",
 2026-04-16): AlMizan had `test_al_mizan.py` at the repo root and a
@@ -15,10 +14,11 @@ The fix is one of:
   is then `tests.test_al_mizan`, distinct from the root `test_al_mizan`).
 - Rename one of the two files.
 
-This rule walks every `test_*.py` file in the repo, groups by basename,
-and flags any group with >1 entry where at least one parent dir lacks
-`__init__.py`. The repo root counts as "lacks __init__.py" unless one
-is committed there.
+This rule discovers tracked `test_*.py` files, groups by basename and
+resolves each import name using the longest contiguous chain of tracked
+`__init__.py` package markers. An inner package marker is insufficient
+when its ancestor lacks one: two paths can still import under the same
+short name. Different resolved names remain clean.
 
 Severity is BLOCK because the failure mode is invisible — pytest
 collects without error and the missing tests never run.
