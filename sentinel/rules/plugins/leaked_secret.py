@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import DEFAULT_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.git_files import DEFAULT_EXCLUDE_DIRS, GitFileEnumerationError, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -128,7 +128,6 @@ def check(ctx: RepoContext) -> List[Verdict]:
             # An unreadable candidate has not been checked for credentials.
             # Returning a clean scan here silently permits a real BLOCK.
             # Use the fatal scanner error contract, without private OS paths.
-            from sentinel.io.git_files import GitFileEnumerationError
             raise GitFileEnumerationError(
                 f"secret scan could not inspect candidate ({type(exc).__name__})"
             ) from None
