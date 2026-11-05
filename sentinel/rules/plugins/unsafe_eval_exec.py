@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker, line_is_suppressed
 
 ID = "P0-unsafe-eval-exec"
@@ -70,8 +70,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # The file is in the promised scan inventory. Silently skipping
+            # an inaccessible candidate could miss a real P0 BLOCK.
+            # This fatal error propagates through the rule wrapper to exit 10
+            # even for warn-mode hooks; hide OS details from diagnostics.
+            raise GitFileEnumerationError(
+                f"unsafe eval/exec candidate read failed ({type(exc).__name__})"
+            ) from None
         if "eval(" not in text and "exec(" not in text:
             continue
         stripped = _strip_noise(text)
