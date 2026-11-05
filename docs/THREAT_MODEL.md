@@ -146,6 +146,28 @@ Out of scope:
 - Selective export: a script that copies memory/*.md → a tracked `memory-snapshot/` directory after scrubbing sensitive fields
 - Manual ritual: "every 30 days, zip memory/ to an offline drive"
 
+### 3.6 Git-backed file inventory can fail incomplete (2026-11-05)
+
+**Vector:** Plugin scans use `git ls-files -z` to bound file discovery
+inside Git worktrees. Returning an empty iterable on Git command failure
+allowed plugin rules to report no findings without inspecting any tracked
+files. Converting that failure into an ordinary BLOCK finding is also
+insufficient in a hook configured in warn mode.
+
+**Mitigation (draft PR #6):**
+- `iter_repo_files` raises `GitFileEnumerationError` for failed or
+  undecodable Git listings, not an empty successful result.
+- The plugin wrapper propagates this specific failure into the scan CLI's
+  internal-error contract (exit 10). The pre-push hook refuses all internal
+  errors even in warn mode.
+- There is **no** `rglob` fallback inside a Git worktree: an unbounded walk
+  of a user home directory could stall the hook again.
+
+**Remaining limitations:** Inaccessible individual files can still be
+skipped by `Path.is_file()`, and YAML's separate `_git_tracked_files`
+enumeration currently has different failure behavior. Those are separate
+review subjects, not guarantees from this change.
+
 ---
 
 ## 4. Attack surfaces explicitly NOT defended
