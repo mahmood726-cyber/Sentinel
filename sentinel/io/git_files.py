@@ -205,15 +205,19 @@ def iter_repo_files(
             if active_filter is not None and rel.replace("\\", "/") not in active_filter:
                 continue
             path = root / rel
-            # `is_file()` can raise OSError on OneDrive placeholders,
-            # broken symlinks, and Windows "inaccessible file" states
-            # (WinError 1920). Treat any failure as "skip this file"
-            # rather than aborting the entire scan.
+            # A tracked candidate is part of the promised scan scope.
+            # Suppressing an access/stat error silently loses a possible
+            # BLOCK; exit 10 through the existing GitFileEnumerationError
+            # contract instead. Excluded paths are filtered above, and
+            # normal missing/deleted worktree files still return False.
             try:
                 if path.is_file():
                     yield path
-            except OSError:
-                continue
+            except OSError as exc:
+                # No private absolute paths or OS diagnostic messages.
+                raise GitFileEnumerationError(
+                    f"tracked file could not be inspected ({type(exc).__name__})"
+                ) from exc
         return
 
     seen: set[Path] = set()
