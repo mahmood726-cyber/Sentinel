@@ -237,6 +237,15 @@ ignored vendor directories remain clean. The underlying OS exception is
 not chained into diagnostics. Synthetic test-first coverage lives in
 `test_rule_script_close_access.py`.
 
+**Additional guarded path:** `P1-nullish-or-mixed` now aborts when a discovered
+JavaScript or inline-HTML candidate cannot be inspected because a status or
+text-read operation raises `OSError`. Previously both code paths silently
+continued, potentially missing a syntax BLOCK. The fatal scan error is not
+warn-mode-downgradable (CLI exit 10) and does not chain private OS diagnostics.
+Synthetic negative, readable-BLOCK, valid-grouping and excluded-directory
+controls are in `test_rule_nullish_access.py`; minified/oversized-file policy
+and the rule's BLOCK severity are unchanged.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
