@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -142,8 +142,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # A discovered HTML candidate was not inspected. Ordinary
+            # BLOCK findings may be ignored by warn-mode push hooks;
+            # abort the scan instead. Never expose private OS paths.
+            raise GitFileEnumerationError(
+                f"HTML script candidate could not be read ({type(exc).__name__})"
+            ) from None
         if "<script" not in text.lower():
             continue
         # Skip minified / embedded-bundle files: the backtick scanner
