@@ -239,37 +239,74 @@ def test_filename_with_newline_survives_nul_parsing(tmp_path: Path):
     assert found == ["a.py", "b.py"]
 
 
-def test_oserror_on_is_file_is_skipped(tmp_path: Path, monkeypatch):
-    """Incident 2026-04-19: iter_repo_files hit WinError 1920 on an
-    inaccessible OneDrive symlink (.venv/bin/python) in the git path.
-    is_file() raising OSError must be treated as 'skip', not 'abort'."""
-    (tmp_path / "good.py").write_text("x", encoding="utf-8")
+def test_tracked_file_stat_error_aborts_instead_of_skipping(tmp_path: Path, monkeypatch):
+    """A tracked regular file that cannot be inspected must not disappear
+    from the scan. A silent skip could hide a committed BLOCK finding."""
+    (tmp_path / "good.py").write_text("value = 42\n", encoding="utf-8")
+    (tmp_path / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
     _git_init_commit_all(tmp_path)
-    (tmp_path / "inaccessible.py").write_text("y", encoding="utf-8")
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
-         "add", "inaccessible.py"],
-        cwd=tmp_path, check=True,
-    )
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
-         "commit", "-q", "-m", "add2"],
-        cwd=tmp_path, check=True,
-    )
 
     real_is_file = Path.is_file
 
     def fake_is_file(self: Path) -> bool:
         if self.name == "inaccessible.py":
-            raise OSError(1920, "simulated WinError 1920")
+            raise OSError(1920, "simulated inaccessible tracked file")
         return real_is_file(self)
 
     monkeypatch.setattr(Path, "is_file", fake_is_file)
-    found = [p.name for p in iter_repo_files(tmp_path, "*.py")]
-    # good.py yielded; inaccessible.py silently skipped instead of
-    # aborting the whole iteration.
-    assert "good.py" in found
-    assert "inaccessible.py" not in found
+    with pytest.raises(git_files.GitFileEnumerationError, match="tracked file"):
+        list(iter_repo_files(tmp_path, "*.py"))
+
+
+def test_excluded_inaccessible_file_does_not_block_clean_tracked_code(
+    tmp_path: Path, monkeypatch,
+):
+    """Normal pushes remain clean if an unreadable file is explicitly
+    excluded before any filesystem inspection."""
+    (tmp_path / "good.py").write_text("value = 42\n", encoding="utf-8")
+    excluded = tmp_path / "tests"
+    excluded.mkdir()
+    (excluded / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+
+    real_is_file = Path.is_file
+
+    def fake_is_file(self: Path) -> bool:
+        if self.name == "inaccessible.py":
+            raise OSError(1920, "simulated excluded path")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    files = list(iter_repo_files(tmp_path, "*.py", exclude_dirs=["tests"]))
+    assert [p.name for p in files] == ["good.py"]
+
+
+def test_tracked_file_stat_error_fails_closed_through_cli(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    """Regression: a failing per-file check must be exit 10, not clean or
+    a warn-downgradable BLOCK, even if an actual syntax BLOCK is concealed."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_is_file = Path.is_file
+
+    def fake_is_file(self: Path) -> bool:
+        if self.name == "inaccessible.py":
+            raise OSError(1920, "simulated unreadable tracked candidate")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 10
+    assert "[Sentinel] verdicts:" not in output.out
+    assert "tracked file" in output.err
 
 
 def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
