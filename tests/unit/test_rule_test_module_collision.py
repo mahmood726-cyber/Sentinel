@@ -71,3 +71,72 @@ def test_quiet_on_single_occurrence(tmp_path):
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_foo.py").write_text("# only one\n", encoding="utf-8")
     assert _rule().check(_ctx(tmp_path)) == []
+
+
+# Role 06 regression: Git pathspecs must discover tracked test_*.py files
+# at any depth, otherwise a package-less duplicate test module is invisible.
+def _stage_synthetic_files(repo: Path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+
+
+def test_git_tracked_nested_duplicate_test_modules_are_blocked(tmp_path: Path):
+    (tmp_path / "test_example.py").write_text(
+        "def test_root():\n    assert True\n", encoding="utf-8"
+    )
+    nested = tmp_path / "tests"
+    nested.mkdir()
+    (nested / "test_example.py").write_text(
+        "def test_nested():\n    assert True\n", encoding="utf-8"
+    )
+    _stage_synthetic_files(tmp_path)
+
+    # Without the recursive Git pathspec, test_*.py matches only the root
+    # file, so the true BLOCK collision is silently missed on real Git repos.
+    findings = _rule().check(_ctx(tmp_path))
+    assert {v.file for v in findings} == {
+        "test_example.py", "tests/test_example.py"
+    }
+    assert all(v.severity == Severity.BLOCK for v in findings)
+
+
+def test_git_tracked_packaged_duplicate_names_remain_clean(tmp_path: Path):
+    """Tracked package markers make identical basenames distinct modules."""
+    (tmp_path / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "test_example.py").write_text(
+        "def test_root():\n    assert True\n", encoding="utf-8"
+    )
+    nested = tmp_path / "tests"
+    nested.mkdir()
+    (nested / "__init__.py").write_text("", encoding="utf-8")
+    (nested / "test_example.py").write_text(
+        "def test_nested():\n    assert True\n", encoding="utf-8"
+    )
+    _stage_synthetic_files(tmp_path)
+    assert _rule().check(_ctx(tmp_path)) == []
+
+
+def test_git_nested_test_names_respect_excluded_and_untracked_paths(
+    tmp_path: Path,
+):
+    """Only tracked, non-excluded paths enter the rule's candidate inventory."""
+    from sentinel.io.git_files import iter_repo_files
+
+    nested = tmp_path / "tests"
+    nested.mkdir()
+    (nested / "test_visible.py").write_text("pass\n", encoding="utf-8")
+    excluded = tmp_path / "node_modules"
+    excluded.mkdir()
+    (excluded / "test_vendor.py").write_text("pass\n", encoding="utf-8")
+    _stage_synthetic_files(tmp_path)
+    (nested / "test_untracked.py").write_text("pass\n", encoding="utf-8")
+
+    found = {
+        p.relative_to(tmp_path).as_posix()
+        for p in iter_repo_files(
+            tmp_path, "test_*.py", ("node_modules",)
+        )
+    }
+    assert found == {"tests/test_visible.py"}
