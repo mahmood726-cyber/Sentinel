@@ -283,3 +283,11 @@ def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
         p.name for p in iter_repo_files(tmp_path, "hyphen-*.py")
     )
     assert found == ["hyphen-file.py"]
+
+
+def test_git_utf8_filename_path_identity(tmp_path: Path):
+    """Git -z names must decode the same way as Python paths on Windows."""
+    filename = " café.py"
+    (tmp_path / filename).write_text("VALUE = 1\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    assert [p.name for p in iter_repo_files(tmp_path, "*.py")] == [filename]
