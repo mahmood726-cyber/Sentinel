@@ -234,11 +234,14 @@ def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
     or partial set that could silently drop a committed BLOCK finding.
     """
     out: set[str] = set()
+    # -z is required: without it Git C-quotes Unicode/tab/newline paths,
+    # and splitlines()/strip() silently change legitimate filenames. Exact
+    # path identity is required for --diff filtering to preserve BLOCKs.
     cmds: list[list[str]] = [
-        ["git", "-C", str(repo), "diff", "--name-only", f"{base_ref}...HEAD"],
-        ["git", "-C", str(repo), "diff", "--name-only"],
-        ["git", "-C", str(repo), "diff", "--name-only", "--cached"],
-        ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z", f"{base_ref}...HEAD"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z", "--cached"],
+        ["git", "-C", str(repo), "ls-files", "-z", "--others", "--exclude-standard"],
     ]
     for cmd in cmds:
         try:
@@ -247,10 +250,9 @@ def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
             return None
         if r.returncode != 0:
             return None
-        for line in r.stdout.splitlines():
-            line = line.strip().replace("\\", "/")
-            if line:
-                out.add(line)
+        for rel in r.stdout.split("\\x00"):
+            if rel:
+                out.add(rel)
     return out
 
 
