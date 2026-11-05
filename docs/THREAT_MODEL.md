@@ -246,6 +246,15 @@ Synthetic negative, readable-BLOCK, valid-grouping and excluded-directory
 controls are in `test_rule_nullish_access.py`; minified/oversized-file policy
 and the rule's BLOCK severity are unchanged.
 
+**Additional guarded path:** `P0-hmac-compare-eq` now treats an
+unreadable Python candidate as a fatal, non-warn-downgradable scanner
+error rather than silently skipping a possible crypto-comparison BLOCK.
+The underlying filesystem exception is not chained into the public
+diagnostic. Synthetic tests in `test_rule_hmac_compare_access.py`
+cover an inaccessible candidate, a readable BLOCK, a legitimate
+constant-time comparison and an excluded unreadable directory. This
+does not introduce signing or change crypto functionality.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
