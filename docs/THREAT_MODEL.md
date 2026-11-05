@@ -255,6 +255,17 @@ cover an inaccessible candidate, a readable BLOCK, a legitimate
 constant-time comparison and an excluded unreadable directory. This
 does not introduce signing or change crypto functionality.
 
+**Nested tracked-file coverage (5 November 2026):** Git's ordinary
+`test_*.py` pathspec matches the repository root but can omit
+`tests/test_*.py`. Sentinel now supplies recursive Git glob pathspecs
+(`:(glob)**/test_*.py`) to make tracked-file enumeration consistent
+with the non-Git `rglob` fallback. This prevents a tracked nested
+duplicate test module from silently escaping the
+`P1-test-module-collision` BLOCK rule. Synthetic regressions cover
+the root-plus-nested collision, correctly packaged duplicates, and
+excluded/untracked candidates. This does not expand scanning to
+untracked or excluded files.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
