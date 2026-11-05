@@ -169,9 +169,15 @@ insufficient in a hook configured in warn mode.
   an unbounded walk of a user home directory could stall the hook again.
   Ad-hoc non-Git roots retain the bounded-by-caller legacy traversal.
 
-**Remaining limitations:** Inaccessible individual files can still be
-skipped by `Path.is_file()` or read failures, and non-Git roots can still
-use filesystem traversal. These remain separate review subjects.
+- Git-backed plugin enumeration now raises an internal scan error if
+  `Path.is_file()` raises on a tracked, non-excluded candidate, rather
+  than silently skipping a possible BLOCK. Files excluded before inspection
+  and ordinary deleted worktree paths retain their prior behavior.
+
+**Remaining limitations:** YAML-rule per-file stat/read errors may still
+silently skip files, as may other rule-specific read handlers. Non-Git
+ad-hoc roots still use filesystem traversal. These require separate
+synthetic negative controls before any further behavior change.
 
 ---
 
