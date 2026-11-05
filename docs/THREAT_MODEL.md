@@ -278,6 +278,18 @@ markers that previously hid a BLOCK and tracked markers in a filtered,
 legitimate package layout. Git enumeration failures retain the fatal
 scan-error contract.
 
+**Ancestor package identity (5 November 2026):** A test module's
+import name is the contiguous path of tracked Python packages above it,
+not merely its basename plus immediate parent. For example, tracked
+`north/sub/__init__.py` and `south/sub/__init__.py` cannot distinguish
+two `test_example.py` files when the outer `north/` and `south/`
+directories lack tracked `__init__.py` markers: both resolve to
+`sub.test_example` under pytest's default prepend importer. Sentinel
+now compares complete resolved import names and reports a BLOCK for both.
+Distinct fully packaged modules, and distinct inner package names despite
+missing ancestors, remain clean. The deterministic tests use newly
+created Git fixtures and do not process publication data.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
