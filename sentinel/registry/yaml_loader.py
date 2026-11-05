@@ -2,6 +2,7 @@
 from __future__ import annotations
 import fnmatch
 import re
+import stat
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -133,14 +134,25 @@ class YamlRule:
             try:
                 if file_path.stat().st_size > MAX_SCAN_BYTES:
                     continue
-            except OSError:
+            except (FileNotFoundError, NotADirectoryError):
+                # A tracked path may have been removed from the worktree;
+                # an unstaged deletion is not an inaccessible candidate.
                 continue
+            except OSError:
+                # Do not leak private OS diagnostic paths in the traceback.
+                raise GitFileEnumerationError(
+                    "YAML scan could not stat an enumerated file"
+                ) from None
             if _file_has_skip_marker(file_path):
                 continue
             try:
                 text = file_path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
+            except (FileNotFoundError, NotADirectoryError):
                 continue
+            except OSError:
+                raise GitFileEnumerationError(
+                    "YAML scan could not read an enumerated file"
+                ) from None
             lines = text.splitlines()
             for lineno, line in enumerate(lines, start=1):
                 if compiled.search(line):
@@ -208,8 +220,13 @@ def _file_has_skip_marker(file_path: Path) -> bool:
     try:
         with file_path.open("rb") as f:
             head = f.read(SKIP_MARKER_SCAN_BYTES)
-    except OSError:
+    except (FileNotFoundError, NotADirectoryError):
+        # Deleted worktree paths will also fail the subsequent content read.
         return False
+    except OSError:
+        raise GitFileEnumerationError(
+            "YAML scan could not read an enumerated file header"
+        ) from None
     try:
         text = head.decode("utf-8", errors="replace")
     except UnicodeDecodeError:
@@ -287,9 +304,19 @@ def _iter_matching_files(
             continue
         path = root / rel
         try:
-            if not path.is_file():
+            # Path.is_file() can treat access failures as False on some
+            # Python versions. Inspect stat explicitly so a tracked BLOCK
+            # cannot silently disappear from the scan on PermissionError.
+            if not stat.S_ISREG(path.stat().st_mode):
                 continue
+        except (FileNotFoundError, NotADirectoryError):
+            continue
         except OSError:
+            if tracked is not None:
+                raise GitFileEnumerationError(
+                    "YAML scan could not stat a Git-listed candidate"
+                ) from None
+            # Preserve legacy ad-hoc non-Git traversal semantics.
             continue
         yield path, rel
 
