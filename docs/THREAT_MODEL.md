@@ -195,6 +195,15 @@ The internal-error diagnostic does not chain private OS exception messages.
 Synthetic failure and valid-artifact controls live in
 `test_rule_e156_placeholder_access.py`.
 
+**Additional guarded path:** `P0-unsafe-eval-exec` now aborts on a
+file-content read error after a Python candidate has entered its scan
+inventory. Previously the `except OSError: continue` branch could silently
+miss a dynamic `eval`/`exec` BLOCK. The scanner now returns an internal
+error even in warn-mode hooks, without chaining private filesystem messages.
+`test_rule_unsafe_eval_access.py` covers an inaccessible synthetic BLOCK,
+a readable BLOCK, a literal-only valid file, and an excluded unreadable
+directory.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
