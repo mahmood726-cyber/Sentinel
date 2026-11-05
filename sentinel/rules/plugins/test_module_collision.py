@@ -57,6 +57,17 @@ def check(ctx: RepoContext) -> List[Verdict]:
             continue
         by_name[path.name].append(path)
 
+    # A local __init__.py that is not tracked will disappear after push,
+    # so it must not suppress a test-module collision. Reuse the same
+    # tracked-file discovery contract as the test-module inventory. Package
+    # markers are cross-file context, even when a --diff scan changes only
+    # the test modules, so ignore the diff filter for this metadata query.
+    if not any(len(paths) > 1 for paths in by_name.values()):
+        return verdicts
+    package_markers = set(iter_repo_files(
+        root, "__init__.py", PY_EXCLUDE_DIRS, respect_path_filter=False,
+    ))
+
     for name, paths in by_name.items():
         if len(paths) < 2:
             continue
@@ -65,7 +76,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         offending: list[Path] = []
         for p in paths:
             init = p.parent / "__init__.py"
-            if not init.is_file():
+            if init not in package_markers:
                 offending.append(p)
         if not offending:
             continue
