@@ -174,3 +174,80 @@ def test_yaml_git_listing_valid_code_and_true_block_control(tmp_path: Path, monk
     )
     findings = rule.check(ctx)
     assert [(v.file, v.line) for v in findings] == [("hit.txt", 1)]
+
+
+@pytest.mark.parametrize("failure", ["stat", "header", "read_text"])
+def test_yaml_tracked_unreadable_candidate_is_fatal(tmp_path: Path, monkeypatch, failure: str):
+    """A trusted Git inventory is not proof its listed files were inspected.
+
+    Synthetic PermissionError paths deliberately contain a sensitive string:
+    it must not appear in the public/internal-error explanation.
+    """
+    import subprocess
+    from sentinel.registry import yaml_loader
+    from sentinel.io.git_files import GitFileEnumerationError
+
+    rule, repo, ctx = _yaml_git_test_repo(tmp_path)
+    (repo / ".git").mkdir()
+    hit = repo / "hit.txt"
+    hit.write_text("FORBIDDEN_TOKEN\n", encoding="utf-8")
+    clean = repo / "clean.txt"
+    clean.write_text("safe content\n", encoding="utf-8")
+    monkeypatch.setattr(
+        yaml_loader.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0,
+            stdout=b"hit.txt\x00clean.txt\x00", stderr=b"",
+        ),
+    )
+
+    private_diagnostic = "PRIVATE-HOME-PATH-MUST-NOT-LEAK"
+    if failure == "stat":
+        original = Path.stat
+
+        def fail_stat(self, *args, **kwargs):
+            if self == hit:
+                raise PermissionError(private_diagnostic)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", fail_stat)
+    elif failure == "header":
+        original = Path.open
+
+        def fail_header(self, mode="r", *args, **kwargs):
+            if self == hit and mode == "rb":
+                raise PermissionError(private_diagnostic)
+            return original(self, mode, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", fail_header)
+    else:
+        original = Path.read_text
+
+        def fail_read(self, *args, **kwargs):
+            if self == hit:
+                raise PermissionError(private_diagnostic)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", fail_read)
+
+    with pytest.raises(GitFileEnumerationError, match="YAML scan") as exc:
+        rule.check(ctx)
+    assert private_diagnostic not in str(exc.value)
+
+
+def test_yaml_git_tracked_missing_worktree_file_remains_clean(tmp_path: Path, monkeypatch):
+    """An unstaged deletion is routine, unlike an inaccessible tracked file."""
+    import subprocess
+    from sentinel.registry import yaml_loader
+
+    rule, repo, ctx = _yaml_git_test_repo(tmp_path)
+    (repo / ".git").mkdir()
+    (repo / "clean.txt").write_text("valid content\n", encoding="utf-8")
+    monkeypatch.setattr(
+        yaml_loader.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0,
+            stdout=b"missing.txt\x00clean.txt\x00", stderr=b"",
+        ),
+    )
+    assert rule.check(ctx) == []
