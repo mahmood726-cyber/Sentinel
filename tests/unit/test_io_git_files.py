@@ -4,8 +4,8 @@ The helper keeps plugin rules bounded — a pre-push scan on a user-home
 directory must not walk OneDrive, AppData, etc. Git-worktrees use
 `git ls-files`; non-git paths fall back to rglob. When git is present
 but fails for any reason (corrupt .git, missing binary, timeout,
-non-zero exit), the helper fails CLOSED (returns nothing) — never
-falling back to rglob while `.git` exists.
+non-zero exit), the helper raises a scan-stopping error and never
+falls back to rglob while `.git` exists.
 """
 from __future__ import annotations
 
@@ -156,7 +156,7 @@ def _write_tracked_plus_untracked(tmp_path: Path) -> None:
 
 
 def test_git_failure_nonzero_exit_fails_closed(tmp_path: Path, monkeypatch):
-    """If git ls-files returns non-zero, yield nothing — don't fall back to rglob."""
+    """Nonzero Git enumeration must raise; never return an empty success."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -166,12 +166,12 @@ def test_git_failure_nonzero_exit_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on ls-files failure, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_missing_binary_fails_closed(tmp_path: Path, monkeypatch):
-    """If git binary is missing, yield nothing — don't fall back to rglob."""
+    """Missing Git must abort scanning, not masquerade as an empty listing."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -181,12 +181,12 @@ def test_git_missing_binary_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on git missing, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_timeout_fails_closed(tmp_path: Path, monkeypatch):
-    """If ls-files times out, yield nothing — don't fall back to rglob."""
+    """A timed-out Git enumeration must abort the scan without rglob."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -196,8 +196,8 @@ def test_git_timeout_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on timeout, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_absent_uses_rglob_bounded(tmp_path: Path):
