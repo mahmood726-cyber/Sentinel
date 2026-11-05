@@ -173,11 +173,17 @@ insufficient in a hook configured in warn mode.
   `Path.is_file()` raises on a tracked, non-excluded candidate, rather
   than silently skipping a possible BLOCK. Files excluded before inspection
   and ordinary deleted worktree paths retain their prior behavior.
+- YAML scanning now checks `stat()` explicitly for Git-listed candidates:
+  inaccessible file status, header or text reads abort with a fatal internal
+  error instead of silently omitting a potential BLOCK. The diagnostic
+  suppresses underlying private filesystem exception details. A genuinely
+  missing tracked worktree path (e.g., an unstaged deletion) remains a
+  legitimate skip, and clean/ignored files do not cause new findings.
 
-**Remaining limitations:** YAML-rule per-file stat/read errors may still
-silently skip files, as may other rule-specific read handlers. Non-Git
-ad-hoc roots still use filesystem traversal. These require separate
-synthetic negative controls before any further behavior change.
+**Remaining limitations:** Other plugin/rule-specific read handlers may
+still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
+traversal and its pre-existing path-discovery behavior. These are not
+certified by the YAML controls.
 
 ---
 
