@@ -11,7 +11,7 @@ from typing import List, Optional, Sequence, Set
 import yaml
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import get_path_filter
+from sentinel.io.git_files import GitFileEnumerationError, get_path_filter
 from sentinel.io.paths import global_exclude_patterns
 
 
@@ -218,16 +218,14 @@ def _file_has_skip_marker(file_path: Path) -> bool:
 
 
 def _git_tracked_files(root: Path) -> Optional[Set[str]]:
-    """Return set of paths (posix, relative) that git would push: tracked +
-    untracked-not-ignored. Returns None if `root` is not a git repo or git is
-    unavailable, in which case callers fall back to rglob (pre-gitignore
-    behavior).
+    """Return the exact Git-scannable file set, or None for non-Git roots.
 
-    Pre-push hook correctness requires this: `.gitignore`d files (e.g. build
-    artifacts, logs, caches) will not be pushed, so scanning them produces
-    false positives that block real work.
+    Git worktrees have either a .git directory or a .git file (linked
+    worktrees). An unavailable/broken Git listing is not a valid empty set:
+    fail closed instead of re-scanning the filesystem, which can miss ignored
+    file boundaries and traverse unrelated files.
     """
-    if not (root / ".git").is_dir():
+    if not (root / ".git").exists():
         return None
     try:
         res = subprocess.run(
@@ -238,19 +236,23 @@ def _git_tracked_files(root: Path) -> Optional[Set[str]]:
             ],
             cwd=str(root), capture_output=True, timeout=30,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate YAML scan files "
+            f"({type(exc).__name__})"
+        ) from exc
     if res.returncode != 0:
-        import sys
-        sys.stderr.write(
-            f"sentinel: git ls-files failed in {root} (rc={res.returncode}); "
-            f"falling back to rglob. stderr={res.stderr[:200]!r}\n"
+        # Never expose stderr: Git diagnostics may contain private paths.
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate YAML scan files "
+            f"(exit {res.returncode})"
         )
-        return None
     try:
         stdout = res.stdout.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
+    except UnicodeDecodeError as exc:
+        raise GitFileEnumerationError(
+            "git ls-files returned undecodable YAML scan paths"
+        ) from exc
     return {entry for entry in stdout.split("\0") if entry}
 
 
