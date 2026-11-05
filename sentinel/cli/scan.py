@@ -250,7 +250,7 @@ def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
             return None
         if r.returncode != 0:
             return None
-        for rel in r.stdout.split("\\x00"):
+        for rel in r.stdout.split("\x00"):
             if rel:
                 out.add(rel)
     return out
