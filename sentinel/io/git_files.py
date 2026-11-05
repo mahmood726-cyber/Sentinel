@@ -214,10 +214,11 @@ def iter_repo_files(
                 if path.is_file():
                     yield path
             except OSError as exc:
-                # No private absolute paths or OS diagnostic messages.
+                # Suppress the chained OS traceback: Windows/OneDrive
+                # errors can embed private user paths in their messages.
                 raise GitFileEnumerationError(
                     f"tracked file could not be inspected ({type(exc).__name__})"
-                ) from exc
+                ) from None
         return
 
     seen: set[Path] = set()
