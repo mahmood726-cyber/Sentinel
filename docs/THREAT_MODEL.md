@@ -180,6 +180,13 @@ insufficient in a hook configured in warn mode.
   missing tracked worktree path (e.g., an unstaged deletion) remains a
   legitimate skip, and clean/ignored files do not cause new findings.
 
+**Additional guarded path:** `P1-leaked-secret` now raises the fatal
+`GitFileEnumerationError` if a candidate cannot be inspected after discovery,
+so read/status failures cannot silently suppress a credential BLOCK; explicitly
+excluded documentation remains out of scope. The diagnostic does not propagate
+private filesystem errors. Synthetic negative and legitimate controls are in
+`test_rule_leaked_secret.py`.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
