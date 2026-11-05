@@ -154,6 +154,8 @@ def iter_repo_files(
     root: Path,
     pattern: str | Sequence[str] = "*",
     exclude_dirs: Sequence[str] | Iterable[str] = (),
+    *,
+    respect_path_filter: bool = True,
 ) -> Iterator[Path]:
     """Yield files under `root` matching `pattern` (string or sequence).
 
@@ -173,7 +175,9 @@ def iter_repo_files(
     `"node_modules"` excludes any file whose relative path contains a
     `node_modules` component.
 
-    Only regular files are yielded.
+    Only regular files are yielded. Set respect_path_filter=False only for
+    cross-file context (such as tracked package markers) which must be
+    consulted even when the --diff candidate set excludes unchanged files.
     """
     excludes = frozenset(exclude_dirs)
     patterns: list[str] = [pattern] if isinstance(pattern, str) else list(pattern)
@@ -204,7 +208,7 @@ def iter_repo_files(
                 f"git ls-files could not enumerate tracked files "
                 f"(exit {result.returncode})"
             )
-        active_filter = _ACTIVE_PATH_FILTER
+        active_filter = _ACTIVE_PATH_FILTER if respect_path_filter else None
         for rel in result.stdout.split("\x00"):
             if not rel:
                 continue
@@ -230,7 +234,7 @@ def iter_repo_files(
         return
 
     seen: set[Path] = set()
-    active_filter = _ACTIVE_PATH_FILTER
+    active_filter = _ACTIVE_PATH_FILTER if respect_path_filter else None
     for p in patterns:
         for path in root.rglob(p):
             if path in seen:
