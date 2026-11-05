@@ -160,13 +160,18 @@ insufficient in a hook configured in warn mode.
 - The plugin wrapper propagates this specific failure into the scan CLI's
   internal-error contract (exit 10). The pre-push hook refuses all internal
   errors even in warn mode.
-- There is **no** `rglob` fallback inside a Git worktree: an unbounded walk
-  of a user home directory could stall the hook again.
+- The YAML-rule scanner also recognizes directory-based and linked
+  (`.git` file) worktrees. A failed, timed-out or undecodable Git listing
+  raises `GitFileEnumerationError` instead of falling back to a filesystem
+  walk; this keeps the hook's fatal exit-10 contract intact for YAML BLOCK
+  rules and avoids scanning irrelevant ignored files.
+- There is **no** `rglob` fallback inside a recognized Git worktree:
+  an unbounded walk of a user home directory could stall the hook again.
+  Ad-hoc non-Git roots retain the bounded-by-caller legacy traversal.
 
 **Remaining limitations:** Inaccessible individual files can still be
-skipped by `Path.is_file()`, and YAML's separate `_git_tracked_files`
-enumeration currently has different failure behavior. Those are separate
-review subjects, not guarantees from this change.
+skipped by `Path.is_file()` or read failures, and non-Git roots can still
+use filesystem traversal. These remain separate review subjects.
 
 ---
 
