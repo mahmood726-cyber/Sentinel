@@ -98,7 +98,7 @@ def test_git_enumeration_failure_escapes_plugin_wrapper(tmp_path: Path):
         PLUGIN_VALID.replace(
             "from sentinel.core import Severity, Verdict",
             "from sentinel.core import Severity, Verdict\n"
-            "    from sentinel.io.git_files import GitFileEnumerationError",
+            "from sentinel.io.git_files import GitFileEnumerationError",
         ).replace(
             "return [",
             "raise GitFileEnumerationError('git ls-files failed')\n    return [",
