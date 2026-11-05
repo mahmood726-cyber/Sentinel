@@ -228,6 +228,15 @@ timeout, clean-code and syntax-failure cases. This does not guarantee
 the external Node parser's correctness or attest that every subprocess
 nonzero status is a syntax error.
 
+**Additional guarded path:** `P1-script-close-in-template` now treats a
+discovered HTML candidate's file-status or text-read error as a fatal
+scanner error instead of silently skipping a possible BLOCK. An ordinary
+readable literal `</script>` inside a JavaScript template continues to
+produce the existing BLOCK verdict. Valid split-token templates and
+ignored vendor directories remain clean. The underlying OS exception is
+not chained into diagnostics. Synthetic test-first coverage lives in
+`test_rule_script_close_access.py`.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
