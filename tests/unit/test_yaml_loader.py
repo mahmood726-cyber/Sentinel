@@ -233,6 +233,11 @@ def test_yaml_tracked_unreadable_candidate_is_fatal(tmp_path: Path, monkeypatch,
     with pytest.raises(GitFileEnumerationError, match="YAML scan") as exc:
         rule.check(ctx)
     assert private_diagnostic not in str(exc.value)
+    # The CLI reports an internal-error traceback. It must not reveal the
+    # underlying PermissionError's private filesystem diagnostic either.
+    import traceback
+    rendered = "".join(traceback.format_exception(exc.type, exc.value, exc.tb))
+    assert private_diagnostic not in rendered
 
 
 def test_yaml_git_tracked_missing_worktree_file_remains_clean(tmp_path: Path, monkeypatch):
