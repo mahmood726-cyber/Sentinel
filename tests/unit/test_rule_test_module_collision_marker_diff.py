@@ -34,6 +34,12 @@ def _seed(root: Path, *, north_marker: bool, unrelated_marker: bool = False) -> 
         (extra / "__init__.py").write_text("", encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Synthetic Fixture",
+         "-c", "user.email=fixture@example.invalid",
+         "commit", "-q", "-m", "synthetic baseline"],
+        cwd=root, check=True,
+    )
 
 
 def _check(root: Path, changed: set[str]):
