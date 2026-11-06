@@ -59,13 +59,36 @@ def _hooks_dir(repo_root: Path) -> Path:
 
 
 def is_sentinel_hook(hook_path: Path) -> bool:
+    """Only recognize scripts we actually generated, not a copied banner."""
     if not hook_path.is_file():
         return False
     try:
-        content = hook_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+        content = hook_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
         return False
-    return SENTINEL_MARKER in content
+    return content in (HOOK_SCRIPT, make_hook_script("warn"))
+
+
+def _reject_unrecognized_marker(hook_path: Path) -> None:
+    """Do not overwrite/delete a modified or marker-bearing third-party hook.
+
+    The banner is documentation, not proof that the complete hook is ours.
+    Unknown versions also require explicit human reconciliation; chaining an
+    edited Sentinel script can recurse through its own backup indefinitely.
+    """
+    if not hook_path.exists():
+        return
+    try:
+        content = hook_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        raise HookInstallError("cannot inspect existing pre-push hook") from None
+    if SENTINEL_MARKER in content and content not in (
+        HOOK_SCRIPT, make_hook_script("warn")
+    ):
+        raise HookInstallError(
+            "unrecognized or modified pre-push hook with Sentinel marker; "
+            "refusing to overwrite or remove it"
+        )
 
 
 def ensure_sentinel_gitignored(repo_root: Path) -> None:
@@ -111,6 +134,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_unrecognized_marker(hook)
 
     if hook.exists() and not is_sentinel_hook(hook):
         if backup.exists():
@@ -133,6 +157,7 @@ def uninstall_hook(repo_root: Path) -> None:
     hooks_dir = _hooks_dir(repo_root)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_unrecognized_marker(hook)
     if backup.exists():
         if hook.exists() and not is_sentinel_hook(hook):
             # Uninstall must not restore an old backup over a later hook
