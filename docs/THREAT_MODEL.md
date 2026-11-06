@@ -338,6 +338,18 @@ human reconciliation. A normal intact Sentinel install/reinstall/uninstall
 and installation of a previously unseen user hook are unaffected. Synthetic
 tests establish the filesystem behavior, not continuous hook-tamper detection.
 
+**Copied-banner hook authenticity (6 November 2026):** The Sentinel banner
+alone did not identify an installed Sentinel script: another hook containing
+the copied banner could be silently overwritten on reinstall or removed on
+uninstall. Hook ownership checks now require exact generated script content
+for the supported block and warn installations. A banner-bearing script that
+differs from either template is left untouched and install/uninstall refuse
+the operation for manual reconciliation, whether or not a backup is present.
+Synthetic negative controls cover replacement with and without a backup;
+valid controls cover intact installs, chaining, modes, and uninstalls.
+This is not continuous tamper detection or protection from local code execution;
+after software updates older modified hook variants may require manual review.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
@@ -352,7 +364,7 @@ certified by the YAML or E156 placeholder controls.
 | The Python interpreter Sentinel runs on | Trusted infrastructure. Compromise = game over for many things, not just Sentinel. |
 | The `git` binary | Same. |
 | GitHub remote (push target) | GitHub handles its own auth. Sentinel is pre-push. |
-| `.git/hooks/pre-push` being removed | Detectable by checking for `SENTINEL_MARKER` banner; not currently audited on a schedule. |
+| Active Git pre-push hook being removed or modified after install | No continuous monitoring; a banner-only check does not prove installed-script authenticity. |
 | Malicious rule files added to `sentinel/rules/` | Sentinel can't scan its own rule dir (`GLOBAL_EXCLUDES` excludes it). Rule-authoring is a trusted operation. |
 | Supply chain (pip dependencies, yaml library RCE) | Dependency pinning in pyproject.toml + `yaml.safe_load` usage. Not separately audited. |
 | Untrusted YAML rule files from external sources | Assumed not to exist — all rules come from this repo. If that changes, YAML source origin must be re-evaluated. |
