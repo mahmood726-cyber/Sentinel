@@ -165,6 +165,11 @@ insufficient in a hook configured in warn mode.
   raises `GitFileEnumerationError` instead of falling back to a filesystem
   walk; this keeps the hook's fatal exit-10 contract intact for YAML BLOCK
   rules and avoids scanning irrelevant ignored files.
+- The scan CLI now accepts a linked worktree's `.git` file as a repository
+  marker (previously it required a `.git` directory and returned exit 2).
+  Synthetic linked-worktree checks cover clean exit 0 and a real rule BLOCK
+  exit 1; a fake `.git` file must not receive a clean verdict. Git/file
+  enumeration failures still fail closed.
 - There is **no** `rglob` fallback inside a recognized Git worktree:
   an unbounded walk of a user home directory could stall the hook again.
   Ad-hoc non-Git roots retain the bounded-by-caller legacy traversal.
