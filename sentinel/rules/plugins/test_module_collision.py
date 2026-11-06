@@ -19,8 +19,9 @@ resolves each import name using the longest contiguous chain of tracked
 `__init__.py` package markers. An inner package marker is insufficient
 when its ancestor lacks one: two paths can still import under the same
 short name. Different resolved names remain clean. In --diff scans, the full tracked
-inventory is comparison context, but only changed colliding test paths
-receive verdicts, so unrelated changes are not blocked by older collisions.
+inventory is comparison context; verdicts cover changed colliding test
+paths and deleted ancestor package markers that provably merge import names.
+Unrelated changes and unrelated older collisions do not block pushes.
 
 Severity is BLOCK because the failure mode is invisible — pytest
 collects without error and the missing tests never run.
