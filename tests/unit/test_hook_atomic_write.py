@@ -46,7 +46,8 @@ def test_failed_reinstall_keeps_current_hook_executable_and_intact(
 
     assert hook.read_bytes() == original
     assert is_sentinel_hook(hook)
-    assert hook.stat().st_mode & stat.S_IXUSR
+    if os.name != "nt":  # Windows stat does not expose POSIX execute bits
+        assert hook.stat().st_mode & stat.S_IXUSR
     assert not backup.exists()
     assert not list(hook.parent.glob(".pre-push.sentinel-*"))
 
@@ -100,11 +101,13 @@ def test_uninterrupted_install_and_restore_preserve_valid_hook(
 
     install_hook(repo)
     assert is_sentinel_hook(hook)
-    assert hook.stat().st_mode & stat.S_IXUSR
+    if os.name != "nt":  # Windows stat does not expose POSIX execute bits
+        assert hook.stat().st_mode & stat.S_IXUSR
     assert backup.read_bytes() == original
     install_hook(repo)
     assert backup.read_bytes() == original
     uninstall_hook(repo)
     assert hook.read_bytes() == original
-    assert hook.stat().st_mode & stat.S_IXUSR
+    if os.name != "nt":  # Windows stat does not expose POSIX execute bits
+        assert hook.stat().st_mode & stat.S_IXUSR
     assert not backup.exists()
