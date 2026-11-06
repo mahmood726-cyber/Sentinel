@@ -134,10 +134,13 @@ def _run_inner(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        if not (args.repo / ".git").is_dir():
+        # Linked Git worktrees and submodules store a .git *file* that
+        # points to their actual Git directory. File discovery already
+        # recognizes this shape; the CLI must not reject it before scanning.
+        if not (args.repo / ".git").exists():
             print(
                 f"[Sentinel] error: --repo is not a git repository "
-                f"(no .git/ dir): {args.repo}",
+                f"(no .git directory or worktree marker): {args.repo}",
                 file=sys.stderr,
             )
             return 2
