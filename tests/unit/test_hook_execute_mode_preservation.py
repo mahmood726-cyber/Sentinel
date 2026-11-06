@@ -105,10 +105,10 @@ def test_local_git_push_with_custom_hooks_path_allows_clean_and_blocks_real_issu
         check=True,
     )
     old_hook = hooks / "pre-push"
-    old_hook.write_bytes(b"#!/bin/sh\\nexit 79\\n")
+    old_hook.write_bytes(b"#!/bin/sh\nexit 79\n")
     old_hook.chmod(0o644)  # Existing user hook is intentionally disabled.
 
-    (repo / "hello.txt").write_text("safe synthetic fixture\\n", encoding="utf-8")
+    (repo / "hello.txt").write_text("safe synthetic fixture\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(repo), "add", "hello.txt"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", "initial"], check=True)
     remote = tmp_path / "remote.git"
@@ -131,7 +131,7 @@ def test_local_git_push_with_custom_hooks_path_allows_clean_and_blocks_real_issu
     ).stdout.strip()
 
     # A truly unsafe tracked Python file must still BLOCK a subsequent push.
-    (repo / "bad.py").write_text("eval (payload)\\n", encoding="utf-8")
+    (repo / "bad.py").write_text("eval (payload)\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(repo), "add", "bad.py"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", "unsafe synthetic"], check=True)
     blocked = subprocess.run(
@@ -147,5 +147,5 @@ def test_local_git_push_with_custom_hooks_path_allows_clean_and_blocks_real_issu
     assert remote_head == original_head  # The unsafe commit was not pushed.
 
     uninstall_hook(repo)
-    assert old_hook.read_bytes() == b"#!/bin/sh\\nexit 79\\n"
+    assert old_hook.read_bytes() == b"#!/bin/sh\nexit 79\n"
     assert _mode(old_hook) == 0o644
