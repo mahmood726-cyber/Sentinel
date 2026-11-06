@@ -49,6 +49,8 @@ def test_whitespace_before_paren_cannot_hide_dynamic_calls(
     '# eval (user_input)\nresult = 1\n',
     'import ast\nresult = ast.literal_eval (value)\n',
     'result = evaluate (value)\n',
+    'result = obj . eval (value)\n',
+    'result = obj. exec (value)\n',
 ])
 def test_whitespace_and_noncall_controls_stay_clean(
     tmp_path: Path, source: str
