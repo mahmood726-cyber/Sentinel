@@ -189,8 +189,15 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
                 "pre-push hook replaced while Sentinel backup exists; "
                 "refusing to overwrite modified hook"
             )
-        backup.write_bytes(hook.read_bytes())
-        _chmod_exec(backup)
+        # Prepare the original hook backup completely before replacing the
+        # active gate. A failed stage/chmod/rename must not leave a partial
+        # backup or allow a new hook to be installed without a valid chain.
+        try:
+            _replace_hook_atomically(backup, hook.read_bytes())
+        except OSError:
+            raise HookInstallError(
+                "cannot safely prepare existing pre-push hook backup"
+            ) from None
 
     _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
     ensure_sentinel_gitignored(repo_root)
@@ -215,10 +222,3 @@ def uninstall_hook(repo_root: Path) -> None:
     elif hook.exists() and is_sentinel_hook(hook):
         hook.unlink()
 
-
-def _chmod_exec(path: Path) -> None:
-    try:
-        current = path.stat().st_mode
-        path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    except OSError:
-        pass
