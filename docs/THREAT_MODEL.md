@@ -272,8 +272,8 @@ silence a `P1-test-module-collision` BLOCK. The rule now uses the bounded
 tracked-file inventory for package markers rather than only checking the
 working-tree filesystem. This context lookup deliberately ignores the
 `--diff` path filter: unchanged, tracked package markers must still keep
-valid distinct modules clean. Test candidates remain subject to their
-existing diff and exclusion policies. Synthetic tests cover untracked
+valid distinct modules clean. Changed test files produce differential verdicts while all tracked
+test modules remain available as comparison context; exclusions remain enforced. Synthetic tests cover untracked
 markers that previously hid a BLOCK and tracked markers in a filtered,
 legitimate package layout. Git enumeration failures retain the fatal
 scan-error contract.
