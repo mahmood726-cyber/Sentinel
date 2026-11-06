@@ -328,6 +328,16 @@ preservation/restoration of an existing hook, rejection of a non-directory
 target, and the unconfigured default. Hook configuration can still change
 after installation; no continuous tamper monitoring is implied.
 
+**Conflicting pre-push hook replacement (6 November 2026):** When Sentinel
+backs up an existing hook and another tool subsequently replaces the
+Sentinel hook, reinstall/uninstall now **refuse to overwrite** that replacement.
+Previously reinstall silently discarded the new hook and uninstall restored
+the older backup over it, potentially deleting another active pre-push gate.
+The conflicting hook and Sentinel backup are left intact for explicit
+human reconciliation. A normal intact Sentinel install/reinstall/uninstall
+and installation of a previously unseen user hook are unaffected. Synthetic
+tests establish the filesystem behavior, not continuous hook-tamper detection.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
