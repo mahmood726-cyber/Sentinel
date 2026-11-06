@@ -350,6 +350,19 @@ valid controls cover intact installs, chaining, modes, and uninstalls.
 This is not continuous tamper detection or protection from local code execution;
 after software updates older modified hook variants may require manual review.
 
+**Pre-push hook and backup symlink safety (6 November 2026):** The hook
+installer previously followed a symbolic-link `pre-push` when writing the
+generated hook. A link into another directory could therefore overwrite an
+unrelated executable; a dangling link could create a previously nonexistent
+external file. A symbolic-link `pre-push.sentinel-backup` also made restore
+and reinstall unsafe. Install and uninstall now fail closed before touching
+either entry if it is a symlink (including dangling links). Synthetic tests
+cover existing and dangling targets, backup targets, a platform-independent
+symlink classification check, and intact ordinary hook chaining. Legitimate
+symlink-managed hooks require explicit manual reconciliation; this is not
+continuous hook-tamper monitoring or a defense against a concurrent
+filesystem race during installation.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
