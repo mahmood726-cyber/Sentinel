@@ -95,3 +95,42 @@ def test_editing_existing_marker_cannot_block_historical_collision(tmp_path: Pat
         "# harmless\n", encoding="utf-8"
     )
     assert _check(tmp_path, {"unrelated/__init__.py"}) == []
+
+
+def test_cli_diff_deleted_marker_produces_nonzero_block(tmp_path: Path, capsys):
+    """Real differential CLI path must reject the staged marker removal."""
+    from argparse import Namespace
+
+    from sentinel.cli.scan import _run
+
+    _seed(tmp_path, north_marker=True)
+    subprocess.run(
+        ["git", "rm", "-q", "north/__init__.py"], cwd=tmp_path, check=True
+    )
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=True, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 1
+    assert "P1-test-module-collision" in output.out
+    assert "north/__init__.py" in output.out
+
+
+def test_cli_diff_unrelated_marker_removal_does_not_block(tmp_path: Path, capsys):
+    """An unrelated marker deletion cannot make historical collisions noisy."""
+    from argparse import Namespace
+
+    from sentinel.cli.scan import _run
+
+    _seed(tmp_path, north_marker=False, unrelated_marker=True)
+    subprocess.run(
+        ["git", "rm", "-q", "unrelated/__init__.py"], cwd=tmp_path, check=True
+    )
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=True, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 0
+    assert "[Sentinel] verdicts: BLOCK=0" in output.out
