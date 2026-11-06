@@ -374,14 +374,22 @@ hook and removes the temporary file. The installer surfaces the error
 rather than claiming success. Synthetic tests cover failed replacement
 during reinstall and restore, prohibition of in-place active-hook writes,
 and an uninterrupted install/reinstall/uninstall control. Initial
-backup creation now uses the same atomic, executable staging mechanism
-*before* replacing the original hook. If preparing the backup fails
+backup creation now uses the same atomic staging mechanism
+*before* replacing the original hook. Its permissions are preserved, not
+forced executable: Git deliberately ignores a pre-push hook without +x,
+and chaining or uninstalling Sentinel must not activate one accidentally.
+Restore also preserves the backed-up permission mode; the generated
+Sentinel hook itself remains executable. If backup preparation fails
 (including permissions or atomic rename), install raises a sanitized
 `HookInstallError`, leaves the original active hook intact, and removes
 the incomplete staging file. Synthetic tests separately cover backup
-chmod failure, backup rename failure, and valid hook chaining. Concurrent
-filesystem tampering and changes to `core.hooksPath` after installation
-remain outside this guarantee.
+chmod failure, backup rename failure, mode preservation, and valid hook
+chaining. A local bare-remote push regression exercises a clean push and
+a real BLOCK through a configured `core.hooksPath`. Older backups created
+before this correction may already have lost their original permission mode
+and require manual reconciliation. Concurrent filesystem tampering and
+changes to `core.hooksPath` after installation remain outside this
+guarantee.
 
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
