@@ -91,6 +91,25 @@ def _reject_unrecognized_marker(hook_path: Path) -> None:
         )
 
 
+def _reject_symlink_entries(hook: Path, backup: Path) -> None:
+    """Never follow hook/backup symlinks while installing or uninstalling.
+
+    Writing a symlinked pre-push hook can overwrite an unrelated external
+    script; a symlinked backup can also redirect restoration or reads.
+    Check the directory entries themselves, including dangling links.
+    """
+    for path in (hook, backup):
+        try:
+            linked = path.is_symlink()
+        except OSError:
+            raise HookInstallError("cannot inspect hook entry type") from None
+        if linked:
+            raise HookInstallError(
+                "symbolic link in pre-push hook or Sentinel backup; "
+                "refusing operation until explicitly reconciled"
+            )
+
+
 def ensure_sentinel_gitignored(repo_root: Path) -> None:
     """Append Sentinel's output filenames to the target repo's .gitignore.
 
@@ -134,6 +153,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_symlink_entries(hook, backup)
     _reject_unrecognized_marker(hook)
 
     if hook.exists() and not is_sentinel_hook(hook):
@@ -157,6 +177,7 @@ def uninstall_hook(repo_root: Path) -> None:
     hooks_dir = _hooks_dir(repo_root)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_symlink_entries(hook, backup)
     _reject_unrecognized_marker(hook)
     if backup.exists():
         if hook.exists() and not is_sentinel_hook(hook):
