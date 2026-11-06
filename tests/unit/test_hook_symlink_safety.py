@@ -96,3 +96,37 @@ def test_regular_existing_hook_still_chains_and_restores(tmp_path: Path) -> None
     assert hook.is_file() and not hook.is_symlink()
     assert hook.read_bytes() == original
     assert not backup.exists()
+
+
+@pytest.mark.parametrize("operation", [install_hook, uninstall_hook])
+@pytest.mark.parametrize("entry", ["pre-push", "pre-push.sentinel-backup"])
+def test_symlink_guard_is_cross_platform_without_native_symlink_support(
+    operation, entry: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise entry classification even when the runner denies symlink creation."""
+    repo, hook, backup = _repo(tmp_path)
+    if entry == "pre-push":
+        target = hook
+        original = b"#!/bin/sh\necho synthetic-user-hook\n"
+        hook.write_bytes(original)
+    else:
+        install_hook(repo)
+        target = backup
+        original = b"#!/bin/sh\necho synthetic-original-backup\n"
+        backup.write_bytes(original)
+
+    original_hook = hook.read_bytes() if hook.exists() else None
+    real_is_symlink = Path.is_symlink
+
+    def classify_as_link(path: Path) -> bool:
+        return path == target or real_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", classify_as_link)
+    with pytest.raises(HookInstallError, match="symbolic|symlink"):
+        operation(repo)
+
+    assert hook.read_bytes() == original_hook
+    if entry == "pre-push.sentinel-backup":
+        assert backup.read_bytes() == original
+    else:
+        assert not backup.exists()
