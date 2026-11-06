@@ -113,9 +113,16 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     backup = hooks_dir / "pre-push.sentinel-backup"
 
     if hook.exists() and not is_sentinel_hook(hook):
-        if not backup.exists():
-            backup.write_bytes(hook.read_bytes())
-            _chmod_exec(backup)
+        if backup.exists():
+            # A different tool/user replaced our installed hook while the
+            # original remains backed up. Never erase that new hook or
+            # pretend it was chained: require explicit human resolution.
+            raise HookInstallError(
+                "pre-push hook replaced while Sentinel backup exists; "
+                "refusing to overwrite modified hook"
+            )
+        backup.write_bytes(hook.read_bytes())
+        _chmod_exec(backup)
 
     hook.write_text(make_hook_script(mode), encoding="utf-8")
     _chmod_exec(hook)
@@ -127,6 +134,13 @@ def uninstall_hook(repo_root: Path) -> None:
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
     if backup.exists():
+        if hook.exists() and not is_sentinel_hook(hook):
+            # Uninstall must not restore an old backup over a later hook
+            # installed by another tool or the repository owner.
+            raise HookInstallError(
+                "pre-push hook replaced while Sentinel backup exists; "
+                "refusing to overwrite modified hook"
+            )
         hook.write_bytes(backup.read_bytes())
         _chmod_exec(hook)
         backup.unlink()
