@@ -290,6 +290,17 @@ Distinct fully packaged modules, and distinct inner package names despite
 missing ancestors, remain clean. The deterministic tests use newly
 created Git fixtures and do not process publication data.
 
+**Differential test-collision completeness (6 November 2026):** A changed
+tracked `test_*.py` module can collide with an unchanged tracked test
+module. Candidate enumeration limited to changed files misses this BLOCK,
+even when the changed module is valid Python. The collision rule now reads
+the bounded tracked test inventory as context, but under `--diff` reports
+only changed colliding test files, so unrelated pushes are not blocked by
+pre-existing test collisions. Changed-only BLOCK, unrelated clean push,
+both-changed BLOCK and correctly packaged clean-push cases are covered by
+deterministic synthetic Git fixtures. A package-marker-only change that
+alters another file's import identity is a separate unverified case.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
