@@ -138,7 +138,9 @@ def ensure_sentinel_gitignored(repo_root: Path) -> None:
         pass
 
 
-def _replace_hook_atomically(hook: Path, content: bytes) -> None:
+def _replace_hook_atomically(
+    hook: Path, content: bytes, *, preserve_mode: int | None = None,
+) -> None:
     """Never truncate a live pre-push executable during install or restore.
 
     Write, flush, and mark a temporary sibling executable before the atomic
@@ -153,9 +155,14 @@ def _replace_hook_atomically(hook: Path, content: bytes) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
-        pending.chmod(
-            pending.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-        )
+        if preserve_mode is None:
+            pending.chmod(
+                pending.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
+        else:
+            # A previously installed hook might deliberately have no +x.
+            # Neither chaining nor uninstall should activate a disabled hook.
+            pending.chmod(preserve_mode)
         os.replace(pending, hook)
     finally:
         pending.unlink(missing_ok=True)
@@ -193,7 +200,10 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
         # active gate. A failed stage/chmod/rename must not leave a partial
         # backup or allow a new hook to be installed without a valid chain.
         try:
-            _replace_hook_atomically(backup, hook.read_bytes())
+            _replace_hook_atomically(
+                backup, hook.read_bytes(),
+                preserve_mode=stat.S_IMODE(hook.stat().st_mode),
+            )
         except OSError:
             raise HookInstallError(
                 "cannot safely prepare existing pre-push hook backup"
@@ -217,7 +227,10 @@ def uninstall_hook(repo_root: Path) -> None:
                 "pre-push hook replaced while Sentinel backup exists; "
                 "refusing to overwrite modified hook"
             )
-        _replace_hook_atomically(hook, backup.read_bytes())
+        _replace_hook_atomically(
+            hook, backup.read_bytes(),
+            preserve_mode=stat.S_IMODE(backup.stat().st_mode),
+        )
         backup.unlink()
     elif hook.exists() and is_sentinel_hook(hook):
         hook.unlink()
