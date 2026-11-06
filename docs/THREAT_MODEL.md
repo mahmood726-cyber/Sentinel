@@ -363,6 +363,20 @@ symlink-managed hooks require explicit manual reconciliation; this is not
 continuous hook-tamper monitoring or a defense against a concurrent
 filesystem race during installation.
 
+**Interrupted pre-push hook writes (6 November 2026):** Installation and
+backup restoration previously wrote directly into an active `pre-push`
+file. If the write failed after truncation, a zero-byte but executable
+hook could silently allow future pushes without scanning. Hook install
+and restoration now write a private temporary sibling, flush its bytes,
+make it executable, then atomically replace the active entry. A write,
+flush, permission, or replacement failure preserves the prior active
+hook and removes the temporary file. The installer surfaces the error
+rather than claiming success. Synthetic tests cover failed replacement
+during reinstall and restore, prohibition of in-place active-hook writes,
+and an uninterrupted install/reinstall/uninstall control. Initial backup
+creation, concurrent filesystem tampering, and changes to `core.hooksPath`
+after installation remain outside this guarantee.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
