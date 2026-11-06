@@ -24,17 +24,15 @@ GITIGNORE_MARKER = "# === Sentinel hook output (auto-added by install) ==="
 
 
 def _hooks_dir(repo_root: Path) -> Path:
-    """Resolve Git's default hook directory, including linked worktrees.
+    """Resolve the *active* Git hook directory for regular and linked worktrees.
 
-    A linked worktree uses a .git *file*, so .git/hooks is not a directory.
-    Ask Git for its actual hook directory instead of parsing the pointer or
-    writing beside it. Default hooks are shared with the primary worktree.
-    The regular .git-directory case retains existing local-fixture support.
+    Git's core.hooksPath overrides .git/hooks, even for a normal checkout.
+    Always ask Git rather than assuming that the on-disk .git directory is
+    the active hooks location. Keep the old minimal .git-directory fixture
+    support used by tests which do not create a complete Git repository.
     """
     git_marker = repo_root / ".git"
-    if git_marker.is_dir():
-        return git_marker / "hooks"
-    if not git_marker.is_file():
+    if not git_marker.is_dir() and not git_marker.is_file():
         raise HookInstallError(f"not a git repository: {repo_root}")
 
     try:
@@ -44,12 +42,20 @@ def _hooks_dir(repo_root: Path) -> Path:
         )
     except (OSError, subprocess.TimeoutExpired, UnicodeError):
         raise HookInstallError("could not resolve Git hooks directory") from None
-    hooks_path = result.stdout.rstrip("\r\n")
-    if result.returncode != 0 or not hooks_path:
-        raise HookInstallError("could not resolve Git hooks directory")
-    hooks_dir = Path(hooks_path)
-    return hooks_dir if hooks_dir.is_absolute() else repo_root / hooks_dir
 
+    hooks_path = result.stdout.rstrip("\r\n")
+    if result.returncode == 0 and hooks_path:
+        candidate = Path(hooks_path)
+        hooks_dir = candidate if candidate.is_absolute() else repo_root / candidate
+    elif git_marker.is_dir() and not (git_marker / "HEAD").exists():
+        # Compatibility with existing bare-minimum local test fixtures.
+        hooks_dir = git_marker / "hooks"
+    else:
+        raise HookInstallError("could not resolve Git hooks directory")
+
+    if hooks_dir.exists() and not hooks_dir.is_dir():
+        raise HookInstallError("configured Git hooks path is not a directory")
+    return hooks_dir
 
 
 def is_sentinel_hook(hook_path: Path) -> bool:
