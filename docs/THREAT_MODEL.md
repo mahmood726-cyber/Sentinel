@@ -373,9 +373,15 @@ flush, permission, or replacement failure preserves the prior active
 hook and removes the temporary file. The installer surfaces the error
 rather than claiming success. Synthetic tests cover failed replacement
 during reinstall and restore, prohibition of in-place active-hook writes,
-and an uninterrupted install/reinstall/uninstall control. Initial backup
-creation, concurrent filesystem tampering, and changes to `core.hooksPath`
-after installation remain outside this guarantee.
+and an uninterrupted install/reinstall/uninstall control. Initial
+backup creation now uses the same atomic, executable staging mechanism
+*before* replacing the original hook. If preparing the backup fails
+(including permissions or atomic rename), install raises a sanitized
+`HookInstallError`, leaves the original active hook intact, and removes
+the incomplete staging file. Synthetic tests separately cover backup
+chmod failure, backup rename failure, and valid hook chaining. Concurrent
+filesystem tampering and changes to `core.hooksPath` after installation
+remain outside this guarantee.
 
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
