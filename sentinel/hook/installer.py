@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+import tempfile
 from pathlib import Path
 
 from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
@@ -137,6 +138,29 @@ def ensure_sentinel_gitignored(repo_root: Path) -> None:
         pass
 
 
+def _replace_hook_atomically(hook: Path, content: bytes) -> None:
+    """Never truncate a live pre-push executable during install or restore.
+
+    Write, flush, and mark a temporary sibling executable before the atomic
+    same-directory rename. If any step fails, leave the previous hook intact
+    and remove the unfinished temporary file. Do not silently ignore chmod
+    failures, which could otherwise install a hook Git never executes.
+    """
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+    pending = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        pending.chmod(
+            pending.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
+        os.replace(pending, hook)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 def install_hook(repo_root: Path, mode: str = "block") -> None:
     """Install the Sentinel pre-push hook.
 
@@ -168,8 +192,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
         backup.write_bytes(hook.read_bytes())
         _chmod_exec(backup)
 
-    hook.write_text(make_hook_script(mode), encoding="utf-8")
-    _chmod_exec(hook)
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
     ensure_sentinel_gitignored(repo_root)
 
 
@@ -187,8 +210,7 @@ def uninstall_hook(repo_root: Path) -> None:
                 "pre-push hook replaced while Sentinel backup exists; "
                 "refusing to overwrite modified hook"
             )
-        hook.write_bytes(backup.read_bytes())
-        _chmod_exec(hook)
+        _replace_hook_atomically(hook, backup.read_bytes())
         backup.unlink()
     elif hook.exists() and is_sentinel_hook(hook):
         hook.unlink()
