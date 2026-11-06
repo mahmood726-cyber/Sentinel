@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import get_path_filter, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -50,9 +50,15 @@ def check(ctx: RepoContext) -> List[Verdict]:
     verdicts: List[Verdict] = []
     root = ctx.repo_root
 
-    # Bucket test_*.py files by basename.
+    # Compare against the full tracked test inventory even in --diff mode:
+    # the unchanged test module may be the OTHER half of a collision.
+    # Only report the changed side below, avoiding historical BLOCK noise
+    # when a push modifies unrelated content.
+    active_filter = get_path_filter()
     by_name: dict[str, list[Path]] = defaultdict(list)
-    for path in iter_repo_files(root, "test_*.py", PY_EXCLUDE_DIRS):
+    for path in iter_repo_files(
+        root, "test_*.py", PY_EXCLUDE_DIRS, respect_path_filter=False,
+    ):
         if has_skip_marker(path):
             continue
         by_name[path.name].append(path)
@@ -91,6 +97,8 @@ def check(ctx: RepoContext) -> List[Verdict]:
                 continue
             for p in colliding:
                 rel = p.relative_to(root).as_posix()
+                if active_filter is not None and rel not in active_filter:
+                    continue
                 other_rels = ", ".join(sorted(
                     q.relative_to(root).as_posix()
                     for q in colliding if q != p
