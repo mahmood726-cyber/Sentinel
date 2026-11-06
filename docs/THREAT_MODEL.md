@@ -318,6 +318,16 @@ collisions remain clean. Synthetic tests cover the rule and the actual
 `sentinel scan --diff` exit contract; alternate pytest import modes
 remain outside this guarantee.
 
+**Configured pre-push hooks directory (6 November 2026):** Git's
+`core.hooksPath` can redirect hook execution away from `.git/hooks`.
+The installer now resolves the active hook location with
+`git rev-parse --git-path hooks` for regular as well as linked worktrees,
+instead of claiming a successful installation into an unused directory.
+Deterministic tests cover relative and absolute configured hook paths,
+preservation/restoration of an existing hook, rejection of a non-directory
+target, and the unconfigured default. Hook configuration can still change
+after installation; no continuous tamper monitoring is implied.
+
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
 traversal and its pre-existing path-discovery behavior. These are not
@@ -365,7 +375,7 @@ This threat model should be revisited if any of the following land:
 
 ## 7. Out-of-scope follow-ups (captured for later sessions)
 
-1. **Pre-push hook tamper detection**: a monthly job that verifies the SENTINEL_MARKER banner is still in `.git/hooks/pre-push` across the ≥10 hook-installed repos.
+1. **Pre-push hook tamper detection**: a monthly job that verifies the SENTINEL_MARKER banner in the active hooks directory (including any configured core.hooksPath) across installed repos.
 2. **Rule-inventory snapshot**: a weekly test that asserts the rule count and IDs haven't silently changed.
 3. **Formal fuzz testing** of the skip-marker substring match (can an edge-case byte sequence cause a false skip?).
 4. **External review** — the single most valuable follow-up. This document is internally consistent but has never been stress-tested by someone outside the user's mental model.
