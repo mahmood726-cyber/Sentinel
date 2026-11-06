@@ -298,8 +298,20 @@ the bounded tracked test inventory as context, but under `--diff` reports
 only changed colliding test files, so unrelated pushes are not blocked by
 pre-existing test collisions. Changed-only BLOCK, unrelated clean push,
 both-changed BLOCK and correctly packaged clean-push cases are covered by
-deterministic synthetic Git fixtures. A package-marker-only change that
-alters another file's import identity is a separate unverified case.
+deterministic synthetic Git fixtures.
+
+**Differential package-marker deletion (6 November 2026):** Removing a
+tracked ancestor `__init__.py` can change two unchanged test modules from
+different import names into the same pytest import name. The diff then
+contains only a deleted marker, so filtering verdicts solely to changed
+`test_*.py` files misses a real BLOCK. The collision rule now also
+compares affected import names with each absent changed marker restored;
+only a marker that would separate currently colliding names receives a
+BLOCK verdict. Unrelated deleted markers, content-only marker edits,
+tracked additions that resolve a collision, and unrelated historical
+collisions remain clean. Synthetic tests cover the rule and the actual
+`sentinel scan --diff` exit contract; alternate pytest import modes
+remain outside this guarantee.
 
 **Remaining limitations:** Other plugin/rule-specific read handlers may
 still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
