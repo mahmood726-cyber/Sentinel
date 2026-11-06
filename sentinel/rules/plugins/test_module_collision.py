@@ -76,6 +76,27 @@ def check(ctx: RepoContext) -> List[Verdict]:
         root, "__init__.py", PY_EXCLUDE_DIRS, respect_path_filter=False,
     ))
 
+    # A deleted ancestor __init__.py can merge previously distinct pytest
+    # import names without changing either test file. The --diff path filter
+    # contains the deleted marker, but not its unchanged test descendants.
+    # A marker still present in the tracked inventory cannot be that cause.
+    removed_markers = (
+        [
+            root / rel for rel in sorted(active_filter)
+            if Path(rel).name == "__init__.py" and root / rel not in package_markers
+        ]
+        if active_filter is not None else []
+    )
+    reported_markers: set[Path] = set()
+
+    def import_name(p: Path, markers: set[Path]) -> str:
+        parts = [p.stem]
+        parent = p.parent
+        while parent != root and (parent / "__init__.py") in markers:
+            parts.append(parent.name)
+            parent = parent.parent
+        return ".".join(reversed(parts))
+
     for name, paths in by_name.items():
         if len(paths) < 2:
             continue
@@ -87,12 +108,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         # Distinct inner packages, however, must remain clean.
         by_import_name: dict[str, list[Path]] = defaultdict(list)
         for p in paths:
-            parts = [p.stem]
-            parent = p.parent
-            while parent != root and (parent / "__init__.py") in package_markers:
-                parts.append(parent.name)
-                parent = parent.parent
-            by_import_name[".".join(reversed(parts))].append(p)
+            by_import_name[import_name(p, package_markers)].append(p)
 
         for module_name, colliding in by_import_name.items():
             if len(colliding) < 2:
@@ -123,4 +139,40 @@ def check(ctx: RepoContext) -> List[Verdict]:
                     source=SOURCE,
                     timestamp=now,
                 ))
+
+            # Under --diff, the only changed path may be a removed ancestor
+            # package marker. Report it only if restoring that marker would
+            # separate names that now collide: unrelated marker deletions and
+            # content-only edits must not block normal pushes.
+            for marker in removed_markers:
+                if marker in reported_markers:
+                    continue
+                restored_names = {
+                    import_name(p, package_markers | {marker}) for p in colliding
+                }
+                if len(restored_names) < 2:
+                    continue
+                rel = marker.relative_to(root).as_posix()
+                colliding_rels = ", ".join(sorted(
+                    p.relative_to(root).as_posix() for p in colliding
+                ))
+                verdicts.append(Verdict(
+                    rule_id=ID,
+                    severity=SEVERITY,
+                    repo=str(root),
+                    file=rel,
+                    line=1,
+                    detail=(
+                        f"Missing tracked package marker {rel} merges "
+                        f"{colliding_rels} into pytest import name "
+                        f"{module_name}. Both test modules must remain collectible"
+                    ),
+                    fix_hint=(
+                        "restore and track this __init__.py package marker, "
+                        "or rename a conflicting test module"
+                    ),
+                    source=SOURCE,
+                    timestamp=now,
+                ))
+                reported_markers.add(marker)
     return verdicts
