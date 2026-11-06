@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import JS_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, JS_EXCLUDE_DIRS, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -41,8 +41,9 @@ EXTENSION_PATTERNS = ("*.js", "*.mjs", "*.cjs")
 
 
 def check(ctx: RepoContext) -> List[Verdict]:
-    if shutil.which("node") is None:
-        return []
+    # Determine availability once, but only fail if there is a real,
+    # non-excluded JS candidate to inspect. Pure Python repos remain clean.
+    node_available = shutil.which("node") is not None
 
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
@@ -52,6 +53,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
         rel = path.relative_to(ctx.repo_root).as_posix()
         if has_skip_marker(path):
             continue
+        if not node_available:
+            # Returning [] here used to report a clean push despite an
+            # uninspected JS BLOCK candidate. Warn-mode hooks may permit
+            # ordinary BLOCK verdicts, so use the fatal scanner contract.
+            raise GitFileEnumerationError(
+                "JavaScript parse scan cannot run (node unavailable)"
+            )
         # Defense-in-depth: make sure the path can't be interpreted as
         # an option by node. iter_repo_files yields absolute paths
         # already, which on every supported platform start with "/" or
@@ -66,23 +74,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
                 ["node", "--check", path_arg],
                 capture_output=True, text=True, timeout=10,
             )
-        except subprocess.TimeoutExpired:
-            verdicts.append(Verdict(
-                rule_id=ID,
-                severity=SEVERITY,
-                repo=repo_prefix,
-                file=rel,
-                line=None,
-                detail="node --check exceeded 10s",
-                fix_hint=(
-                    f"parsing {rel} exceeded 10s — check for a pathological "
-                    f"regex or huge literal; reproduce with "
-                    f"`node --check {rel}` locally"
-                ),
-                source=SOURCE,
-                timestamp=now,
-            ))
-            continue
+        except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
+            # Timeout, missing executable and undecodable parser output mean
+            # the candidate was never conclusively inspected. Never turn
+            # this into an ordinary, warn-downgradable BLOCK finding.
+            # Suppress the OS/process exception chain (private paths).
+            raise GitFileEnumerationError(
+                f"JavaScript parse candidate not inspected ({type(exc).__name__})"
+            ) from None
 
         if result.returncode != 0:
             stderr = (result.stderr or "").replace(repo_prefix, "")

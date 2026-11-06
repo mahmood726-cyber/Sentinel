@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, iter_repo_files
 from sentinel.io.skip_marker import has_skip_marker, line_is_suppressed
 
 ID = "P0-unsafe-eval-exec"
@@ -39,7 +39,7 @@ PY_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "build", "dist",
 # Bare eval(/exec( call (not a .attr like ast.literal_eval / obj.eval), whose
 # first non-space arg char is an identifier-start or open-paren (i.e. an
 # expression), NOT a closing paren (empty after string-blanking) or a digit.
-_CALL_RE = re.compile(r"(?<![\w.])(eval|exec)\(\s*([A-Za-z_(])")
+_CALL_RE = re.compile(r"(?<![\w.])(eval|exec)[ \t]*\([ \t]*([A-Za-z_(])")
 
 _LINE_COMMENT_RE = re.compile(r"#[^\n]*")
 _STRING_RE = re.compile(
@@ -70,14 +70,27 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        if "eval(" not in text and "exec(" not in text:
+        except OSError as exc:
+            # The file is in the promised scan inventory. Silently skipping
+            # an inaccessible candidate could miss a real P0 BLOCK.
+            # This fatal error propagates through the rule wrapper to exit 10
+            # even for warn-mode hooks; hide OS details from diagnostics.
+            raise GitFileEnumerationError(
+                f"unsafe eval/exec candidate read failed ({type(exc).__name__})"
+            ) from None
+        if "eval" not in text and "exec" not in text:
             continue
         stripped = _strip_noise(text)
         lines = text.splitlines()
         rel = path.relative_to(root).as_posix()
         for m in _CALL_RE.finditer(stripped):
+            # Python permits whitespace on both sides of an attribute dot.
+            # 'obj . eval (value)' is a method call, not the built-in eval.
+            # Inspect only this line so a previous line's trailing dot
+            # cannot wrongly suppress an independent risky call.
+            start = stripped.rfind("\n", 0, m.start()) + 1
+            if stripped[start:m.start()].rstrip(" \t").endswith("."):
+                continue
             fn = m.group(1)
             line_no = _line_of(text, m.start())
             cur = lines[line_no - 1] if line_no - 1 < len(lines) else ""

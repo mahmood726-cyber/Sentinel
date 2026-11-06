@@ -4,8 +4,8 @@ The helper keeps plugin rules bounded — a pre-push scan on a user-home
 directory must not walk OneDrive, AppData, etc. Git-worktrees use
 `git ls-files`; non-git paths fall back to rglob. When git is present
 but fails for any reason (corrupt .git, missing binary, timeout,
-non-zero exit), the helper fails CLOSED (returns nothing) — never
-falling back to rglob while `.git` exists.
+non-zero exit), the helper raises a scan-stopping error and never
+falls back to rglob while `.git` exists.
 """
 from __future__ import annotations
 
@@ -156,7 +156,7 @@ def _write_tracked_plus_untracked(tmp_path: Path) -> None:
 
 
 def test_git_failure_nonzero_exit_fails_closed(tmp_path: Path, monkeypatch):
-    """If git ls-files returns non-zero, yield nothing — don't fall back to rglob."""
+    """Nonzero Git enumeration must raise; never return an empty success."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -166,12 +166,12 @@ def test_git_failure_nonzero_exit_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on ls-files failure, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_missing_binary_fails_closed(tmp_path: Path, monkeypatch):
-    """If git binary is missing, yield nothing — don't fall back to rglob."""
+    """Missing Git must abort scanning, not masquerade as an empty listing."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -181,12 +181,12 @@ def test_git_missing_binary_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on git missing, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_timeout_fails_closed(tmp_path: Path, monkeypatch):
-    """If ls-files times out, yield nothing — don't fall back to rglob."""
+    """A timed-out Git enumeration must abort the scan without rglob."""
     _write_tracked_plus_untracked(tmp_path)
     real_run = subprocess.run
 
@@ -196,8 +196,8 @@ def test_git_timeout_fails_closed(tmp_path: Path, monkeypatch):
         return real_run(cmd, **kwargs)
 
     monkeypatch.setattr(git_files.subprocess, "run", fake_run)
-    found = list(iter_repo_files(tmp_path, "*.py"))
-    assert found == [], "must fail-closed on timeout, not fall back to rglob"
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
 
 
 def test_git_absent_uses_rglob_bounded(tmp_path: Path):
@@ -239,37 +239,75 @@ def test_filename_with_newline_survives_nul_parsing(tmp_path: Path):
     assert found == ["a.py", "b.py"]
 
 
-def test_oserror_on_is_file_is_skipped(tmp_path: Path, monkeypatch):
-    """Incident 2026-04-19: iter_repo_files hit WinError 1920 on an
-    inaccessible OneDrive symlink (.venv/bin/python) in the git path.
-    is_file() raising OSError must be treated as 'skip', not 'abort'."""
-    (tmp_path / "good.py").write_text("x", encoding="utf-8")
+def test_tracked_file_stat_error_aborts_instead_of_skipping(tmp_path: Path, monkeypatch):
+    """A tracked regular file that cannot be inspected must not disappear
+    from the scan. A silent skip could hide a committed BLOCK finding."""
+    (tmp_path / "good.py").write_text("value = 42\n", encoding="utf-8")
+    (tmp_path / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
     _git_init_commit_all(tmp_path)
-    (tmp_path / "inaccessible.py").write_text("y", encoding="utf-8")
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
-         "add", "inaccessible.py"],
-        cwd=tmp_path, check=True,
-    )
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t",
-         "commit", "-q", "-m", "add2"],
-        cwd=tmp_path, check=True,
-    )
 
     real_is_file = Path.is_file
 
     def fake_is_file(self: Path) -> bool:
         if self.name == "inaccessible.py":
-            raise OSError(1920, "simulated WinError 1920")
+            raise OSError(1920, "simulated inaccessible tracked file")
         return real_is_file(self)
 
     monkeypatch.setattr(Path, "is_file", fake_is_file)
-    found = [p.name for p in iter_repo_files(tmp_path, "*.py")]
-    # good.py yielded; inaccessible.py silently skipped instead of
-    # aborting the whole iteration.
-    assert "good.py" in found
-    assert "inaccessible.py" not in found
+    with pytest.raises(git_files.GitFileEnumerationError, match="tracked file"):
+        list(iter_repo_files(tmp_path, "*.py"))
+
+
+def test_excluded_inaccessible_file_does_not_block_clean_tracked_code(
+    tmp_path: Path, monkeypatch,
+):
+    """Normal pushes remain clean if an unreadable file is explicitly
+    excluded before any filesystem inspection."""
+    (tmp_path / "good.py").write_text("value = 42\n", encoding="utf-8")
+    excluded = tmp_path / "tests"
+    excluded.mkdir()
+    (excluded / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+
+    real_is_file = Path.is_file
+
+    def fake_is_file(self: Path) -> bool:
+        if self.name == "inaccessible.py":
+            raise OSError(1920, "simulated excluded path")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    files = list(iter_repo_files(tmp_path, "*.py", exclude_dirs=["tests"]))
+    assert [p.name for p in files] == ["good.py"]
+
+
+def test_tracked_file_stat_error_fails_closed_through_cli(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    """Regression: a failing per-file check must be exit 10, not clean or
+    a warn-downgradable BLOCK, even if an actual syntax BLOCK is concealed."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "inaccessible.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_is_file = Path.is_file
+
+    def fake_is_file(self: Path) -> bool:
+        if self.name == "inaccessible.py":
+            raise OSError(1920, "SYNTHETIC_PRIVATE_OS_DETAIL")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 10
+    assert "[Sentinel] verdicts:" not in output.out
+    assert "tracked file" in output.err
+    assert "SYNTHETIC_PRIVATE_OS_DETAIL" not in output.err
 
 
 def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
@@ -283,3 +321,82 @@ def test_pattern_never_interpreted_as_git_flag(tmp_path: Path):
         p.name for p in iter_repo_files(tmp_path, "hyphen-*.py")
     )
     assert found == ["hyphen-file.py"]
+
+
+def test_git_utf8_filename_path_identity(tmp_path: Path):
+    """Git -z names must decode the same way as Python paths on Windows."""
+    filename = " café.py"
+    (tmp_path / filename).write_text("VALUE = 1\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    assert [p.name for p in iter_repo_files(tmp_path, "*.py")] == [filename]
+
+
+# Role 06 regression (2026-11-05): Git enumeration errors must not
+# masquerade as an empty rule result. An empty result would make
+# syntax-invalid committed code appear clean during a complete scan.
+
+def test_git_listing_error_raises_instead_of_masquerading_as_clean(
+    tmp_path: Path, monkeypatch,
+):
+    (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_run = subprocess.run
+
+    def reject_listing(cmd: list[str], **kwargs: Any) -> Any:
+        if cmd[:2] == ["git", "-C"] and "ls-files" in cmd:
+            return subprocess.CompletedProcess(
+                cmd, returncode=128, stdout="", stderr="synthetic failure"
+            )
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(git_files.subprocess, "run", reject_listing)
+    with pytest.raises(RuntimeError, match="git ls-files"):
+        list(iter_repo_files(tmp_path, "*.py"))
+
+
+def test_git_listing_error_blocks_clean_scan_result(
+    tmp_path: Path, monkeypatch, capsys,
+):
+    """When a plugin cannot enumerate tracked files, scan must exit 10."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    real_run = subprocess.run
+
+    def reject_listing(cmd: list[str], **kwargs: Any) -> Any:
+        if cmd[:2] == ["git", "-C"] and "ls-files" in cmd:
+            return subprocess.CompletedProcess(
+                cmd, returncode=128, stdout="", stderr="synthetic failure"
+            )
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(git_files.subprocess, "run", reject_listing)
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    captured = capsys.readouterr()
+    assert rc == 10, "incomplete rule scan must never return clean"
+    assert "git ls-files" in captured.err
+    assert "[Sentinel] verdicts:" not in captured.out
+
+
+def test_git_listing_valid_code_still_passes_clean(
+    tmp_path: Path, capsys,
+):
+    """Normal tracked valid code remains clean, without rglob fallback."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (tmp_path / "good.py").write_text("answer = 42\n", encoding="utf-8")
+    _git_init_commit_all(tmp_path)
+    assert [p.name for p in iter_repo_files(tmp_path, "*.py")] == ["good.py"]
+    rc = _run(Namespace(
+        repo=tmp_path, project_index=tmp_path, diff=False, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "[Sentinel] verdicts: BLOCK=0" in captured.out

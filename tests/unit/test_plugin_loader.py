@@ -86,3 +86,27 @@ def test_plugin_rule_check_catches_exceptions_as_block(tmp_path: Path):
     assert len(verdicts) == 1
     assert verdicts[0].severity == Severity.BLOCK
     assert "RuntimeError" in verdicts[0].detail
+
+
+
+def test_git_enumeration_failure_escapes_plugin_wrapper(tmp_path: Path):
+    """A plugin's missing file inventory must be fatal, not warn-downgradable."""
+    from sentinel.io.git_files import GitFileEnumerationError
+
+    plugin_file = tmp_path / "plugin.py"
+    plugin_file.write_text(
+        PLUGIN_VALID.replace(
+            "from sentinel.core import Severity, Verdict",
+            "from sentinel.core import Severity, Verdict\n"
+            "from sentinel.io.git_files import GitFileEnumerationError",
+        ).replace(
+            "return [",
+            "raise GitFileEnumerationError('git ls-files failed')\n    return [",
+        ),
+        encoding="utf-8",
+    )
+    rule = load_plugin_rule(plugin_file)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    with pytest.raises(GitFileEnumerationError, match="git ls-files"):
+        rule.check(RepoContext(repo_root=repo, mode=ScanMode.REPO))

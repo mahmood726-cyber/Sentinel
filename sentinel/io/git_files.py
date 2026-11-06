@@ -14,10 +14,12 @@ the set a pre-push scan cares about. Fall back to a bounded rglob only
 when the path is NOT a git worktree (tests, ad-hoc runs).
 
 IMPORTANT: if a git worktree IS present but `git ls-files` fails for any
-reason (corrupt .git, missing git binary, timeout, non-zero exit), we
-fail closed (return nothing) rather than falling back to rglob. The
-rglob fallback inside a broken worktree re-opens the exact DoS this
-helper exists to close (see `review-findings.md#P0-1`, 2026-04-19).
+reason (corrupt .git, missing git binary, timeout, non-zero exit), raise
+GitFileEnumerationError so the scanner exits with an internal error and
+the hook blocks the push. Never fall back to rglob: traversing a broken
+worktree re-opens the user-home DoS this helper was written to prevent
+(see `review-findings.md#P0-1`, 2026-04-19). Silently returning zero
+files is NOT fail-closed: a BLOCK can be missed.
 
 Usage:
 
@@ -33,6 +35,14 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
+
+
+class GitFileEnumerationError(RuntimeError):
+    """A Git worktree's tracked-file listing failed; abort the scan.
+
+    Do not silently report an empty file set (missed BLOCK), and do not
+    replace a failed listing with an unbounded filesystem walk.
+    """
 
 
 # Exclude-dir sets consumed by plugins. Single source of truth — the
@@ -144,6 +154,8 @@ def iter_repo_files(
     root: Path,
     pattern: str | Sequence[str] = "*",
     exclude_dirs: Sequence[str] | Iterable[str] = (),
+    *,
+    respect_path_filter: bool = True,
 ) -> Iterator[Path]:
     """Yield files under `root` matching `pattern` (string or sequence).
 
@@ -152,8 +164,9 @@ def iter_repo_files(
     avoiding N subprocess spawns.
 
     On a git worktree: uses `git ls-files -z -- <patterns...>` (fast,
-    bounded, gitignore-aware). Any git failure fails closed (returns
-    nothing) — never falls back to rglob while `.git` exists.
+    bounded, gitignore-aware). Any Git enumeration failure raises
+    GitFileEnumerationError, forcing the scan/hook to abort rather than
+    silently succeeding or falling back to rglob.
 
     On a non-git path: falls back to `root.rglob(pattern)` for each
     pattern in turn, deduplicating.
@@ -162,22 +175,40 @@ def iter_repo_files(
     `"node_modules"` excludes any file whose relative path contains a
     `node_modules` component.
 
-    Only regular files are yielded.
+    Only regular files are yielded. Set respect_path_filter=False only for
+    cross-file context (such as tracked package markers) which must be
+    consulted even when the --diff candidate set excludes unchanged files.
     """
     excludes = frozenset(exclude_dirs)
     patterns: list[str] = [pattern] if isinstance(pattern, str) else list(pattern)
 
+    # Match Path.rglob(pattern) semantics: Git's ordinary 'test_*.py'
+    # pathspec only matches root-level paths, not tests/test_foo.py.
+    # That omission silently hid duplicate pytest module names (BLOCK).
+    # :(glob)**/ searches the repo root AND nested directories.
+    git_pathspecs = [
+        ":(glob)**/" + p.replace("\\", "/") for p in patterns
+    ]
+
     if _is_git_worktree(root):
         try:
             result = subprocess.run(
-                ["git", "-C", str(root), "ls-files", "-z", "--", *patterns],
-                capture_output=True, text=True, timeout=30,
+                ["git", "-C", str(root), "ls-files", "-z", "--", *git_pathspecs],
+                capture_output=True, text=True, encoding="utf-8", timeout=30,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return
+        except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
+            raise GitFileEnumerationError(
+                f"git ls-files could not enumerate tracked files "
+                f"({type(exc).__name__})"
+            ) from exc
         if result.returncode != 0:
-            return
-        active_filter = _ACTIVE_PATH_FILTER
+            # Do not put stderr into a public diagnostic: it may contain
+            # private absolute paths. An incomplete scan is an error.
+            raise GitFileEnumerationError(
+                f"git ls-files could not enumerate tracked files "
+                f"(exit {result.returncode})"
+            )
+        active_filter = _ACTIVE_PATH_FILTER if respect_path_filter else None
         for rel in result.stdout.split("\x00"):
             if not rel:
                 continue
@@ -186,19 +217,24 @@ def iter_repo_files(
             if active_filter is not None and rel.replace("\\", "/") not in active_filter:
                 continue
             path = root / rel
-            # `is_file()` can raise OSError on OneDrive placeholders,
-            # broken symlinks, and Windows "inaccessible file" states
-            # (WinError 1920). Treat any failure as "skip this file"
-            # rather than aborting the entire scan.
+            # A tracked candidate is part of the promised scan scope.
+            # Suppressing an access/stat error silently loses a possible
+            # BLOCK; exit 10 through the existing GitFileEnumerationError
+            # contract instead. Excluded paths are filtered above, and
+            # normal missing/deleted worktree files still return False.
             try:
                 if path.is_file():
                     yield path
-            except OSError:
-                continue
+            except OSError as exc:
+                # Suppress the chained OS traceback: Windows/OneDrive
+                # errors can embed private user paths in their messages.
+                raise GitFileEnumerationError(
+                    f"tracked file could not be inspected ({type(exc).__name__})"
+                ) from None
         return
 
     seen: set[Path] = set()
-    active_filter = _ACTIVE_PATH_FILTER
+    active_filter = _ACTIVE_PATH_FILTER if respect_path_filter else None
     for p in patterns:
         for path in root.rglob(p):
             if path in seen:

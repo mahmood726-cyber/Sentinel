@@ -2,6 +2,7 @@
 from __future__ import annotations
 import fnmatch
 import re
+import stat
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -11,7 +12,7 @@ from typing import List, Optional, Sequence, Set
 import yaml
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import get_path_filter
+from sentinel.io.git_files import GitFileEnumerationError, get_path_filter
 from sentinel.io.paths import global_exclude_patterns
 
 
@@ -133,14 +134,25 @@ class YamlRule:
             try:
                 if file_path.stat().st_size > MAX_SCAN_BYTES:
                     continue
-            except OSError:
+            except (FileNotFoundError, NotADirectoryError):
+                # A tracked path may have been removed from the worktree;
+                # an unstaged deletion is not an inaccessible candidate.
                 continue
+            except OSError:
+                # Do not leak private OS diagnostic paths in the traceback.
+                raise GitFileEnumerationError(
+                    "YAML scan could not stat an enumerated file"
+                ) from None
             if _file_has_skip_marker(file_path):
                 continue
             try:
                 text = file_path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
+            except (FileNotFoundError, NotADirectoryError):
                 continue
+            except OSError:
+                raise GitFileEnumerationError(
+                    "YAML scan could not read an enumerated file"
+                ) from None
             lines = text.splitlines()
             for lineno, line in enumerate(lines, start=1):
                 if compiled.search(line):
@@ -208,8 +220,13 @@ def _file_has_skip_marker(file_path: Path) -> bool:
     try:
         with file_path.open("rb") as f:
             head = f.read(SKIP_MARKER_SCAN_BYTES)
-    except OSError:
+    except (FileNotFoundError, NotADirectoryError):
+        # Deleted worktree paths will also fail the subsequent content read.
         return False
+    except OSError:
+        raise GitFileEnumerationError(
+            "YAML scan could not read an enumerated file header"
+        ) from None
     try:
         text = head.decode("utf-8", errors="replace")
     except UnicodeDecodeError:
@@ -218,16 +235,14 @@ def _file_has_skip_marker(file_path: Path) -> bool:
 
 
 def _git_tracked_files(root: Path) -> Optional[Set[str]]:
-    """Return set of paths (posix, relative) that git would push: tracked +
-    untracked-not-ignored. Returns None if `root` is not a git repo or git is
-    unavailable, in which case callers fall back to rglob (pre-gitignore
-    behavior).
+    """Return the exact Git-scannable file set, or None for non-Git roots.
 
-    Pre-push hook correctness requires this: `.gitignore`d files (e.g. build
-    artifacts, logs, caches) will not be pushed, so scanning them produces
-    false positives that block real work.
+    Git worktrees have either a .git directory or a .git file (linked
+    worktrees). An unavailable/broken Git listing is not a valid empty set:
+    fail closed instead of re-scanning the filesystem, which can miss ignored
+    file boundaries and traverse unrelated files.
     """
-    if not (root / ".git").is_dir():
+    if not (root / ".git").exists():
         return None
     try:
         res = subprocess.run(
@@ -238,19 +253,23 @@ def _git_tracked_files(root: Path) -> Optional[Set[str]]:
             ],
             cwd=str(root), capture_output=True, timeout=30,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate YAML scan files "
+            f"({type(exc).__name__})"
+        ) from exc
     if res.returncode != 0:
-        import sys
-        sys.stderr.write(
-            f"sentinel: git ls-files failed in {root} (rc={res.returncode}); "
-            f"falling back to rglob. stderr={res.stderr[:200]!r}\n"
+        # Never expose stderr: Git diagnostics may contain private paths.
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate YAML scan files "
+            f"(exit {res.returncode})"
         )
-        return None
     try:
         stdout = res.stdout.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
+    except UnicodeDecodeError as exc:
+        raise GitFileEnumerationError(
+            "git ls-files returned undecodable YAML scan paths"
+        ) from exc
     return {entry for entry in stdout.split("\0") if entry}
 
 
@@ -285,9 +304,19 @@ def _iter_matching_files(
             continue
         path = root / rel
         try:
-            if not path.is_file():
+            # Path.is_file() can treat access failures as False on some
+            # Python versions. Inspect stat explicitly so a tracked BLOCK
+            # cannot silently disappear from the scan on PermissionError.
+            if not stat.S_ISREG(path.stat().st_mode):
                 continue
+        except (FileNotFoundError, NotADirectoryError):
+            continue
         except OSError:
+            if tracked is not None:
+                raise GitFileEnumerationError(
+                    "YAML scan could not stat a Git-listed candidate"
+                ) from None
+            # Preserve legacy ad-hoc non-Git traversal semantics.
             continue
         yield path, rel
 
