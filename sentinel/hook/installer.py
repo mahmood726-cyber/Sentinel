@@ -9,6 +9,7 @@ Contracts (see M1 design spec):
 from __future__ import annotations
 import os
 import stat
+import subprocess
 from pathlib import Path
 
 from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
@@ -20,6 +21,35 @@ class HookInstallError(Exception):
 
 
 GITIGNORE_MARKER = "# === Sentinel hook output (auto-added by install) ==="
+
+
+def _hooks_dir(repo_root: Path) -> Path:
+    """Resolve Git's default hook directory, including linked worktrees.
+
+    A linked worktree uses a .git *file*, so .git/hooks is not a directory.
+    Ask Git for its actual hook directory instead of parsing the pointer or
+    writing beside it. Default hooks are shared with the primary worktree.
+    The regular .git-directory case retains existing local-fixture support.
+    """
+    git_marker = repo_root / ".git"
+    if git_marker.is_dir():
+        return git_marker / "hooks"
+    if not git_marker.is_file():
+        raise HookInstallError(f"not a git repository: {repo_root}")
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--git-path", "hooks"],
+            capture_output=True, text=True, encoding="utf-8", timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        raise HookInstallError("could not resolve Git hooks directory") from None
+    hooks_path = result.stdout.rstrip("\r\n")
+    if result.returncode != 0 or not hooks_path:
+        raise HookInstallError("could not resolve Git hooks directory")
+    hooks_dir = Path(hooks_path)
+    return hooks_dir if hooks_dir.is_absolute() else repo_root / hooks_dir
+
 
 
 def is_sentinel_hook(hook_path: Path) -> bool:
@@ -71,10 +101,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     (idempotently) to prevent users from accidentally committing findings
     that contain absolute local paths.
     """
-    git_dir = repo_root / ".git"
-    if not git_dir.is_dir():
-        raise HookInstallError(f"not a git repository: {repo_root}")
-    hooks_dir = git_dir / "hooks"
+    hooks_dir = _hooks_dir(repo_root)
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
@@ -90,7 +117,7 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
 
 
 def uninstall_hook(repo_root: Path) -> None:
-    hooks_dir = repo_root / ".git" / "hooks"
+    hooks_dir = _hooks_dir(repo_root)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
     if backup.exists():
