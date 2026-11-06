@@ -98,6 +98,10 @@ def test_uninterrupted_install_and_restore_preserve_valid_hook(
     repo, hook, backup = _repo(tmp_path)
     original = b"#!/bin/sh\necho synthetic-clean-hook\n"
     hook.write_bytes(original)
+    if os.name != "nt":
+        # This fixture models an *enabled* pre-existing hook. A disabled
+        # hook is a separate control and must not become executable.
+        hook.chmod(0o750)
 
     install_hook(repo)
     assert is_sentinel_hook(hook)
@@ -109,5 +113,5 @@ def test_uninterrupted_install_and_restore_preserve_valid_hook(
     uninstall_hook(repo)
     assert hook.read_bytes() == original
     if os.name != "nt":  # Windows stat does not expose POSIX execute bits
-        assert hook.stat().st_mode & stat.S_IXUSR
+        assert stat.S_IMODE(hook.stat().st_mode) == 0o750
     assert not backup.exists()
