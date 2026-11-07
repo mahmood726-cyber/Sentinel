@@ -36,6 +36,10 @@ PREVIOUS_HOOK_SHA256 = frozenset({
     "53fa825ade871dae76197a9e6cc98e7eb01f8b5b7ee840da36c103e03e155e70",
     # abb6ddb warn (3 repositories)
     "460538d0a6c298b8178e24f64a6c3688d681d9ffb024d70a76f6b78b04874ba1",
+    # fdf0741 block and warn (none in the census; what install-hook wrote
+    # until the scan moved to `python -P`)
+    "195cae7990a3501396af62d94be8e11de14e9d7f19f08441db840b000b9b112f",
+    "f49dcf0fdfc928e941e92b634d090736d2a855af172945a6a757f0bf7f453edb",
 })
 
 
@@ -116,7 +120,9 @@ else
   SCAN_ARGS="${{SCAN_ARGS:-}}"
 fi
 
-output="$(python -m sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS 2>&1)"
+# -P: this runs in the repository root, and a plain -m would put that first on
+# sys.path, so a sentinel/ directory in the repo would replace the scanner.
+output="$(python -P -m sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS 2>&1)"
 rc=$?
 printf '%s\\n' "$output"
 

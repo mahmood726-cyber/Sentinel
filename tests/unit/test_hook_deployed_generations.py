@@ -33,6 +33,11 @@ GENERATIONS = [
      "53fa825ade871dae76197a9e6cc98e7eb01f8b5b7ee840da36c103e03e155e70"),
     ("pre-push-abb6ddb-warn.txt",
      "460538d0a6c298b8178e24f64a6c3688d681d9ffb024d70a76f6b78b04874ba1"),
+    # Not in the census, but what install-hook wrote before `python -P`.
+    ("pre-push-fdf0741-block.txt",
+     "195cae7990a3501396af62d94be8e11de14e9d7f19f08441db840b000b9b112f"),
+    ("pre-push-fdf0741-warn.txt",
+     "f49dcf0fdfc928e941e92b634d090736d2a855af172945a6a757f0bf7f453edb"),
 ]
 IDS = [g[0].removeprefix("pre-push-").removesuffix(".txt") for g in GENERATIONS]
 
