@@ -18,6 +18,26 @@ from __future__ import annotations
 
 SENTINEL_MARKER = "# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ==="
 
+# Earlier scripts this installer still owns, as sha256 of the LF-normalised
+# script. Recognition is by exact content, so without this list every hook
+# from an older release reads as a user's edited hook and install/uninstall
+# refuse it. Census of live repositories, 2026-11-07: all 52 installed hooks
+# were one of the first four below, and all were CRLF on disk.
+#
+# Whenever make_hook_script() changes, add the digests of the script it
+# replaces here, in the same commit. Each digest is tied to its source by a
+# fixture in tests/fixtures/hooks/.
+PREVIOUS_HOOK_SHA256 = frozenset({
+    # 7f3f0e5 warn (38 repositories)
+    "b23610d6d52cf0bf3a3a846f619ca70be53c9aeed54e883d7fe76545742e543b",
+    # 7f3f0e5 block (8 repositories)
+    "abb3a02821e62b50b0168a8b097a8bb73f63a58770bdeaecab81b7ebdc86e4f2",
+    # f83145f block (3 repositories)
+    "53fa825ade871dae76197a9e6cc98e7eb01f8b5b7ee840da36c103e03e155e70",
+    # abb6ddb warn (3 repositories)
+    "460538d0a6c298b8178e24f64a6c3688d681d9ffb024d70a76f6b78b04874ba1",
+})
+
 
 def make_hook_script(mode: str = "block") -> str:
     if mode not in ("warn", "block"):

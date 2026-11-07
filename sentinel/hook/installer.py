@@ -7,13 +7,19 @@ Contracts (see M1 design spec):
 - Never clobbers the user's original hook: uninstall restores from backup.
 """
 from __future__ import annotations
+import hashlib
 import os
 import stat
 import subprocess
 import tempfile
 from pathlib import Path
 
-from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
+from sentinel.hook.payload import (
+    HOOK_SCRIPT,
+    PREVIOUS_HOOK_SHA256,
+    SENTINEL_MARKER,
+    make_hook_script,
+)
 from sentinel.io.paths import OUTPUT_FILENAMES, LEGACY_FILENAMES
 
 
@@ -59,15 +65,27 @@ def _hooks_dir(repo_root: Path) -> Path:
     return hooks_dir
 
 
+def _is_generated_script(raw: bytes) -> bool:
+    """True only for a complete script some Sentinel release generated.
+
+    Deployed hooks are CRLF on disk (Windows checkouts of the installed
+    text), so compare with CRLF normalised and nothing else: any other
+    difference, including trailing whitespace, is somebody's edit.
+    """
+    body = raw.replace(b"\r\n", b"\n")
+    if body in (HOOK_SCRIPT.encode("utf-8"), make_hook_script("warn").encode("utf-8")):
+        return True
+    return hashlib.sha256(body).hexdigest() in PREVIOUS_HOOK_SHA256
+
+
 def is_sentinel_hook(hook_path: Path) -> bool:
     """Only recognize scripts we actually generated, not a copied banner."""
     if not hook_path.is_file():
         return False
     try:
-        content = hook_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
+        return _is_generated_script(hook_path.read_bytes())
+    except OSError:
         return False
-    return content in (HOOK_SCRIPT, make_hook_script("warn"))
 
 
 def _reject_unrecognized_marker(hook_path: Path) -> None:
@@ -80,12 +98,11 @@ def _reject_unrecognized_marker(hook_path: Path) -> None:
     if not hook_path.exists():
         return
     try:
-        content = hook_path.read_text(encoding="utf-8")
+        raw = hook_path.read_bytes()
+        content = raw.decode("utf-8")
     except (OSError, UnicodeError):
         raise HookInstallError("cannot inspect existing pre-push hook") from None
-    if SENTINEL_MARKER in content and content not in (
-        HOOK_SCRIPT, make_hook_script("warn")
-    ):
+    if SENTINEL_MARKER in content and not _is_generated_script(raw):
         raise HookInstallError(
             "unrecognized or modified pre-push hook with Sentinel marker; "
             "refusing to overwrite or remove it"
