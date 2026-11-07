@@ -33,6 +33,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_repo_files
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -40,6 +41,13 @@ ID = "P1-script-close-in-template"
 SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#javascript--html  (</script> in template literals/comments)"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored. This is a
+# CORRECTNESS rule: the defect it finds runs when someone runs the file,
+# whether or not git is tracking it. Migrated 2026-08-30; counts from
+# before that date were taken over the tracked set only and are NOT
+# comparable with counts after it.
+POPULATION = Population.PRESENT
 
 MAX_FILE_BYTES = 5_000_000
 HTML_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "node_modules", "dist",
@@ -135,7 +143,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
     root = ctx.repo_root
-    for path in iter_repo_files(root, ("*.html", "*.htm"), HTML_EXCLUDE_DIRS):
+    for path in iter_repo_files(root, ("*.html", "*.htm"), HTML_EXCLUDE_DIRS, population=POPULATION):
         if has_skip_marker(path):
             continue
         try:

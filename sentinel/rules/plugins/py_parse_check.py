@@ -27,6 +27,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import PY_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -35,13 +36,20 @@ SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#python-module-test-collection-traps"
 SCOPE = "repo"
 
+# Population: PRESENT -- tracked AND untracked-not-ignored. This is a
+# CORRECTNESS rule: the defect it finds runs when someone runs the file,
+# whether or not git is tracking it. Migrated 2026-08-30; counts from
+# before that date were taken over the tracked set only and are NOT
+# comparable with counts after it.
+POPULATION = Population.PRESENT
+
 
 def check(ctx: RepoContext) -> List[Verdict]:
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
     repo_prefix = str(ctx.repo_root)
 
-    for path in iter_repo_files(ctx.repo_root, "*.py", PY_EXCLUDE_DIRS):
+    for path in iter_repo_files(ctx.repo_root, "*.py", PY_EXCLUDE_DIRS, population=POPULATION):
         rel = path.relative_to(ctx.repo_root).as_posix()
         if has_skip_marker(path):
             continue

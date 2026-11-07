@@ -116,7 +116,7 @@ def path_allowed(root: Path, path: Path) -> bool:
     return rel in active
 
 
-def iter_tree_or_filter(root: Path) -> Iterator[Path]:
+def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
     """Yield candidate file `Path`s for a rule that would otherwise `rglob("*")`
     the whole tree, then apply its own extension / exclude-dir filtering.
 
@@ -137,6 +137,25 @@ def iter_tree_or_filter(root: Path) -> Iterator[Path]:
             except OSError:
                 continue
         return
+    # Without a declared population this walks the RAW FILESYSTEM. On F:/E156
+    # that is 49,079 files against PRESENT's 4,246 -- 91.3% of it .git
+    # internals, caches and build output that no push can ship. A rule that
+    # declares a population reads the same set as the rest of the engine.
+    # MUST also require a git worktree. Without that check, repo_files()
+    # returns None on a non-git path and `or frozenset()` turns it into an
+    # EMPTY set -- the rule then silently sees nothing, which is precisely
+    # the inert-rule failure this whole change exists to close. Caught by
+    # 19 test failures on tmp_path fixtures, 2026-08-30.
+    if population is not None and _is_git_worktree(root):
+        from sentinel.io.population import repo_files
+        for rel in sorted(repo_files(root, population) or frozenset()):
+            p = root / rel
+            try:
+                if p.is_file():
+                    yield p
+            except OSError:
+                continue
+        return
     yield from root.rglob("*")
 
 
@@ -144,6 +163,7 @@ def iter_repo_files(
     root: Path,
     pattern: str | Sequence[str] = "*",
     exclude_dirs: Sequence[str] | Iterable[str] = (),
+    population=None,
 ) -> Iterator[Path]:
     """Yield files under `root` matching `pattern` (string or sequence).
 
@@ -166,6 +186,32 @@ def iter_repo_files(
     """
     excludes = frozenset(exclude_dirs)
     patterns: list[str] = [pattern] if isinstance(pattern, str) else list(pattern)
+
+    # `population` (sentinel/io/population.py) lets a rule state WHICH file
+    # set it is asking about. Default None = the historical behaviour,
+    # `git ls-files` = PUBLISHED (tracked only), so an un-migrated rule is
+    # unchanged. A rule that declares PRESENT also sees untracked-not-ignored
+    # files -- which is what a CORRECTNESS rule wants, because a defect in an
+    # untracked script still runs when someone runs it.
+    if population is not None and _is_git_worktree(root):
+        from sentinel.io.population import repo_files
+        import fnmatch as _fnmatch
+        rels = repo_files(root, population) or frozenset()
+        active_filter = _ACTIVE_PATH_FILTER
+        for rel in sorted(rels):
+            if excludes and any(x in excludes for x in Path(rel).parts):
+                continue
+            if active_filter is not None and rel not in active_filter:
+                continue
+            if not any(_fnmatch.fnmatch(Path(rel).name, pat) for pat in patterns):
+                continue
+            path = root / rel
+            try:
+                if path.is_file():
+                    yield path
+            except OSError:
+                continue
+        return
 
     if _is_git_worktree(root):
         try:

@@ -29,11 +29,22 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_tree_or_filter
+from sentinel.io.population import Population
 
 ID = "P1-aact-field-semantics"
 SEVERITY = Severity.WARN
 SOURCE = "C:\\Users\\mahmo\\.claude\\projects\\C--Users-mahmo\\memory\\aactcockpit_project.md"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored.
+#
+# This rule walked the raw filesystem: every path under the repo root. On
+# F:/E156 that is 49,079 files against PRESENT's 4,246, and 91.3% of the
+# excess is .git internals, caches and build output that no push can
+# ship. Migrated 2026-08-30. Counts from before that date were taken over
+# a DIFFERENT and larger file set and are NOT comparable with counts
+# after it.
+POPULATION = Population.PRESENT
 
 EXCLUDE_DIRS = frozenset((
     "node_modules", "__pycache__", ".git", ".pytest_cache", ".venv", "venv",
@@ -74,7 +85,7 @@ _PATTERNS = {
 
 
 def _iter_files(root: Path):
-    for p in iter_tree_or_filter(root):  # changed-file scope under --diff
+    for p in iter_tree_or_filter(root, population=POPULATION):  # changed-file scope under --diff
         if not p.is_file():
             continue
         if p.suffix.lower() not in EXTS:

@@ -165,6 +165,46 @@ EXCLUDE_DIRS = frozenset((
 ))
 
 
+# --- 2026-08-30: a QUESTION is not a claim -------------------------------
+#
+# The WARN tier fired 1,663 times on F:/E156, and 1,416 of those (85.1%) were
+# the same thing: the generated S1 question slot of the E156 7-sentence
+# contract --
+#
+#     "Do <topic> trials support a clinically meaningful effect on the
+#      registered <estimand>?"
+#
+# Sampled n=60 at seed 20260830 (recorded before the draw) from the 1,416-file
+# population: 60/60 files and 60/60 literal occurrences sat inside an
+# interrogative clause. The rule was detecting the SHAPE of a sentence, not its
+# force, and so it flagged the model answer -- driving the corpus away from
+# writing that is correct.
+#
+# This is not a tuning. A question cannot overclaim, so excluding interrogative
+# clauses removes false positives and cannot remove a true one. The remaining
+# proposal -- deriving the WARN from the page's own reported I2/tau2/PI rather
+# than from vocabulary co-occurrence, and reporting NOT-ASSESSABLE (never PASS)
+# when the statistic is unparseable -- changes what the rule detects and is NOT
+# applied here.
+_CLAUSE_END = ".!?"
+
+
+def _clause_around(text: str, pos: int) -> str:
+    start = max((text.rfind(c, 0, pos) for c in _CLAUSE_END), default=-1) + 1
+    ends = [i for i in (text.find(c, pos) for c in _CLAUSE_END) if i != -1]
+    end = min(ends) if ends else len(text) - 1
+    return text[start:end + 1].strip()
+
+
+def _is_interrogative(text: str, pos: int) -> bool:
+    """True if the clause containing `pos` is a question."""
+    return _clause_around(text, pos).endswith("?")
+
+
+def _assertions_only(text: str, matches):
+    """Drop matches that sit inside an interrogative clause."""
+    return [m for m in matches if not _is_interrogative(text, m.start())]
+
 def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
@@ -340,7 +380,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
                 continue
             hm = re.search(r"^\[(\d+)/\d+\]", blk, re.MULTILINE)
             entry_num = int(hm.group(1)) if hm else None
-            certs = list(CERTAINTY_RE.finditer(blk))
+            certs = _assertions_only(blk, CERTAINTY_RE.finditer(blk))
             heteros = list(HETERO_RE.finditer(blk))
             if certs and heteros:
                 # WARN once per entry, on the first certainty phrase
@@ -367,7 +407,7 @@ def _check_one_file(text: str, rel: str, now: datetime) -> List[Verdict]:
                     timestamp=now,
                 ))
     else:
-        certs = list(CERTAINTY_RE.finditer(text))
+        certs = _assertions_only(text, CERTAINTY_RE.finditer(text))
         heteros = list(HETERO_RE.finditer(text))
         if certs and heteros:
             first = certs[0]

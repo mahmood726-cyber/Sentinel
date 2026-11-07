@@ -19,8 +19,42 @@ SOURCE = "CLAUDE.md#workbook-protection"
 SCOPE = "repo"
 
 WORKBOOK_BASENAME = "rewrite-workbook.txt"
+
+# Kept so callers/tests referencing the legacy literal still resolve. The rule
+# itself matches on REWRITE_HEADER_RE below.
 REWRITE_HEADER = "YOUR REWRITE:"
-BLOCK_TERMINATORS = ("SUBMITTED:", "CURRENT BODY:", "ENTRY ", "---")
+
+# 2026-08-30. This rule guards the one non-negotiable contract in the project
+# ("YOUR REWRITE is the author's; never touch it") and it was matching an
+# EXACT-PREFIX LITERAL against a header that carries a parenthetical:
+#
+#   "YOUR REWRITE (at most 156 words, 7 sentences):".startswith("YOUR REWRITE:")
+#   -> False
+#
+# Measured on the live workbook: 1,864 entries use the parenthetical form, 11
+# use the bare colon. The rule therefore protected 11 of 1,875 blocks (0.6%),
+# covering 65 of 122,369 lines (0.1%) -- and reported green over that sliver.
+# Not a dead check: a LIVE check passing on a 0.1% sample. A literal where a
+# structure was needed.
+#
+# Structure matches both spellings: 1,875 / 1,875 blocks, 97,529 / 122,369
+# lines (79.7%).
+REWRITE_HEADER_RE = re.compile(r"^YOUR REWRITE\b[^\n]*:\s*$")
+
+# A protected range ends at the first of these. `SUBMISSION METADATA:` was
+# missing and is the real terminator: it is the first metadata key after the
+# header in 1,729 of the 1,859 entries that have one (a `===` separator in 124,
+# `SUBMITTED:` in 6). Without it a protected range swallows the whole
+# submission-metadata trailer, so every legitimate publish commit -- which
+# appends an `OJS:` line and flips `SUBMITTED: [ ]` to `[x]` inside that
+# trailer -- would BLOCK. Fixing the header WITHOUT fixing the boundary would
+# turn a rule that guards almost nothing into one that fires on almost every
+# publish, which is the worse defect one step down.
+BLOCK_TERMINATORS = (
+    "SUBMISSION METADATA:", "SUBMITTED:", "CURRENT BODY", "ENTRY ", "---",
+    "Target journal:", "Manuscript license:", "Code license:", "OJS:",
+    "Preprint:", "Protocol:", "=" * 50,
+)
 
 
 def _protected_line_ranges(workbook_text: str) -> List[tuple]:
@@ -36,7 +70,7 @@ def _protected_line_ranges(workbook_text: str) -> List[tuple]:
     start = None
     for idx, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if stripped.startswith(REWRITE_HEADER):
+        if REWRITE_HEADER_RE.match(stripped):
             in_rewrite = True
             start = idx + 1  # content starts on the next line
             continue
