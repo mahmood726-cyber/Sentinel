@@ -155,13 +155,16 @@ files. Converting that failure into an ordinary BLOCK finding is also
 insufficient in a hook configured in warn mode.
 
 **Mitigation (draft PR #6):**
-- `iter_repo_files` raises `GitFileEnumerationError` for failed or
-  undecodable Git listings, not an empty successful result.
+- `iter_repo_files` raises `GitFileEnumerationError` for failed Git
+  listings, not an empty successful result. A filename that is not valid
+  UTF-8 is not a listing failure: it is decoded with `surrogateescape`, no
+  rule reads it, and the scan reports it as not scanned, in the denominator
+  and as a WARN (`SENTINEL-not-scanned`).
 - The plugin wrapper propagates this specific failure into the scan CLI's
   internal-error contract (exit 10). The pre-push hook refuses all internal
   errors even in warn mode.
 - The YAML-rule scanner also recognizes directory-based and linked
-  (`.git` file) worktrees. A failed, timed-out or undecodable Git listing
+  (`.git` file) worktrees. A failed or timed-out Git listing
   raises `GitFileEnumerationError` instead of falling back to a filesystem
   walk; this keeps the hook's fatal exit-10 contract intact for YAML BLOCK
   rules and avoids scanning irrelevant ignored files.
@@ -224,7 +227,8 @@ The BLOCK-tier `P1-js-parse-check` previously returned clean when the
 parser timeout (which warn-mode hooks can allow). A parser launch error
 could similarly become an ordinary plugin BLOCK. For a non-excluded JS
 candidate, unavailable Node, launcher errors, undecodable output and
-timeouts now raise a sanitized fatal scan error (CLI exit 10). A scan
+a timeout that persists through one retry (60s each) now raise a
+sanitized fatal scan error (CLI exit 10). A scan
 with no applicable JavaScript candidates, including correctly excluded
 or explicitly skip-marked files, remains clean. Actual syntax errors
 still emit the rule's ordinary BLOCK. Synthetic tests in
