@@ -146,6 +146,256 @@ Out of scope:
 - Selective export: a script that copies memory/*.md → a tracked `memory-snapshot/` directory after scrubbing sensitive fields
 - Manual ritual: "every 30 days, zip memory/ to an offline drive"
 
+### 3.6 Git-backed file inventory can fail incomplete (2026-11-05)
+
+**Vector:** Plugin scans use `git ls-files -z` to bound file discovery
+inside Git worktrees. Returning an empty iterable on Git command failure
+allowed plugin rules to report no findings without inspecting any tracked
+files. Converting that failure into an ordinary BLOCK finding is also
+insufficient in a hook configured in warn mode.
+
+**Mitigation (draft PR #6):**
+- `iter_repo_files` raises `GitFileEnumerationError` for failed or
+  undecodable Git listings, not an empty successful result.
+- The plugin wrapper propagates this specific failure into the scan CLI's
+  internal-error contract (exit 10). The pre-push hook refuses all internal
+  errors even in warn mode.
+- The YAML-rule scanner also recognizes directory-based and linked
+  (`.git` file) worktrees. A failed, timed-out or undecodable Git listing
+  raises `GitFileEnumerationError` instead of falling back to a filesystem
+  walk; this keeps the hook's fatal exit-10 contract intact for YAML BLOCK
+  rules and avoids scanning irrelevant ignored files.
+- The scan CLI now accepts a linked worktree's `.git` file as a repository
+  marker (previously it required a `.git` directory and returned exit 2).
+  Synthetic linked-worktree checks cover clean exit 0 and a real rule BLOCK
+  exit 1; a fake `.git` file must not receive a clean verdict. Git/file
+  enumeration failures still fail closed.
+- There is **no** `rglob` fallback inside a recognized Git worktree:
+  an unbounded walk of a user home directory could stall the hook again.
+  Ad-hoc non-Git roots retain the bounded-by-caller legacy traversal.
+
+- Git-backed plugin enumeration now raises an internal scan error if
+  `Path.is_file()` raises on a tracked, non-excluded candidate, rather
+  than silently skipping a possible BLOCK. Files excluded before inspection
+  and ordinary deleted worktree paths retain their prior behavior.
+- YAML scanning now checks `stat()` explicitly for Git-listed candidates:
+  inaccessible file status, header or text reads abort with a fatal internal
+  error instead of silently omitting a potential BLOCK. The diagnostic
+  suppresses underlying private filesystem exception details. A genuinely
+  missing tracked worktree path (e.g., an unstaged deletion) remains a
+  legitimate skip, and clean/ignored files do not cause new findings.
+
+**Additional guarded path:** `P1-leaked-secret` now raises the fatal
+`GitFileEnumerationError` if a candidate cannot be inspected after discovery,
+so read/status failures cannot silently suppress a credential BLOCK; explicitly
+excluded documentation remains out of scope. The diagnostic does not propagate
+private filesystem errors. Synthetic negative and legitimate controls are in
+`test_rule_leaked_secret.py`.
+
+**Additional guarded path:** `P0-e156-placeholder-leak` now treats
+filesystem status or read failures on its root-level `students.html` and
+`rewrite-workbook.txt` candidates as fatal scan errors rather than a clean
+scan. Missing artifacts remain optional, and unrelated files are untouched.
+The internal-error diagnostic does not chain private OS exception messages.
+Synthetic failure and valid-artifact controls live in
+`test_rule_e156_placeholder_access.py`.
+
+**Additional guarded path:** `P0-unsafe-eval-exec` now aborts on a
+file-content read error after a Python candidate has entered its scan
+inventory. Previously the `except OSError: continue` branch could silently
+miss a dynamic `eval`/`exec` BLOCK. The scanner now returns an internal
+error even in warn-mode hooks, without chaining private filesystem messages.
+`test_rule_unsafe_eval_access.py` covers an inaccessible synthetic BLOCK,
+a readable BLOCK, a literal-only valid file, and an excluded unreadable
+directory.
+
+**Additional guarded path:** `P1-py-parse-check` now treats a
+file-content read error for a discovered Python candidate as a fatal scanner
+error (exit 10), rather than an ordinary BLOCK verdict that a warn-mode
+hook could allow. A readable syntax error continues to produce its existing
+BLOCK verdict. Synthetic controls cover an inaccessible candidate,
+valid Python, an actual syntax BLOCK and an excluded unreadable virtualenv
+file in `test_rule_py_parse_access.py`. The original OS exception is
+not exposed in the formatted traceback.
+
+**JavaScript parser runtime completeness (5 November 2026):**
+The BLOCK-tier `P1-js-parse-check` previously returned clean when the
+`node` executable was unavailable, and returned an ordinary BLOCK on
+parser timeout (which warn-mode hooks can allow). A parser launch error
+could similarly become an ordinary plugin BLOCK. For a non-excluded JS
+candidate, unavailable Node, launcher errors, undecodable output and
+timeouts now raise a sanitized fatal scan error (CLI exit 10). A scan
+with no applicable JavaScript candidates, including correctly excluded
+or explicitly skip-marked files, remains clean. Actual syntax errors
+still emit the rule's ordinary BLOCK. Synthetic tests in
+`test_rule_js_parser_runtime.py` cover absent Node, launch failure,
+timeout, clean-code and syntax-failure cases. This does not guarantee
+the external Node parser's correctness or attest that every subprocess
+nonzero status is a syntax error.
+
+**Additional guarded path:** `P1-script-close-in-template` now treats a
+discovered HTML candidate's file-status or text-read error as a fatal
+scanner error instead of silently skipping a possible BLOCK. An ordinary
+readable literal `</script>` inside a JavaScript template continues to
+produce the existing BLOCK verdict. Valid split-token templates and
+ignored vendor directories remain clean. The underlying OS exception is
+not chained into diagnostics. Synthetic test-first coverage lives in
+`test_rule_script_close_access.py`.
+
+**Additional guarded path:** `P1-nullish-or-mixed` now aborts when a discovered
+JavaScript or inline-HTML candidate cannot be inspected because a status or
+text-read operation raises `OSError`. Previously both code paths silently
+continued, potentially missing a syntax BLOCK. The fatal scan error is not
+warn-mode-downgradable (CLI exit 10) and does not chain private OS diagnostics.
+Synthetic negative, readable-BLOCK, valid-grouping and excluded-directory
+controls are in `test_rule_nullish_access.py`; minified/oversized-file policy
+and the rule's BLOCK severity are unchanged.
+
+**Additional guarded path:** `P0-hmac-compare-eq` now treats an
+unreadable Python candidate as a fatal, non-warn-downgradable scanner
+error rather than silently skipping a possible crypto-comparison BLOCK.
+The underlying filesystem exception is not chained into the public
+diagnostic. Synthetic tests in `test_rule_hmac_compare_access.py`
+cover an inaccessible candidate, a readable BLOCK, a legitimate
+constant-time comparison and an excluded unreadable directory. This
+does not introduce signing or change crypto functionality.
+
+**Nested tracked-file coverage (5 November 2026):** Git's ordinary
+`test_*.py` pathspec matches the repository root but can omit
+`tests/test_*.py`. Sentinel now supplies recursive Git glob pathspecs
+(`:(glob)**/test_*.py`) to make tracked-file enumeration consistent
+with the non-Git `rglob` fallback. This prevents a tracked nested
+duplicate test module from silently escaping the
+`P1-test-module-collision` BLOCK rule. Synthetic regressions cover
+the root-plus-nested collision, correctly packaged duplicates, and
+excluded/untracked candidates. This does not expand scanning to
+untracked or excluded files.
+
+**Tracked package-marker integrity (5 November 2026):** A worktree-local
+but untracked `__init__.py` marker is not present after push and must not
+silence a `P1-test-module-collision` BLOCK. The rule now uses the bounded
+tracked-file inventory for package markers rather than only checking the
+working-tree filesystem. This context lookup deliberately ignores the
+`--diff` path filter: unchanged, tracked package markers must still keep
+valid distinct modules clean. Changed test files produce differential verdicts while all tracked
+test modules remain available as comparison context; exclusions remain enforced. Synthetic tests cover untracked
+markers that previously hid a BLOCK and tracked markers in a filtered,
+legitimate package layout. Git enumeration failures retain the fatal
+scan-error contract.
+
+**Ancestor package identity (5 November 2026):** A test module's
+import name is the contiguous path of tracked Python packages above it,
+not merely its basename plus immediate parent. For example, tracked
+`north/sub/__init__.py` and `south/sub/__init__.py` cannot distinguish
+two `test_example.py` files when the outer `north/` and `south/`
+directories lack tracked `__init__.py` markers: both resolve to
+`sub.test_example` under pytest's default prepend importer. Sentinel
+now compares complete resolved import names and reports a BLOCK for both.
+Distinct fully packaged modules, and distinct inner package names despite
+missing ancestors, remain clean. The deterministic tests use newly
+created Git fixtures and do not process publication data.
+
+**Differential test-collision completeness (6 November 2026):** A changed
+tracked `test_*.py` module can collide with an unchanged tracked test
+module. Candidate enumeration limited to changed files misses this BLOCK,
+even when the changed module is valid Python. The collision rule now reads
+the bounded tracked test inventory as context, but under `--diff` reports
+only changed colliding test files, so unrelated pushes are not blocked by
+pre-existing test collisions. Changed-only BLOCK, unrelated clean push,
+both-changed BLOCK and correctly packaged clean-push cases are covered by
+deterministic synthetic Git fixtures.
+
+**Differential package-marker deletion (6 November 2026):** Removing a
+tracked ancestor `__init__.py` can change two unchanged test modules from
+different import names into the same pytest import name. The diff then
+contains only a deleted marker, so filtering verdicts solely to changed
+`test_*.py` files misses a real BLOCK. The collision rule now also
+compares affected import names with each absent changed marker restored;
+only a marker that would separate currently colliding names receives a
+BLOCK verdict. Unrelated deleted markers, content-only marker edits,
+tracked additions that resolve a collision, and unrelated historical
+collisions remain clean. Synthetic tests cover the rule and the actual
+`sentinel scan --diff` exit contract; alternate pytest import modes
+remain outside this guarantee.
+
+**Configured pre-push hooks directory (6 November 2026):** Git's
+`core.hooksPath` can redirect hook execution away from `.git/hooks`.
+The installer now resolves the active hook location with
+`git rev-parse --git-path hooks` for regular as well as linked worktrees,
+instead of claiming a successful installation into an unused directory.
+Deterministic tests cover relative and absolute configured hook paths,
+preservation/restoration of an existing hook, rejection of a non-directory
+target, and the unconfigured default. Hook configuration can still change
+after installation; no continuous tamper monitoring is implied.
+
+**Conflicting pre-push hook replacement (6 November 2026):** When Sentinel
+backs up an existing hook and another tool subsequently replaces the
+Sentinel hook, reinstall/uninstall now **refuse to overwrite** that replacement.
+Previously reinstall silently discarded the new hook and uninstall restored
+the older backup over it, potentially deleting another active pre-push gate.
+The conflicting hook and Sentinel backup are left intact for explicit
+human reconciliation. A normal intact Sentinel install/reinstall/uninstall
+and installation of a previously unseen user hook are unaffected. Synthetic
+tests establish the filesystem behavior, not continuous hook-tamper detection.
+
+**Copied-banner hook authenticity (6 November 2026):** The Sentinel banner
+alone did not identify an installed Sentinel script: another hook containing
+the copied banner could be silently overwritten on reinstall or removed on
+uninstall. Hook ownership checks now require exact generated script content
+for the supported block and warn installations. A banner-bearing script that
+differs from either template is left untouched and install/uninstall refuse
+the operation for manual reconciliation, whether or not a backup is present.
+Synthetic negative controls cover replacement with and without a backup;
+valid controls cover intact installs, chaining, modes, and uninstalls.
+This is not continuous tamper detection or protection from local code execution;
+after software updates older modified hook variants may require manual review.
+
+**Pre-push hook and backup symlink safety (6 November 2026):** The hook
+installer previously followed a symbolic-link `pre-push` when writing the
+generated hook. A link into another directory could therefore overwrite an
+unrelated executable; a dangling link could create a previously nonexistent
+external file. A symbolic-link `pre-push.sentinel-backup` also made restore
+and reinstall unsafe. Install and uninstall now fail closed before touching
+either entry if it is a symlink (including dangling links). Synthetic tests
+cover existing and dangling targets, backup targets, a platform-independent
+symlink classification check, and intact ordinary hook chaining. Legitimate
+symlink-managed hooks require explicit manual reconciliation; this is not
+continuous hook-tamper monitoring or a defense against a concurrent
+filesystem race during installation.
+
+**Interrupted pre-push hook writes (6 November 2026):** Installation and
+backup restoration previously wrote directly into an active `pre-push`
+file. If the write failed after truncation, a zero-byte but executable
+hook could silently allow future pushes without scanning. Hook install
+and restoration now write a private temporary sibling, flush its bytes,
+make it executable, then atomically replace the active entry. A write,
+flush, permission, or replacement failure preserves the prior active
+hook and removes the temporary file. The installer surfaces the error
+rather than claiming success. Synthetic tests cover failed replacement
+during reinstall and restore, prohibition of in-place active-hook writes,
+and an uninterrupted install/reinstall/uninstall control. Initial
+backup creation now uses the same atomic staging mechanism
+*before* replacing the original hook. Its permissions are preserved, not
+forced executable: Git deliberately ignores a pre-push hook without +x,
+and chaining or uninstalling Sentinel must not activate one accidentally.
+Restore also preserves the backed-up permission mode; the generated
+Sentinel hook itself remains executable. If backup preparation fails
+(including permissions or atomic rename), install raises a sanitized
+`HookInstallError`, leaves the original active hook intact, and removes
+the incomplete staging file. Synthetic tests separately cover backup
+chmod failure, backup rename failure, mode preservation, and valid hook
+chaining. A local bare-remote push regression exercises a clean push and
+a real BLOCK through a configured `core.hooksPath`. Older backups created
+before this correction may already have lost their original permission mode
+and require manual reconciliation. Concurrent filesystem tampering and
+changes to `core.hooksPath` after installation remain outside this
+guarantee.
+
+**Remaining limitations:** Other plugin/rule-specific read handlers may
+still skip inaccessible files. Non-Git ad-hoc roots retain filesystem
+traversal and its pre-existing path-discovery behavior. These are not
+certified by the YAML or E156 placeholder controls.
+
 ---
 
 ## 4. Attack surfaces explicitly NOT defended
@@ -155,7 +405,7 @@ Out of scope:
 | The Python interpreter Sentinel runs on | Trusted infrastructure. Compromise = game over for many things, not just Sentinel. |
 | The `git` binary | Same. |
 | GitHub remote (push target) | GitHub handles its own auth. Sentinel is pre-push. |
-| `.git/hooks/pre-push` being removed | Detectable by checking for `SENTINEL_MARKER` banner; not currently audited on a schedule. |
+| Active Git pre-push hook being removed or modified after install | No continuous monitoring; a banner-only check does not prove installed-script authenticity. |
 | Malicious rule files added to `sentinel/rules/` | Sentinel can't scan its own rule dir (`GLOBAL_EXCLUDES` excludes it). Rule-authoring is a trusted operation. |
 | Supply chain (pip dependencies, yaml library RCE) | Dependency pinning in pyproject.toml + `yaml.safe_load` usage. Not separately audited. |
 | Untrusted YAML rule files from external sources | Assumed not to exist — all rules come from this repo. If that changes, YAML source origin must be re-evaluated. |
@@ -188,7 +438,7 @@ This threat model should be revisited if any of the following land:
 
 ## 7. Out-of-scope follow-ups (captured for later sessions)
 
-1. **Pre-push hook tamper detection**: a monthly job that verifies the SENTINEL_MARKER banner is still in `.git/hooks/pre-push` across the ≥10 hook-installed repos.
+1. **Pre-push hook tamper detection**: a monthly job that verifies the SENTINEL_MARKER banner in the active hooks directory (including any configured core.hooksPath) across installed repos.
 2. **Rule-inventory snapshot**: a weekly test that asserts the rule count and IDs haven't silently changed.
 3. **Formal fuzz testing** of the skip-marker substring match (can an edge-case byte sequence cause a false skip?).
 4. **External review** — the single most valuable follow-up. This document is internally consistent but has never been stress-tested by someone outside the user's mental model.
