@@ -38,6 +38,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import DEFAULT_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -48,6 +49,13 @@ ID = "P1-leaked-secret"
 SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#cryptography--signing-learned-2026-04-14"
 SCOPE = "repo"
+
+# Population: PUBLISHED -- `git ls-files --cached`, i.e. the index. This
+# is a DISCLOSURE rule: the harm requires the world to see the file. The
+# index, not the commit, is the boundary -- a file becomes visible to
+# this rule the moment it is `git add`ed, before any push. Migrated
+# 2026-08-30; earlier counts used the same set, so they ARE comparable.
+POPULATION = Population.PUBLISHED
 
 SCAN_EXCLUDE_DIRS = DEFAULT_EXCLUDE_DIRS | {
     "fixtures", "docs", "site-packages", ".venv", "venv",
@@ -109,7 +117,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
     verdicts: List[Verdict] = []
     seen_locations: set[tuple[str, int, str]] = set()
 
-    for path in iter_repo_files(ctx.repo_root, "*", SCAN_EXCLUDE_DIRS):
+    for path in iter_repo_files(ctx.repo_root, "*", SCAN_EXCLUDE_DIRS, population=POPULATION):
         if not _is_scannable(path):
             continue
         # Honor the file-level skip marker — secret-redaction tools and

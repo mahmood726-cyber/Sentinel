@@ -54,12 +54,27 @@ from typing import List, Set
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import path_allowed
+from sentinel.io.population import Population
 
 
 ID = "P1-py-package-init-tracked"
 SEVERITY = Severity.WARN
 SOURCE = "lessons.md#portfolio-audit-patterns"
 SCOPE = "repo"
+
+# Population: PUBLISHED -- `git ls-files --cached`, the tracked set.
+#
+# This rule previously discovered directories with os.walk and then discarded
+# every untracked file it found, so the walk did no work the tracked set could
+# not do -- and it was wrong in principle: a directory that exists only on
+# disk is not a directory the repo has, and a fresh clone never sees it.
+# Directories are now DERIVED from the tracked paths.
+#
+# Both halves ask the same question -- does a fresh CLONE ImportError? -- so
+# there is no hybrid here after all. Ruled 2026-08-30, replacing an earlier
+# POPULATION_EXEMPT marker of mine that kept the disk walk on the mistaken
+# view that directory structure required it.
+POPULATION = Population.PUBLISHED
 
 REL_IMPORT_RE = re.compile(r"^\s*from\s+\.+\w*\s+import\s", re.MULTILINE)
 
@@ -83,36 +98,35 @@ def _list_tracked(repo: Path) -> Set[str]:
     return set(r.stdout.splitlines())
 
 
-def _walk_py_dirs(repo: Path, tracked: Set[str]):
-    """Yield (relative_dir_path, evidence_filename) for each directory
-    that contains at least one TRACKED .py file using relative imports.
-    Untracked files are skipped — fresh clones don't see them, so they
-    cannot trigger ImportError on a clone."""
-    import os
-    for dirpath, dirnames, filenames in os.walk(repo):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
-        py_files = [n for n in filenames if n.endswith(".py")]
-        if not py_files:
+def _walk_py_dirs(repo: Path, tracked):
+    """Yield (relative_dir_path, evidence_filename) for each directory that
+    contains at least one TRACKED .py file using relative imports.
+
+    Directories are DERIVED from the tracked file list, never discovered by
+    walking the filesystem: a directory that exists only on disk is not a
+    directory the repo has, and a fresh clone -- the thing this rule is
+    about -- will never see it."""
+    by_dir: dict = {}
+    for rel in sorted(tracked):
+        if not rel.endswith(".py"):
             continue
-        rel_dir = Path(dirpath).relative_to(repo).as_posix() or "."
-        uses_relative = False
-        evidence_file = None
-        for fname in py_files:
-            tracked_key = fname if rel_dir == "." else f"{rel_dir}/{fname}"
-            if tracked_key not in tracked:
-                continue
-            if not path_allowed(repo, Path(dirpath) / fname):
+        parts = rel.split("/")
+        if any(seg in SKIP_DIR_NAMES for seg in parts[:-1]):
+            continue
+        by_dir.setdefault("/".join(parts[:-1]) or ".", []).append(parts[-1])
+    for rel_dir, names in by_dir.items():
+        for fname in sorted(names):
+            rel = fname if rel_dir == "." else rel_dir + "/" + fname
+            fpath = repo / rel
+            if not path_allowed(repo, fpath):
                 continue  # honor `scan --diff` changed-file scope
             try:
-                text = (Path(dirpath) / fname).read_text(encoding="utf-8", errors="ignore")
+                text = fpath.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
             if REL_IMPORT_RE.search(text):
-                uses_relative = True
-                evidence_file = fname
+                yield rel_dir, fname
                 break
-        if uses_relative:
-            yield rel_dir, evidence_file
 
 
 def check(ctx: RepoContext) -> List[Verdict]:

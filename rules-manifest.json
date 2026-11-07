@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "note": "sha256 of every Sentinel rule file. Drift here = a rule file was added/removed/modified outside the normal commit flow. Regenerate via `python -m sentinel verify-rules --update`.",
   "rules": {
     "plugins/aact_capsule_leak.py": "b1d1d997fd4d437cf896c46ac6233ddaa8defa7be3bc6f8188b2aa7c9a523abf",
@@ -61,10 +61,15 @@
     "plugins/workbook_rewrite_touched.py": "2740daf2f3f5234f157e0548be3bdb26394a0fcaa16a7b631dcea90cedd2e6e9",
     "yaml/P0-claude-config-committed.yaml": "11487d0b0444c105f4851b5c78ca39f00e3292336ab3209f54068d27b4a7eaa1",
     "yaml/P0-force-push-config.yaml": "808a70c5b16c2238eabcb236b46e6de4530abef83175f3c6f58468f30a248969",
-    "yaml/P0-hardcoded-local-path.yaml": "5a146e3c1278cb82404a959736aa8b03992c43f3e32033c20d5f2dae339e8121",
+    "yaml/P0-hardcoded-local-path.yaml": "aa8a5a099e3849a753b41377c8ce68094bedd8be03d8e767c0dcd2f9dd1eb6b3",
     "yaml/P0-placeholder-hmac.yaml": "6816aed574a75ffa9cb8fd01a27e90007b3a3de9e2fbd273a214959dba7f953a",
     "yaml/P1-empty-dataframe-access.yaml": "e4c6d4685e21179233654fdf0a1e482685279aed2e17345ae80ffb3511d08b3f",
     "yaml/P1-silent-failure-sentinel.yaml": "4f3437c7efb75f50a21a42cc59da952b385365fff1fe506a34bc70da23e86e3e",
     "yaml/P1-unpopulated-placeholder.yaml": "c0fab1d4562ddbfcdcf24e4b1a34c77d82098e37e99724294b942780359e7468"
+  },
+  "signature": {
+    "algo": "HMAC-SHA256",
+    "value": "509fb87a1d270157485642d01ab04bb251b56fb9695984474be1b7ac7fde47e4",
+    "note": "HMAC-SHA256 over canonical (version, rules) bytes. Key from $SENTINEL_MANIFEST_HMAC_KEY or the gitignored key file. Verify with `python -m sentinel verify-rules --require-signature`."
   }
 }

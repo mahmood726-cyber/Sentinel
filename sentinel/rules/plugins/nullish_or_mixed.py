@@ -29,6 +29,7 @@ from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
 from sentinel.io.git_files import iter_repo_files
+from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
 
@@ -36,6 +37,13 @@ ID = "P1-nullish-or-mixed"
 SEVERITY = Severity.BLOCK
 SOURCE = "lessons.md#javascript--html  (?? ... || mixing — SyntaxError)"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored. This is a
+# CORRECTNESS rule: the defect it finds runs when someone runs the file,
+# whether or not git is tracking it. Migrated 2026-08-30; counts from
+# before that date were taken over the tracked set only and are NOT
+# comparable with counts after it.
+POPULATION = Population.PRESENT
 
 MAX_FILE_BYTES = 5_000_000
 JS_EXCLUDE_DIRS = (".venv", "venv", "__pycache__", "node_modules", "dist",
@@ -118,7 +126,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
 
     # .js/.mjs/.cjs/.ts scanned as plain bodies.
     for path in iter_repo_files(root, ("*.js", "*.mjs", "*.cjs", "*.ts"),
-                                JS_EXCLUDE_DIRS):
+                                JS_EXCLUDE_DIRS, population=POPULATION):
         if has_skip_marker(path):
             continue
         if path.name.endswith(".min.js"):
@@ -135,7 +143,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         verdicts.extend(_scan(text, rel, root, now))
 
     # .html: scan inline <script>...</script> only.
-    for path in iter_repo_files(root, ("*.html", "*.htm"), JS_EXCLUDE_DIRS):
+    for path in iter_repo_files(root, ("*.html", "*.htm"), JS_EXCLUDE_DIRS, population=POPULATION):
         if has_skip_marker(path):
             continue
         try:

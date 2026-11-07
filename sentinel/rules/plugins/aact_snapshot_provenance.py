@@ -19,12 +19,22 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import path_allowed
+from sentinel.io.git_files import iter_repo_files, path_allowed
+from sentinel.io.population import Population
 
 ID = "P0-aact-snapshot-provenance"
 SEVERITY = Severity.BLOCK
 SOURCE = "C:\\Users\\mahmo\\.claude\\projects\\C--Users-mahmo\\memory\\aact_duckdb_dialect.md"
 SCOPE = "repo"
+
+# Population: PRESENT -- tracked AND untracked-not-ignored.
+#
+# This rule walked the raw filesystem with a recursive glob: on F:/E156
+# that is 49,079 files against PRESENT's 4,246, and 91.3% of the excess is
+# .git internals, caches and build output that cannot be pushed. Migrated
+# 2026-08-30. Counts from before that date were taken over a DIFFERENT and
+# larger file set and are NOT comparable with counts after it.
+POPULATION = Population.PRESENT
 
 EXCLUDE_DIRS = frozenset(("node_modules", "__pycache__", ".git", ".pytest_cache", ".venv", "venv", "build", "dist"))
 _CAPSULE_RE = re.compile(r"const\s+CAPSULE\s*=\s*(\{.*?\});", re.DOTALL)
@@ -48,7 +58,7 @@ def _capsule_json(text: str):
 
 
 def _iter_capsules(root: Path):
-    for p in root.rglob("*-capsule.html"):
+    for p in iter_repo_files(root, "*-capsule.html", (), population=POPULATION):
         if not path_allowed(root, p):
             continue  # honor `scan --diff` changed-file scope
         if any(part in EXCLUDE_DIRS for part in p.parts):
