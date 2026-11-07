@@ -103,12 +103,9 @@ def repo_files(root: Path, population: Population = Population.PRESENT
         raise GitFileEnumerationError(
             f"git ls-files could not enumerate files (exit {res.returncode})"
         )
-    try:
-        out = res.stdout.decode("utf-8")
-    except UnicodeDecodeError:
-        raise GitFileEnumerationError(
-            "git ls-files returned undecodable paths"
-        ) from None
+    # surrogateescape: a non-UTF-8 name stays in the denominator. See
+    # git_files.has_undecodable_name for what happens to it after that.
+    out = res.stdout.decode("utf-8", errors="surrogateescape")
     return frozenset(e.replace("\\", "/") for e in out.split("\0") if e)
 
 

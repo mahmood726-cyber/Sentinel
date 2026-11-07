@@ -12,7 +12,11 @@ from typing import List, Optional, Sequence, Set
 import yaml
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import GitFileEnumerationError, get_path_filter
+from sentinel.io.git_files import (
+    GitFileEnumerationError,
+    get_path_filter,
+    has_undecodable_name,
+)
 from sentinel.io.paths import global_exclude_patterns
 from sentinel.io.roles import load_roles, parse_roles_declaration
 
@@ -310,12 +314,7 @@ def _git_tracked_files(root: Path) -> Optional[Set[str]]:
             f"git ls-files could not enumerate YAML scan files "
             f"(exit {res.returncode})"
         )
-    try:
-        stdout = res.stdout.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise GitFileEnumerationError(
-            "git ls-files returned undecodable YAML scan paths"
-        ) from exc
+    stdout = res.stdout.decode("utf-8", errors="surrogateescape")
     return {entry for entry in stdout.split("\0") if entry}
 
 
@@ -343,6 +342,8 @@ def _iter_matching_files(
         if active_filter is not None and rel.replace("\\", "/") not in active_filter:
             continue
         if ".." in rel.split("/"):
+            continue
+        if has_undecodable_name(rel):
             continue
         if not any(_fnmatch_with_doublestar(rel, pat) for pat in include):
             continue

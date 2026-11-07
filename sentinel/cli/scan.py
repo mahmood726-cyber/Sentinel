@@ -19,19 +19,25 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import List
 
 import subprocess
 
 from sentinel.core import RepoContext, ScanMode, Severity, Verdict
 from sentinel.io import write_findings
-from sentinel.io.git_files import set_path_filter
+from sentinel.io.git_files import (
+    has_undecodable_name,
+    printable_path,
+    set_path_filter,
+)
 from sentinel.io.paths import SARIF_OUT
 from sentinel.io.sarif import verdicts_to_sarif
 from sentinel.registry.registry import Registry
 
 RULES_ROOT = Path(__file__).parent.parent / "rules"
 EXIT_INTERNAL_ERROR = 10
+NOT_SCANNED_RULE_ID = "SENTINEL-not-scanned"
 SARIF_FILENAME = SARIF_OUT
 _PROJECT_INDEX_RELATIVE_CANDIDATES = (
     ("Projects", "projectindex-audit"),
@@ -209,6 +215,11 @@ def _run_inner(args: argparse.Namespace) -> int:
         if diff_filter_set is not None:
             set_path_filter(None)
 
+    # A file no rule could read is reported, never dropped: --json prints no
+    # scope line, so it has to travel as a verdict as well.
+    not_scanned = _not_scanned_paths(ctx, diff_filter_set)
+    verdicts.extend(_not_scanned_verdicts(ctx, not_scanned))
+
     write_findings(write_root, verdicts)
 
     if args.sarif:
@@ -219,7 +230,9 @@ def _run_inner(args: argparse.Namespace) -> int:
         )
 
     if not args.json:
-        _print_scope(ctx, diff_filter_set, getattr(args, 'base_ref', None))
+        _print_scope(
+            ctx, diff_filter_set, getattr(args, 'base_ref', None), not_scanned,
+        )
         _print_coverage(ctx)
 
     if args.json:
@@ -285,7 +298,37 @@ def _rule_population_census(rules_root: Path) -> dict:
     return counts
 
 
-def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
+def _not_scanned_paths(ctx: "RepoContext", diff_filter) -> List[str]:
+    """Files in this scan's scope that no rule could read.
+
+    Measured from the population rather than collected from the rules, so a
+    rule whose patterns happen not to match still leaves the file counted.
+    """
+    from sentinel.io.population import repo_files, Population
+    present = repo_files(ctx.repo_root, Population.PRESENT) or frozenset()
+    in_scope = present if diff_filter is None else present & diff_filter
+    return sorted(rel for rel in in_scope if has_undecodable_name(rel))
+
+
+def _not_scanned_verdicts(ctx: "RepoContext", rels: List[str]) -> List[Verdict]:
+    now = datetime.now(timezone.utc)
+    return [
+        Verdict(
+            rule_id=NOT_SCANNED_RULE_ID,
+            severity=Severity.WARN,
+            repo=str(ctx.repo_root),
+            file=printable_path(rel),
+            line=None,
+            detail="file name is not valid UTF-8; no rule read this file",
+            fix_hint="rename the file to a UTF-8 name so that it can be scanned",
+            source="sentinel/cli/scan.py",
+            timestamp=now,
+        )
+        for rel in rels
+    ]
+
+
+def _print_scope(ctx: "RepoContext", diff_filter, base_ref, not_scanned=()) -> None:
     """State the SCAN SCOPE before any count, because a count over a subset is
     not a count over the repo.
 
@@ -295,6 +338,8 @@ def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
     the same tree scanned whole reports 76 BLOCK / 3,732 WARN. The WARN tier
     was under-reported by nearly half, and nothing in the output said the
     number described a seventh of the repo.
+
+    `not_scanned` stays in the denominator and leaves the numerator.
     """
     try:
         from sentinel.io.population import repo_files, Population
@@ -302,20 +347,28 @@ def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
         total = len(present) if present is not None else None
     except Exception:  # noqa: BLE001
         total = None
+    skipped = len(not_scanned)
     if diff_filter is None:
         if total:
-            print(f"[Sentinel] scope: FULL TREE - {total} of {total} files (100%)")
+            scanned = total - skipped
+            share = f"{100.0 * scanned / total:.1f}%" if skipped else "100%"
+            print(f"[Sentinel] scope: FULL TREE - {scanned} of {total} files ({share})")
         else:
             print("[Sentinel] scope: FULL TREE")
-        return
-    n = len(diff_filter)
-    if total:
-        pct = 100.0 * n / total
-        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} of {total} files "
-              f"({pct:.1f}%) - counts below are for this subset, NOT the repo")
     else:
-        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} files - counts "
-              f"below are for this subset, NOT the repo")
+        n = len(diff_filter) - skipped
+        if total:
+            pct = 100.0 * n / total
+            print(f"[Sentinel] scope: --diff vs {base_ref} - {n} of {total} files "
+                  f"({pct:.1f}%) - counts below are for this subset, NOT the repo")
+        else:
+            print(f"[Sentinel] scope: --diff vs {base_ref} - {n} files - counts "
+                  f"below are for this subset, NOT the repo")
+    if skipped:
+        shown = ", ".join(printable_path(rel) for rel in not_scanned[:10])
+        more = f" and {skipped - 10} more" if skipped > 10 else ""
+        print(f"[Sentinel] NOT SCANNED: {skipped} file(s) with a non-UTF-8 name, "
+              f"read by no rule: {shown}{more}")
 
 
 def _print_coverage(ctx: "RepoContext") -> None:
@@ -376,10 +429,13 @@ def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
         try:
             # Git -z emits UTF-8 path bytes; Windows' locale codec can
             # otherwise decode names differently from the filesystem.
+            # surrogateescape keeps a non-UTF-8 name in the set; it must not
+            # crash the probe, because that blocks every push of the repo.
             r = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", timeout=15,
+                cmd, capture_output=True, text=True, encoding="utf-8",
+                errors="surrogateescape", timeout=15,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired):
             return None
         if r.returncode != 0:
             return None

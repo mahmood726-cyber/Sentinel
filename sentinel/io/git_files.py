@@ -45,6 +45,23 @@ class GitFileEnumerationError(RuntimeError):
     """
 
 
+def has_undecodable_name(rel: str) -> bool:
+    """True when `rel` came from Git bytes that are not valid UTF-8.
+
+    Git paths are decoded with errors="surrogateescape", so one such filename
+    cannot abort the scan of every other file in the repository (and, through
+    exit 10, every push). No rule can name that file in a verdict or a report,
+    so rule iterators skip it. It is NOT dropped: it stays in the population
+    denominator and `sentinel scan` reports it as not scanned.
+    """
+    return any("\udc80" <= ch <= "\udcff" for ch in rel)
+
+
+def printable_path(rel: str) -> str:
+    """An ASCII rendering of `rel` that is safe on any console or report."""
+    return rel.encode("utf-8", "surrogateescape").decode("ascii", "backslashreplace")
+
+
 # Exclude-dir sets consumed by plugins. Single source of truth — the
 # four plugins previously drifted to 5/10/10/13 separate sets.
 DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset({
@@ -140,6 +157,8 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
     active = _ACTIVE_PATH_FILTER
     if active is not None:
         for rel in active:
+            if has_undecodable_name(rel):
+                continue
             p = root / rel
             try:
                 if p.is_file():
@@ -159,6 +178,8 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
     if population is not None and _is_git_worktree(root):
         from sentinel.io.population import repo_files
         for rel in sorted(repo_files(root, population)):
+            if has_undecodable_name(rel):
+                continue
             p = root / rel
             try:
                 if p.is_file():
@@ -220,6 +241,8 @@ def iter_repo_files(
                 continue
             if not any(_fnmatch.fnmatch(Path(rel).name, pat) for pat in patterns):
                 continue
+            if has_undecodable_name(rel):
+                continue
             path = root / rel
             # Same contract as the tracked-only branch below: a candidate in
             # the promised scope that cannot be inspected is a scan failure,
@@ -246,7 +269,8 @@ def iter_repo_files(
         try:
             result = subprocess.run(
                 ["git", "-C", str(root), "ls-files", "-z", "--", *git_pathspecs],
-                capture_output=True, text=True, encoding="utf-8", timeout=30,
+                capture_output=True, text=True, encoding="utf-8",
+                errors="surrogateescape", timeout=30,
             )
         except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
             raise GitFileEnumerationError(
@@ -267,6 +291,8 @@ def iter_repo_files(
             if excludes and any(p in excludes for p in Path(rel).parts):
                 continue
             if active_filter is not None and rel.replace("\\", "/") not in active_filter:
+                continue
+            if has_undecodable_name(rel):
                 continue
             path = root / rel
             # A tracked candidate is part of the promised scan scope.
