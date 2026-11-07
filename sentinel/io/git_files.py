@@ -45,6 +45,20 @@ class GitFileEnumerationError(RuntimeError):
     """
 
 
+def _is_scannable_file(path: Path) -> bool:
+    """`path.is_file()` that lets an access failure reach the caller.
+
+    Path.is_file() answers False on OSError, so a candidate whose stat is
+    denied looks exactly like a deleted one and leaves the scan silently.
+    A genuinely missing path is still just False.
+    """
+    try:
+        path.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    return path.is_file()
+
+
 def has_undecodable_name(rel: str) -> bool:
     """True when `rel` came from Git bytes that are not valid UTF-8.
 
@@ -161,10 +175,12 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
                 continue
             p = root / rel
             try:
-                if p.is_file():
+                if _is_scannable_file(p):
                     yield p
-            except OSError:
-                continue
+            except OSError as exc:
+                raise GitFileEnumerationError(
+                    f"scan candidate could not be inspected ({type(exc).__name__})"
+                ) from None
         return
     # Without a declared population this walks the RAW FILESYSTEM. On F:/E156
     # that is 49,079 files against PRESENT's 4,246 -- 91.3% of it .git
@@ -182,10 +198,12 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
                 continue
             p = root / rel
             try:
-                if p.is_file():
+                if _is_scannable_file(p):
                     yield p
-            except OSError:
-                continue
+            except OSError as exc:
+                raise GitFileEnumerationError(
+                    f"scan candidate could not be inspected ({type(exc).__name__})"
+                ) from None
         return
     yield from root.rglob("*")
 
@@ -249,7 +267,7 @@ def iter_repo_files(
             # not a skip. Declaring a population must not re-open the
             # silent-miss path.
             try:
-                if path.is_file():
+                if _is_scannable_file(path):
                     yield path
             except OSError as exc:
                 raise GitFileEnumerationError(
@@ -301,7 +319,7 @@ def iter_repo_files(
             # contract instead. Excluded paths are filtered above, and
             # normal missing/deleted worktree files still return False.
             try:
-                if path.is_file():
+                if _is_scannable_file(path):
                     yield path
             except OSError as exc:
                 # Suppress the chained OS traceback: Windows/OneDrive

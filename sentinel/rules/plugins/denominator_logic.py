@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import path_allowed
+from sentinel.io.git_files import GitFileEnumerationError, path_allowed
 
 
 ID = "P0-denominator-logic"
@@ -240,8 +240,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # An enumerated candidate that cannot be read is an incomplete
+            # BLOCK scan, not a clean one. Abort with exit 10: warn-mode hooks
+            # can pass ordinary BLOCKs. No chaining: OS errors carry private
+            # paths.
+            raise GitFileEnumerationError(
+                f"denominator-logic candidate not inspected ({type(exc).__name__})"
+            ) from None
         rel = path.relative_to(root).as_posix()
         for v in _check_one_file(text, rel, now):
             verdicts.append(Verdict(
