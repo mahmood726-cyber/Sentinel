@@ -47,6 +47,13 @@ POPULATION = Population.PRESENT
 
 EXTENSION_PATTERNS = ("*.js", "*.mjs", "*.cjs")
 
+# A timeout aborts the scan even in warn mode, so it has to mean "node cannot
+# answer", not "this host is slow". `node --check` has been recorded taking
+# over 10s on Windows. One retry absorbs a transient stall; a second timeout
+# stays closed.
+NODE_TIMEOUT_SECONDS = 60
+NODE_ATTEMPTS = 2
+
 
 def check(ctx: RepoContext) -> List[Verdict]:
     # Determine availability once, but only fail if there is a real,
@@ -77,19 +84,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         if path_arg.startswith("-"):
             path_arg = f"./{path_arg}"
 
-        try:
-            result = subprocess.run(
-                ["node", "--check", path_arg],
-                capture_output=True, text=True, timeout=10,
-            )
-        except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
-            # Timeout, missing executable and undecodable parser output mean
-            # the candidate was never conclusively inspected. Never turn
-            # this into an ordinary, warn-downgradable BLOCK finding.
-            # Suppress the OS/process exception chain (private paths).
-            raise GitFileEnumerationError(
-                f"JavaScript parse candidate not inspected ({type(exc).__name__})"
-            ) from None
+        result = _node_check(path_arg)
 
         if result.returncode != 0:
             stderr = (result.stderr or "").replace(repo_prefix, "")
@@ -108,6 +103,29 @@ def check(ctx: RepoContext) -> List[Verdict]:
             ))
 
     return verdicts
+
+
+def _node_check(path_arg: str) -> subprocess.CompletedProcess:
+    for attempt in range(1, NODE_ATTEMPTS + 1):
+        try:
+            return subprocess.run(
+                ["node", "--check", path_arg],
+                capture_output=True, text=True, timeout=NODE_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            if attempt < NODE_ATTEMPTS:
+                continue
+            failure = exc
+        except (OSError, UnicodeError) as exc:
+            failure = exc
+        # Timeout, missing executable and undecodable parser output mean
+        # the candidate was never conclusively inspected. Never turn
+        # this into an ordinary, warn-downgradable BLOCK finding.
+        # Suppress the OS/process exception chain (private paths).
+        raise GitFileEnumerationError(
+            f"JavaScript parse candidate not inspected ({type(failure).__name__})"
+        ) from None
+    raise AssertionError("unreachable: every attempt returns or raises")
 
 
 def _iter_js_files(root: Path):

@@ -104,3 +104,85 @@ def test_node_runs_normally_and_does_not_block_valid_code(
         assert verdicts[0].file == "src/candidate.js"
     else:
         assert verdicts == []
+
+
+def _timeout():
+    return subprocess.TimeoutExpired(cmd="node --check", timeout=60)
+
+
+def _completed(returncode: int, stderr: str = ""):
+    return subprocess.CompletedProcess(
+        args=["node", "--check"], returncode=returncode, stdout="", stderr=stderr,
+    )
+
+
+def test_node_gets_a_timeout_a_slow_windows_host_can_meet(
+    tmp_path: Path, monkeypatch,
+):
+    """`node --check` has been recorded exceeding 10s on Windows. The timeout
+    is fatal even in warn mode, so a slow host must not read as a failure."""
+    _write(tmp_path, "src/candidate.js", GOOD_JS)
+    monkeypatch.setattr(shutil, "which", lambda executable: "/synthetic/node")
+    seen: list = []
+
+    def run(*args, **kwargs):
+        seen.append(kwargs.get("timeout"))
+        return _completed(0)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    assert _scan(tmp_path) == []
+    assert seen == [60]
+
+
+@pytest.mark.parametrize(
+    ("source", "returncode", "n_blocks"), [(BAD_JS, 1, 1), (GOOD_JS, 0, 0)],
+)
+def test_single_timeout_is_retried_and_uses_the_retry_verdict(
+    tmp_path: Path, monkeypatch, source: str, returncode: int, n_blocks: int,
+):
+    _write(tmp_path, "src/candidate.js", source)
+    monkeypatch.setattr(shutil, "which", lambda executable: "/synthetic/node")
+    calls = [_timeout(), _completed(returncode, "SyntaxError: synthetic")]
+
+    def run(*args, **kwargs):
+        step = calls.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+    monkeypatch.setattr(subprocess, "run", run)
+    assert len(_scan(tmp_path)) == n_blocks
+    assert calls == []
+
+
+def test_persistent_timeout_stays_closed_after_exactly_one_retry(
+    tmp_path: Path, monkeypatch,
+):
+    _write(tmp_path, "src/candidate.js", GOOD_JS)
+    monkeypatch.setattr(shutil, "which", lambda executable: "/synthetic/node")
+    attempts: list = []
+
+    def run(*args, **kwargs):
+        attempts.append(args)
+        raise _timeout()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(GitFileEnumerationError, match="TimeoutExpired"):
+        _scan(tmp_path)
+    assert len(attempts) == 2
+
+
+def test_missing_executable_is_not_retried(tmp_path: Path, monkeypatch):
+    """Only a timeout can be a slow host; a missing binary will not recover."""
+    _write(tmp_path, "src/candidate.js", GOOD_JS)
+    monkeypatch.setattr(shutil, "which", lambda executable: "/synthetic/node")
+    attempts: list = []
+
+    def run(*args, **kwargs):
+        attempts.append(args)
+        raise FileNotFoundError("synthetic")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(GitFileEnumerationError):
+        _scan(tmp_path)
+    assert len(attempts) == 1
