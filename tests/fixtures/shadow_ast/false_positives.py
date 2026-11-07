@@ -1,3 +1,4 @@
+# sentinel:skip-file -- planted controls; shadow_measure.py reads them with honor_skip=False
 """GROUND TRUTH: SAFE code that the regex rules FALSELY flag but the AST
 matchers correctly ignore. Every regex hit in this file is a FALSE POSITIVE;
 the AST matchers should produce ZERO findings here.

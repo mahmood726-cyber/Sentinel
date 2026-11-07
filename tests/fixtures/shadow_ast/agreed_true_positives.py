@@ -1,3 +1,4 @@
+# sentinel:skip-file -- planted controls; shadow_measure.py reads them with honor_skip=False
 """GROUND TRUTH: plain vulnerabilities that BOTH regex and AST catch (the
 common case). Confirms the AST matcher does not lose recall on the easy hits.
 """
