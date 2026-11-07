@@ -179,7 +179,7 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
                     yield p
             except OSError as exc:
                 raise GitFileEnumerationError(
-                    f"scan candidate could not be inspected ({type(exc).__name__})"
+                    f"tracked file could not be inspected ({type(exc).__name__})"
                 ) from None
         return
     # Without a declared population this walks the RAW FILESYSTEM. On F:/E156
@@ -202,7 +202,7 @@ def iter_tree_or_filter(root: Path, population=None) -> Iterator[Path]:
                     yield p
             except OSError as exc:
                 raise GitFileEnumerationError(
-                    f"scan candidate could not be inspected ({type(exc).__name__})"
+                    f"tracked file could not be inspected ({type(exc).__name__})"
                 ) from None
         return
     yield from root.rglob("*")
