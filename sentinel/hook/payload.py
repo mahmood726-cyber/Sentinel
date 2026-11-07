@@ -16,6 +16,8 @@ Bypass: `SENTINEL_BYPASS=1 git push` skips scanning entirely and logs to
 """
 from __future__ import annotations
 
+HOOK_GENERATION = 2
+
 SENTINEL_MARKER = "# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ==="
 
 
@@ -24,6 +26,7 @@ def make_hook_script(mode: str = "block") -> str:
         raise ValueError(f"mode must be 'warn' or 'block', got {mode!r}")
     return f"""#!/bin/sh
 {SENTINEL_MARKER}
+# Sentinel hook generation: {HOOK_GENERATION}
 MODE="${{SENTINEL_MODE:-{mode}}}"
 
 if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
@@ -68,35 +71,14 @@ if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   exit 0
 fi
 
-# Pre-push by default scans only the diff vs the remote's HEAD —
-# typical PRs touch <10 files so this drops a 2-minute full scan to
-# ~1s. Operators who want the old whole-tree behavior can set
-# SENTINEL_DIFF_BASE=full. Set SENTINEL_DIFF_BASE=<ref> to pick a
-# specific base (e.g. origin/main, origin/master, HEAD~5).
-#
-# Auto-detection tries origin/HEAD first (the GitHub default-branch
-# pointer), then origin/main, then origin/master, then HEAD~1.
-# If nothing resolves, fall back to full-tree scan rather than skipping
-# the scan entirely — "no diff base" should never silently bypass.
-REPO_TOPLEVEL="$(git rev-parse --show-toplevel)"
-DIFF_BASE="${{SENTINEL_DIFF_BASE:-}}"
-
-if [ "$DIFF_BASE" = "full" ]; then
-  SCAN_ARGS=""
-elif [ -n "$DIFF_BASE" ]; then
-  SCAN_ARGS="--diff --base-ref $DIFF_BASE"
-else
-  # Auto-detect base ref
-  for candidate in origin/HEAD origin/main origin/master HEAD~1; do
-    if git -C "$REPO_TOPLEVEL" rev-parse --verify --quiet "$candidate" >/dev/null 2>&1; then
-      SCAN_ARGS="--diff --base-ref $candidate"
-      break
-    fi
-  done
-  SCAN_ARGS="${{SCAN_ARGS:-}}"
-fi
-
-output="$(python -m sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS 2>&1)"
+# Preserve Git's ref records for both Sentinel and a chained user hook.
+# The trailing sentinel prevents command substitution stripping newlines.
+PUSH_INPUT="$(cat && printf '.')" || {{
+  echo "[Sentinel] INTERNAL ERROR: cannot read pre-push input. Push BLOCKED." >&2
+  exit 10
+}}
+PUSH_INPUT="${{PUSH_INPUT%.}}"
+output="$(printf '%s' "$PUSH_INPUT" | python -m sentinel.hook.push "$1" 2>&1)"
 rc=$?
 printf '%s\\n' "$output"
 
@@ -106,13 +88,13 @@ printf '%s\\n' "$output"
 # warn mode would silence. Require the verdicts marker as proof-of-run.
 if ! printf '%s' "$output" | grep -qE '(\\[Sentinel\\] verdicts:|"verdicts":)'; then
   echo "[Sentinel] scan did NOT produce verdicts — it CRASHED. Push BLOCKED for safety. Fix Sentinel or use SENTINEL_BYPASS=1." >&2
-  exit 1
+  exit 10
 fi
 
 # Sentinel internal error (try/except in scan CLI) — ALWAYS fail-closed.
 if [ $rc -ge 10 ]; then
   echo "[Sentinel] scan returned internal-error (exit $rc). Push BLOCKED — fix Sentinel or use SENTINEL_BYPASS=1." >&2
-  exit 1
+  exit $rc
 fi
 
 if [ "$MODE" = "warn" ] && [ "$rc" = "1" ]; then
@@ -127,7 +109,8 @@ fi
 
 hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
 if [ -x "$hook_backup" ]; then
-  exec "$hook_backup" "$@"
+  printf '%s' "$PUSH_INPUT" | "$hook_backup" "$@"
+  exit $?
 fi
 exit 0
 """
