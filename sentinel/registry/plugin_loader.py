@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, List, Sequence
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import GitFileEnumerationError
 
 
 REQUIRED_ATTRS = ("ID", "SEVERITY", "SOURCE", "check")
@@ -33,6 +34,11 @@ class PluginRule:
 
         try:
             result = self._check(ctx)
+        except GitFileEnumerationError:
+            # The plugin did not inspect its full file inventory. Treat this
+            # as a scanner crash (CLI exit 10), never a normal BLOCK finding:
+            # warn-mode hooks are allowed to proceed after ordinary BLOCKs.
+            raise
         except Exception as e:
             return [
                 Verdict(

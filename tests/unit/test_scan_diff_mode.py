@@ -272,3 +272,119 @@ def test_yaml_iter_matching_files_unfiltered_yields_all(repo):
         assert rels == ["a.py", "b.py", "c.py", "d.py"]
     finally:
         set_path_filter(None)
+
+
+# Regression (Role 06, 2026-11-05): a broken diff probe must not
+# masquerade as "no changed files" and permit a push with a BLOCK finding.
+
+def test_collect_changed_files_invalid_base_is_not_clean(repo):
+    """Invalid comparison refs must not be conflated with an empty diff."""
+    from sentinel.cli.scan import _collect_changed_files
+    assert _collect_changed_files(repo, "sentinel-ref-does-not-exist") is None
+
+
+def test_diff_invalid_base_scans_committed_synthetic_secret(repo, capsys):
+    """A committed BLOCK finding survives an invalid --base-ref; no bypass."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    (repo / "config.py").write_text(
+        'SERVICE_KEY = "AKIA' + "Z" * 16 + '"\n', encoding="utf-8",
+    )
+    subprocess.run(["git", "-C", str(repo), "add", "config.py"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "synthetic secret fixture"],
+        check=True, capture_output=True,
+    )
+
+    rc = _run(Namespace(
+        repo=repo, project_index=repo, diff=True,
+        base_ref="sentinel-ref-does-not-exist",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 1, "invalid diff base must never turn a BLOCK into clean"
+    assert "falling back to full scan" in output.out
+    assert "P1-leaked-secret" in output.out
+
+
+def test_diff_valid_clean_base_still_allows_clean_push(repo, capsys):
+    """Valid empty diffs remain a zero-findings fast pass, not a false BLOCK."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    rc = _run(Namespace(
+        repo=repo, project_index=repo, diff=True, base_ref="HEAD",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 0
+    assert "nothing to scan" in output.out
+    assert "[Sentinel] verdicts: BLOCK=0" in output.out
+
+
+
+# Regression (Role 06, 2026-11-05): plain git --name-only quotes
+# non-ASCII names, and .strip() corrupts legitimate leading spaces.
+# Diff pathsets must use NUL-delimited Git output without changing names.
+
+def test_collect_changed_files_preserves_git_path_bytes(repo):
+    """A leading-space, non-ASCII tracked filename must match the real path."""
+    from sentinel.cli.scan import _collect_changed_files
+
+    name = " café name.py"
+    (repo / name).write_text("VALUE = 42\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "--", name], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "unicode path control"],
+        check=True, capture_output=True,
+    )
+
+    assert _collect_changed_files(repo, "HEAD~1") == {name}
+
+
+def test_diff_unicode_filename_cannot_hide_block(repo, capsys):
+    """Diff scanning a committed synthetic credential must fail the push."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    name = " café name.py"
+    (repo / name).write_text(
+        'ACCESS_ID = "AKIA' + "Z" * 16 + '"\n', encoding="utf-8",
+    )
+    subprocess.run(["git", "-C", str(repo), "add", "--", name], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "synthetic leak regression"],
+        check=True, capture_output=True,
+    )
+
+    rc = _run(Namespace(
+        repo=repo, project_index=repo, diff=True, base_ref="HEAD~1",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 1, "a Unicode/space filename must not hide a BLOCK"
+    assert "P1-leaked-secret" in output.out
+    assert name in output.out
+
+
+def test_diff_unicode_filename_valid_code_control(repo, capsys):
+    """The same tricky filename with valid code must not block pushes."""
+    from argparse import Namespace
+    from sentinel.cli.scan import _run
+
+    name = " café name.py"
+    (repo / name).write_text("VALUE = 42\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "--", name], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "valid unicode name control"],
+        check=True, capture_output=True,
+    )
+
+    rc = _run(Namespace(
+        repo=repo, project_index=repo, diff=True, base_ref="HEAD~1",
+        json=False, sarif=False, timing=False,
+    ))
+    output = capsys.readouterr()
+    assert rc == 0
+    assert "[Sentinel] verdicts: BLOCK=0" in output.out

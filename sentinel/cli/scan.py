@@ -19,19 +19,25 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import List
 
 import subprocess
 
 from sentinel.core import RepoContext, ScanMode, Severity, Verdict
 from sentinel.io import write_findings
-from sentinel.io.git_files import set_path_filter
+from sentinel.io.git_files import (
+    has_undecodable_name,
+    printable_path,
+    set_path_filter,
+)
 from sentinel.io.paths import SARIF_OUT
 from sentinel.io.sarif import verdicts_to_sarif
 from sentinel.registry.registry import Registry
 
 RULES_ROOT = Path(__file__).parent.parent / "rules"
 EXIT_INTERNAL_ERROR = 10
+NOT_SCANNED_RULE_ID = "SENTINEL-not-scanned"
 SARIF_FILENAME = SARIF_OUT
 _PROJECT_INDEX_RELATIVE_CANDIDATES = (
     ("Projects", "projectindex-audit"),
@@ -135,10 +141,13 @@ def _run_inner(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        if not (args.repo / ".git").is_dir():
+        # Linked Git worktrees and submodules store a .git *file* that
+        # points to their actual Git directory. File discovery already
+        # recognizes this shape; the CLI must not reject it before scanning.
+        if not (args.repo / ".git").exists():
             print(
                 f"[Sentinel] error: --repo is not a git repository "
-                f"(no .git/ dir): {args.repo}",
+                f"(no .git directory or worktree marker): {args.repo}",
                 file=sys.stderr,
             )
             return 2
@@ -164,7 +173,15 @@ def _run_inner(args: argparse.Namespace) -> int:
     diff_filter_set = None
     if getattr(args, "diff", False) and args.repo:
         diff_filter_set = _collect_changed_files(args.repo, args.base_ref)
-        if not diff_filter_set:
+        if diff_filter_set is None:
+            # An invalid base, failed git subprocess or timeout must not
+            # masquerade as a clean diff. A partial changed-file set can
+            # miss committed BLOCK findings, so scan the whole repository.
+            print(
+                "[Sentinel] --diff: git change probe failed; "
+                "falling back to full scan",
+            )
+        elif not diff_filter_set:
             print(
                 f"[Sentinel] --diff: no changed files vs {args.base_ref} "
                 "(plus staged/unstaged/untracked) — nothing to scan",
@@ -175,11 +192,12 @@ def _run_inner(args: argparse.Namespace) -> int:
             # legitimate 0-findings pass, not a Sentinel crash.
             _print_summary([])
             return 0
-        print(
-            f"[Sentinel] --diff: scanning {len(diff_filter_set)} changed "
-            f"file(s) vs {args.base_ref}",
-        )
-        set_path_filter(frozenset(diff_filter_set))
+        else:
+            print(
+                f"[Sentinel] --diff: scanning {len(diff_filter_set)} changed "
+                f"file(s) vs {args.base_ref}",
+            )
+            set_path_filter(frozenset(diff_filter_set))
 
     reg = Registry.from_dir(RULES_ROOT)
 
@@ -197,6 +215,11 @@ def _run_inner(args: argparse.Namespace) -> int:
         if diff_filter_set is not None:
             set_path_filter(None)
 
+    # A file no rule could read is reported, never dropped: --json prints no
+    # scope line, so it has to travel as a verdict as well.
+    not_scanned = _not_scanned_paths(ctx, diff_filter_set)
+    verdicts.extend(_not_scanned_verdicts(ctx, not_scanned))
+
     write_findings(write_root, verdicts)
 
     if args.sarif:
@@ -207,7 +230,9 @@ def _run_inner(args: argparse.Namespace) -> int:
         )
 
     if not args.json:
-        _print_scope(ctx, diff_filter_set, getattr(args, 'base_ref', None))
+        _print_scope(
+            ctx, diff_filter_set, getattr(args, 'base_ref', None), not_scanned,
+        )
         _print_coverage(ctx)
 
     if args.json:
@@ -273,7 +298,37 @@ def _rule_population_census(rules_root: Path) -> dict:
     return counts
 
 
-def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
+def _not_scanned_paths(ctx: "RepoContext", diff_filter) -> List[str]:
+    """Files in this scan's scope that no rule could read.
+
+    Measured from the population rather than collected from the rules, so a
+    rule whose patterns happen not to match still leaves the file counted.
+    """
+    from sentinel.io.population import repo_files, Population
+    present = repo_files(ctx.repo_root, Population.PRESENT) or frozenset()
+    in_scope = present if diff_filter is None else present & diff_filter
+    return sorted(rel for rel in in_scope if has_undecodable_name(rel))
+
+
+def _not_scanned_verdicts(ctx: "RepoContext", rels: List[str]) -> List[Verdict]:
+    now = datetime.now(timezone.utc)
+    return [
+        Verdict(
+            rule_id=NOT_SCANNED_RULE_ID,
+            severity=Severity.WARN,
+            repo=str(ctx.repo_root),
+            file=printable_path(rel),
+            line=None,
+            detail="file name is not valid UTF-8; no rule read this file",
+            fix_hint="rename the file to a UTF-8 name so that it can be scanned",
+            source="sentinel/cli/scan.py",
+            timestamp=now,
+        )
+        for rel in rels
+    ]
+
+
+def _print_scope(ctx: "RepoContext", diff_filter, base_ref, not_scanned=()) -> None:
     """State the SCAN SCOPE before any count, because a count over a subset is
     not a count over the repo.
 
@@ -283,6 +338,8 @@ def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
     the same tree scanned whole reports 76 BLOCK / 3,732 WARN. The WARN tier
     was under-reported by nearly half, and nothing in the output said the
     number described a seventh of the repo.
+
+    `not_scanned` stays in the denominator and leaves the numerator.
     """
     try:
         from sentinel.io.population import repo_files, Population
@@ -290,20 +347,28 @@ def _print_scope(ctx: "RepoContext", diff_filter, base_ref) -> None:
         total = len(present) if present is not None else None
     except Exception:  # noqa: BLE001
         total = None
+    skipped = len(not_scanned)
     if diff_filter is None:
         if total:
-            print(f"[Sentinel] scope: FULL TREE - {total} of {total} files (100%)")
+            scanned = total - skipped
+            share = f"{100.0 * scanned / total:.1f}%" if skipped else "100%"
+            print(f"[Sentinel] scope: FULL TREE - {scanned} of {total} files ({share})")
         else:
             print("[Sentinel] scope: FULL TREE")
-        return
-    n = len(diff_filter)
-    if total:
-        pct = 100.0 * n / total
-        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} of {total} files "
-              f"({pct:.1f}%) - counts below are for this subset, NOT the repo")
     else:
-        print(f"[Sentinel] scope: --diff vs {base_ref} - {n} files - counts "
-              f"below are for this subset, NOT the repo")
+        n = len(diff_filter) - skipped
+        if total:
+            pct = 100.0 * n / total
+            print(f"[Sentinel] scope: --diff vs {base_ref} - {n} of {total} files "
+                  f"({pct:.1f}%) - counts below are for this subset, NOT the repo")
+        else:
+            print(f"[Sentinel] scope: --diff vs {base_ref} - {n} files - counts "
+                  f"below are for this subset, NOT the repo")
+    if skipped:
+        shown = ", ".join(printable_path(rel) for rel in not_scanned[:10])
+        more = f" and {skipped - 10} more" if skipped > 10 else ""
+        print(f"[Sentinel] NOT SCANNED: {skipped} file(s) with a non-UTF-8 name, "
+              f"read by no rule: {shown}{more}")
 
 
 def _print_coverage(ctx: "RepoContext") -> None:
@@ -342,37 +407,41 @@ def _print_coverage(ctx: "RepoContext") -> None:
     )
 
 
-def _collect_changed_files(repo: Path, base_ref: str) -> set[str]:
-    """Return the set of changed files (forward-slash relative paths) under
-    `repo`, combining:
-      - committed changes between `base_ref` and HEAD
-      - staged changes (`git diff --cached`)
-      - unstaged changes (`git diff`)
-      - untracked-but-not-ignored files (`git ls-files --others
-        --exclude-standard`)
+def _collect_changed_files(repo: Path, base_ref: str) -> set[str] | None:
+    """Collect changed paths, or None when a git probe cannot be trusted.
 
-    Any individual command failing (e.g. base_ref doesn't exist) is
-    skipped — other sources still contribute. Returns empty set on
-    full failure rather than raising.
+    Combine committed changes vs base_ref, unstaged, staged and untracked
+    files. A failed command (including an invalid base ref) makes the
+    result incomplete: return None to force a full scan, never an empty
+    or partial set that could silently drop a committed BLOCK finding.
     """
     out: set[str] = set()
+    # -z is required: without it Git C-quotes Unicode/tab/newline paths,
+    # and splitlines()/strip() silently change legitimate filenames. Exact
+    # path identity is required for --diff filtering to preserve BLOCKs.
     cmds: list[list[str]] = [
-        ["git", "-C", str(repo), "diff", "--name-only", f"{base_ref}...HEAD"],
-        ["git", "-C", str(repo), "diff", "--name-only"],
-        ["git", "-C", str(repo), "diff", "--name-only", "--cached"],
-        ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z", f"{base_ref}...HEAD"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z"],
+        ["git", "-C", str(repo), "diff", "--name-only", "-z", "--cached"],
+        ["git", "-C", str(repo), "ls-files", "-z", "--others", "--exclude-standard"],
     ]
     for cmd in cmds:
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
+            # Git -z emits UTF-8 path bytes; Windows' locale codec can
+            # otherwise decode names differently from the filesystem.
+            # surrogateescape keeps a non-UTF-8 name in the set; it must not
+            # crash the probe, because that blocks every push of the repo.
+            r = subprocess.run(
+                cmd, capture_output=True, text=True, encoding="utf-8",
+                errors="surrogateescape", timeout=15,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
         if r.returncode != 0:
-            continue
-        for line in r.stdout.splitlines():
-            line = line.strip().replace("\\", "/")
-            if line:
-                out.add(line)
+            return None
+        for rel in r.stdout.split("\x00"):
+            if rel:
+                out.add(rel)
     return out
 
 

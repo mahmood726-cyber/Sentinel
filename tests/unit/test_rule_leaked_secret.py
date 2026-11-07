@@ -7,6 +7,11 @@ historical false positives don't break existing pushes.
 from __future__ import annotations
 
 from pathlib import Path
+import traceback
+
+import pytest
+
+from sentinel.io.git_files import GitFileEnumerationError
 
 from sentinel.core import RepoContext, ScanMode, Severity
 from sentinel.registry.plugin_loader import load_plugin_rule
@@ -206,3 +211,37 @@ def test_preview_redacts_middle(tmp_path: Path):
     assert "..." in verdicts[0].detail
     # Original key should NOT appear verbatim in detail
     assert "AKIA" + "Z" * 16 not in verdicts[0].detail
+
+
+def test_inaccessible_tracked_secret_candidate_fails_closed(tmp_path: Path, monkeypatch):
+    """A successful inventory must not hide a failed credential-file read."""
+    candidate = tmp_path / "deploy.py"
+    candidate.write_text('K = "AKIA' + "Z" * 16 + '"', encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def deny_candidate_read(self, *args, **kwargs):
+        if self == candidate:
+            raise PermissionError("PRIVATE_TEST_PATH_SHOULD_NOT_LEAK")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", deny_candidate_read)
+    with pytest.raises(GitFileEnumerationError) as exc:
+        _rule().check(_ctx(tmp_path))
+    assert "PRIVATE_TEST_PATH_SHOULD_NOT_LEAK" not in str(exc.value)
+    assert "PRIVATE_TEST_PATH_SHOULD_NOT_LEAK" not in "".join(traceback.format_exception(exc.value))
+
+
+def test_excluded_unreadable_secret_fixture_does_not_block(tmp_path: Path, monkeypatch):
+    """Excluded documentation must not turn a normal clean scan into a failure."""
+    excluded = tmp_path / "docs" / "sample.py"
+    excluded.parent.mkdir()
+    excluded.write_text('K = "AKIA' + "Z" * 16 + '"', encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def deny_excluded_read(self, *args, **kwargs):
+        if self == excluded:
+            raise PermissionError("excluded file is deliberately unreadable")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", deny_excluded_read)
+    assert _rule().check(_ctx(tmp_path)) == []
