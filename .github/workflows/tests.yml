@@ -40,6 +40,9 @@ jobs:
       - name: List rules (smoke test)
         run: python -m sentinel list-rules
 
+      - name: Verify rule content manifest
+        run: python -m sentinel verify-rules
+
       - name: Run test suite
         run: python -m pytest --tb=short
 
