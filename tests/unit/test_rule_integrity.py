@@ -66,6 +66,30 @@ def test_compute_manifest_changes_on_content_edit(tmp_path: Path):
     assert m1["yaml/rule.yaml"] != m2["yaml/rule.yaml"]
 
 
+@pytest.mark.parametrize("checkout", [b"a: 1\nb: 2\n", b"a: 1\r\nb: 2\r\n", b"a: 1\r\nb: 2\n"])
+def test_compute_manifest_ignores_line_endings(tmp_path: Path, checkout: bytes):
+    # A blob with mixed endings checks out as different bytes under
+    # core.autocrlf=true, so a raw-byte hash reported drift on a clean
+    # Windows checkout (F:\Sentinel, 2026-11-08). Same text, same hash.
+    reference = tmp_path / "ref"
+    (reference / "yaml").mkdir(parents=True)
+    (reference / "yaml" / "r.yaml").write_bytes(b"a: 1\nb: 2\n")
+    other = tmp_path / "other"
+    (other / "yaml").mkdir(parents=True)
+    (other / "yaml" / "r.yaml").write_bytes(checkout)
+    assert compute_manifest(other) == compute_manifest(reference)
+
+
+def test_compute_manifest_still_sees_edits_after_normalising(tmp_path: Path):
+    a = tmp_path / "a"
+    (a / "yaml").mkdir(parents=True)
+    (a / "yaml" / "r.yaml").write_bytes(b"a: 1\r\nb: 2\r\n")
+    b = tmp_path / "b"
+    (b / "yaml").mkdir(parents=True)
+    (b / "yaml" / "r.yaml").write_bytes(b"a: 1\r\nb: 3\r\n")
+    assert compute_manifest(a) != compute_manifest(b)
+
+
 def test_compute_manifest_empty_rules_root(tmp_path: Path):
     """No yaml/ or plugins/ dir under rules_root → empty manifest, no crash."""
     rules = tmp_path / "rules"
