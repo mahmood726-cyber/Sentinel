@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import GitFileEnumerationError
 from sentinel.rules.plugins.citation_cascade import (
     DOI_PREFIX_RE,
     VALID_DOI_RE,
@@ -59,7 +60,13 @@ def _load_unresolved(cache_path: Path) -> dict:
         return {}
     try:
         data = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError as exc:
+        # An unreadable cache is not an empty one: returning {} here switches
+        # the whole rule off and the scan reports clean.
+        raise GitFileEnumerationError(
+            f"DOI cache not inspected ({type(exc).__name__})"
+        ) from None
+    except json.JSONDecodeError:
         return {}
     if not isinstance(data, dict):
         return {}
@@ -83,8 +90,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # An enumerated candidate that cannot be read is an incomplete
+            # BLOCK scan, not a clean one. Abort with exit 10: warn-mode hooks
+            # can pass ordinary BLOCKs. No chaining: OS errors carry private
+            # paths.
+            raise GitFileEnumerationError(
+                f"citation-resolution candidate not inspected ({type(exc).__name__})"
+            ) from None
         if SKIP_MARKER in text:
             continue
         rel = path.relative_to(root).as_posix()

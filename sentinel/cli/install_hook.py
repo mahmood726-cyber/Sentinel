@@ -30,11 +30,16 @@ def _run_install(args: argparse.Namespace) -> int:
     except HookInstallError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    print(f"[Sentinel] hook installed at {args.repo}/.git/hooks/pre-push (mode={args.mode})")
+    # For linked worktrees the Git hook path is shared with the primary repo.
+    print(f"[Sentinel] hook installed for {args.repo} (mode={args.mode})")
     return 0
 
 
 def _run_uninstall(args: argparse.Namespace) -> int:
-    uninstall_hook(args.repo)
+    try:
+        uninstall_hook(args.repo)
+    except HookInstallError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
     print(f"[Sentinel] hook uninstalled from {args.repo}")
     return 0

@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
+from sentinel.io.git_files import GitFileEnumerationError
 
 
 ID = "P0-e156-placeholder-leak"
@@ -196,14 +197,27 @@ def check(ctx: RepoContext) -> List[Verdict]:
         ("rewrite-workbook.txt", _check_workbook),
     ]:
         path = repo_root / name
-        if not path.is_file():
+        try:
+            exists = path.is_file()
+        except OSError as exc:
+            # These root-level artifacts are part of the promised scan
+            # scope. An uninspectable candidate is not a clean repo.
+            raise GitFileEnumerationError(
+                f"e156 placeholder candidate status failed ({type(exc).__name__})"
+            ) from None
+        if not exists:
             continue
         try:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # Keep the internal-error exit contract (10), not an ordinary
+            # BLOCK that warn-mode hooks can proceed past. Do not chain
+            # private absolute-path diagnostics into public tracebacks.
+            raise GitFileEnumerationError(
+                f"e156 placeholder candidate read failed ({type(exc).__name__})"
+            ) from None
         for v in checker(text, name, now):
             verdicts.append(Verdict(
                 rule_id=v.rule_id,

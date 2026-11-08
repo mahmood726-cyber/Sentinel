@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import JS_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, JS_EXCLUDE_DIRS, iter_repo_files
 from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker
 
@@ -47,10 +47,18 @@ POPULATION = Population.PRESENT
 
 EXTENSION_PATTERNS = ("*.js", "*.mjs", "*.cjs")
 
+# A timeout aborts the scan even in warn mode, so it has to mean "node cannot
+# answer", not "this host is slow". `node --check` has been recorded taking
+# over 10s on Windows. One retry absorbs a transient stall; a second timeout
+# stays closed.
+NODE_TIMEOUT_SECONDS = 60
+NODE_ATTEMPTS = 2
+
 
 def check(ctx: RepoContext) -> List[Verdict]:
-    if shutil.which("node") is None:
-        return []
+    # Determine availability once, but only fail if there is a real,
+    # non-excluded JS candidate to inspect. Pure Python repos remain clean.
+    node_available = shutil.which("node") is not None
 
     now = datetime.now(timezone.utc)
     verdicts: List[Verdict] = []
@@ -60,6 +68,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
         rel = path.relative_to(ctx.repo_root).as_posix()
         if has_skip_marker(path):
             continue
+        if not node_available:
+            # Returning [] here used to report a clean push despite an
+            # uninspected JS BLOCK candidate. Warn-mode hooks may permit
+            # ordinary BLOCK verdicts, so use the fatal scanner contract.
+            raise GitFileEnumerationError(
+                "JavaScript parse scan cannot run (node unavailable)"
+            )
         # Defense-in-depth: make sure the path can't be interpreted as
         # an option by node. iter_repo_files yields absolute paths
         # already, which on every supported platform start with "/" or
@@ -69,28 +84,7 @@ def check(ctx: RepoContext) -> List[Verdict]:
         if path_arg.startswith("-"):
             path_arg = f"./{path_arg}"
 
-        try:
-            result = subprocess.run(
-                ["node", "--check", path_arg],
-                capture_output=True, text=True, timeout=10,
-            )
-        except subprocess.TimeoutExpired:
-            verdicts.append(Verdict(
-                rule_id=ID,
-                severity=SEVERITY,
-                repo=repo_prefix,
-                file=rel,
-                line=None,
-                detail="node --check exceeded 10s",
-                fix_hint=(
-                    f"parsing {rel} exceeded 10s — check for a pathological "
-                    f"regex or huge literal; reproduce with "
-                    f"`node --check {rel}` locally"
-                ),
-                source=SOURCE,
-                timestamp=now,
-            ))
-            continue
+        result = _node_check(path_arg)
 
         if result.returncode != 0:
             stderr = (result.stderr or "").replace(repo_prefix, "")
@@ -109,6 +103,29 @@ def check(ctx: RepoContext) -> List[Verdict]:
             ))
 
     return verdicts
+
+
+def _node_check(path_arg: str) -> subprocess.CompletedProcess:
+    for attempt in range(1, NODE_ATTEMPTS + 1):
+        try:
+            return subprocess.run(
+                ["node", "--check", path_arg],
+                capture_output=True, text=True, timeout=NODE_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            if attempt < NODE_ATTEMPTS:
+                continue
+            failure = exc
+        except (OSError, UnicodeError) as exc:
+            failure = exc
+        # Timeout, missing executable and undecodable parser output mean
+        # the candidate was never conclusively inspected. Never turn
+        # this into an ordinary, warn-downgradable BLOCK finding.
+        # Suppress the OS/process exception chain (private paths).
+        raise GitFileEnumerationError(
+            f"JavaScript parse candidate not inspected ({type(failure).__name__})"
+        ) from None
+    raise AssertionError("unreachable: every attempt returns or raises")
 
 
 def _iter_js_files(root: Path):

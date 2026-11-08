@@ -50,6 +50,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from sentinel.io.git_files import GitFileEnumerationError
+
 
 class Population(str, Enum):
     """Which file set a rule reads. See module docstring."""
@@ -77,9 +79,12 @@ def repo_files(root: Path, population: Population = Population.PRESENT
     """Forward-slash relative paths in `population`, or None when `root` is not
     a git worktree (callers fall back to a bounded rglob).
 
-    Fails CLOSED on any git failure inside a worktree -- returns an empty set,
-    never a tree walk. An rglob fallback inside a broken worktree re-opens the
-    home-directory DoS that git_files.py exists to close (2026-04-19).
+    Fails CLOSED on any git failure inside a worktree: raises
+    GitFileEnumerationError, the scanner's exit-10 contract, never a tree walk.
+    An rglob fallback inside a broken worktree re-opens the home-directory DoS
+    that git_files.py exists to close (2026-04-19), and an empty set is not
+    fail-closed either: every rule that declares a population would then see
+    no files and the scan would report clean.
     """
     if not is_git_worktree(root):
         return None
@@ -89,14 +94,18 @@ def repo_files(root: Path, population: Population = Population.PRESENT
              "ls-files", "-z", *_ARGS[population]],
             capture_output=True, timeout=_TIMEOUT,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return frozenset()
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate files ({type(exc).__name__})"
+        ) from None
     if res.returncode != 0:
-        return frozenset()
-    try:
-        out = res.stdout.decode("utf-8")
-    except UnicodeDecodeError:
-        return frozenset()
+        # Never expose stderr: Git diagnostics may contain private paths.
+        raise GitFileEnumerationError(
+            f"git ls-files could not enumerate files (exit {res.returncode})"
+        )
+    # surrogateescape: a non-UTF-8 name stays in the denominator. See
+    # git_files.has_undecodable_name for what happens to it after that.
+    out = res.stdout.decode("utf-8", errors="surrogateescape")
     return frozenset(e.replace("\\", "/") for e in out.split("\0") if e)
 
 
