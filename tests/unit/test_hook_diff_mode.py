@@ -1,65 +1,65 @@
-"""Tests for the pre-push hook payload's --diff-by-default behavior.
-
-The hook script (sentinel/hook/payload.py) was updated to invoke
-`sentinel scan --diff --base-ref <auto>` by default instead of a full-
-tree scan. This cuts pre-push from ~2 minutes on a 3000-file repo to
-~1 second on a typical small-PR push. Operator can force the old
-full-tree behavior via `SENTINEL_DIFF_BASE=full`.
-
-These tests verify the SHELL-SCRIPT-FRAGMENT shape only — actually
-exercising the hook end-to-end requires a real git repo with hooks
-enabled, which test_hook_installer covers separately.
-"""
+"""Diff coverage contracts for the stdin-driven pre-push scanner."""
 from __future__ import annotations
 
 import pytest
 
 from sentinel.hook.payload import make_hook_script
+from tests.unit.test_hook_pushed_refs import commit, push, push_repo, seed_remote
 
 
-def test_hook_uses_diff_mode_by_default():
-    """Without SENTINEL_DIFF_BASE set, the hook auto-detects a base ref
-    from origin/HEAD → origin/main → origin/master → HEAD~1."""
+def test_hook_uses_diff_mode_by_default(push_repo):
+    """Scan the pushed range, leaving unchanged baseline defects out."""
+    repo, _ = push_repo
+    commit(repo, "baseline.py", bad=True)
+    seed_remote(repo, "main")
+    commit(repo, "changed.py")
+    output = push(repo, "main")
+    assert "(1 files)" in output
+
+
+def test_hook_honors_explicit_diff_base_env(push_repo, monkeypatch):
+    """An explicit base expands coverage without hiding the pushed range."""
+    repo, _ = push_repo
+    base = commit(repo, "clean.py")
+    commit(repo, "baseline.py", bad=True)
+    seed_remote(repo, "main")
+    commit(repo, "tip.py")
+    monkeypatch.setenv("SENTINEL_DIFF_BASE", base)
+    push(repo, "main", blocked=True)
+    commit(repo, "pushed.py", bad=True)
+    monkeypatch.setenv("SENTINEL_DIFF_BASE", "HEAD")
+    output = push(repo, "main", blocked=True)
+    assert "pushed.py" in output
+
+
+def test_hook_supports_full_scan_opt_out(push_repo, monkeypatch):
+    """Full mode includes unchanged files in the pushed snapshot."""
+    repo, _ = push_repo
+    commit(repo, "baseline.py", bad=True)
+    seed_remote(repo, "main")
+    commit(repo, "tip.py")
+    monkeypatch.setenv("SENTINEL_DIFF_BASE", "full")
+    push(repo, "main", blocked=True)
+
+
+def test_hook_scan_invocation_uses_scan_args(push_repo, monkeypatch):
+    """The helper receives stdin and safely handles an empty override."""
     script = make_hook_script("block")
-    # The auto-detect loop checks these refs in order.
-    assert "for candidate in origin/HEAD origin/main origin/master HEAD~1" in script
-    # When auto-detect succeeds, the scan is invoked with --diff --base-ref.
-    assert 'SCAN_ARGS="--diff --base-ref $candidate"' in script
+    assert '| python -P -m sentinel.hook.push "$1"' in script
+    assert "printf '%s' \"$PUSH_INPUT\"" in script
+    repo, _ = push_repo
+    commit(repo, "bad.py", bad=True)
+    monkeypatch.setenv("SENTINEL_DIFF_BASE", "")
+    push(repo, "main", blocked=True)
 
 
-def test_hook_honors_explicit_diff_base_env():
-    """Setting SENTINEL_DIFF_BASE=<ref> overrides auto-detection."""
-    script = make_hook_script("block")
-    assert 'DIFF_BASE="${SENTINEL_DIFF_BASE:-}"' in script
-    # The 'elif -n DIFF_BASE' branch uses the explicit value.
-    assert 'SCAN_ARGS="--diff --base-ref $DIFF_BASE"' in script
-
-
-def test_hook_supports_full_scan_opt_out():
-    """SENTINEL_DIFF_BASE=full reverts to whole-tree scan (V1 behavior)."""
-    script = make_hook_script("block")
-    assert 'if [ "$DIFF_BASE" = "full" ]; then' in script
-    # When full mode: SCAN_ARGS is empty (no --diff/--base-ref flags).
-    assert '  SCAN_ARGS=""' in script
-
-
-def test_hook_scan_invocation_uses_scan_args():
-    """The python invocation must pass $SCAN_ARGS unquoted so empty-string
-    expansion in full mode doesn't pass a literal '' to sentinel scan."""
-    script = make_hook_script("block")
-    # Unquoted $SCAN_ARGS lets shell word-splitting expand to either
-    # "--diff --base-ref X" (3 args) or "" (0 args).
-    assert 'sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS' in script
-
-
-def test_hook_falls_back_to_full_scan_when_no_base_resolves():
-    """If none of the candidate base refs exist (e.g. fresh local-only
-    repo), SCAN_ARGS defaults to empty via parameter expansion → full scan.
-    'No diff base' must never silently bypass the scan."""
-    script = make_hook_script("block")
-    # The post-loop default: SCAN_ARGS="${SCAN_ARGS:-}" ensures the
-    # variable is defined and empty if the loop didn't break.
-    assert 'SCAN_ARGS="${SCAN_ARGS:-}"' in script
+def test_hook_falls_back_to_full_scan_when_no_base_resolves(push_repo):
+    """An empty remote triggers full coverage, including non-tip files."""
+    repo, _ = push_repo
+    commit(repo, "baseline.py", bad=True)
+    commit(repo, "tip.py")
+    output = push(repo, "main", blocked=True)
+    assert "FULL TREE" in output
 
 
 def test_hook_marker_still_present():

@@ -1,0 +1,5 @@
+[Sentinel] scope: FULL TREE - 372 of 372 files (100%)
+[Sentinel] population: PUBLISHED(tracked)=357  PRESENT(+untracked-not-ignored)=372  present-only=15
+[Sentinel] rules read: PUBLISHED=5 PRESENT=26 DISK=0 no-walk=26 hybrid=0 (+7 yaml)
+[Sentinel] population declared by 31 of 64 rules; 0 still inferred from their discovery call
+[Sentinel] verdicts: BLOCK=0 WARN=0 INFO=0

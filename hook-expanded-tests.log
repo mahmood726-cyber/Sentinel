@@ -1,0 +1,181 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Projects\_int\codex\s2
+configfile: pyproject.toml
+plugins: anyio-4.13.0, hypothesis-6.155.6, base-url-2.1.0, playwright-0.8.0, timeout-2.4.0
+timeout: 900.0s
+timeout method: thread
+timeout func_only: False
+collected 192 items
+
+tests\unit\test_hook_atomic_write.py ....                                [  2%]
+tests\unit\test_hook_backup_atomic_failure.py ..                         [  3%]
+tests\unit\test_hook_backup_chmod_failure.py ..                          [  4%]
+tests\unit\test_hook_configured_path.py ....                             [  6%]
+tests\unit\test_hook_conflicting_backup.py ....                          [  8%]
+tests\unit\test_hook_deployed_generations.py ........................... [ 22%]
+........................................................................ [ 59%]
+............                                                             [ 66%]
+tests\unit\test_hook_diff_mode.py ........                               [ 70%]
+tests\unit\test_hook_execute_mode_preservation.py ssss                   [ 72%]
+tests\unit\test_hook_installer.py FFFF.FFFFF                             [ 77%]
+tests\unit\test_hook_linked_worktree.py ...                              [ 79%]
+tests\unit\test_hook_marker_authenticity.py ......                       [ 82%]
+tests\unit\test_hook_module_shadow.py ..                                 [ 83%]
+tests\unit\test_hook_pushed_refs.py ..............F......                [ 94%]
+tests\unit\test_hook_real_push.py .                                      [ 94%]
+tests\unit\test_hook_symlink_safety.py sssss.....                        [100%]
+
+================================== FAILURES ===================================
+__________________ test_install_hook_creates_sentinel_marker __________________
+tests\unit\test_hook_installer.py:21: in test_install_hook_creates_sentinel_marker
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-zvkz7v5v'
+________________________ test_install_hook_idempotent _________________________
+tests\unit\test_hook_installer.py:29: in test_install_hook_idempotent
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-4z6ggtdn'
+___________________ test_install_hook_chains_existing_hook ____________________
+tests\unit\test_hook_installer.py:41: in test_install_hook_chains_existing_hook
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-htuns0v5'
+__________ test_install_hook_double_install_preserves_single_backup ___________
+tests\unit\test_hook_installer.py:54: in test_install_hook_double_install_preserves_single_backup
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-nlfhyjct'
+_______________________ test_uninstall_restores_backup ________________________
+tests\unit\test_hook_installer.py:72: in test_uninstall_restores_backup
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-r5wuvgvh'
+_________________ test_uninstall_removes_hook_when_no_backup __________________
+tests\unit\test_hook_installer.py:80: in test_uninstall_removes_hook_when_no_backup
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-gzd246z5'
+____________ test_install_hook_appends_sentinel_names_to_gitignore ____________
+tests\unit\test_hook_installer.py:91: in test_install_hook_appends_sentinel_names_to_gitignore
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-xrltsnqy'
+________________ test_install_hook_gitignore_append_idempotent ________________
+tests\unit\test_hook_installer.py:102: in test_install_hook_gitignore_append_idempotent
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-lu37rfyt'
+___________ test_install_hook_gitignore_preserves_existing_content ____________
+tests\unit\test_hook_installer.py:118: in test_install_hook_gitignore_preserves_existing_content
+    install_hook(repo)
+sentinel\hook\installer.py:229: in install_hook
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
+sentinel\hook\installer.py:168: in _replace_hook_atomically
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:354: in mkstemp
+    return _mkstemp_inner(dir, prefix, suffix, flags, output_type)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\mahmo\AppData\Local\Programs\Python\Python313\Lib\tempfile.py:255: in _mkstemp_inner
+    fd = _os.open(file, flags, 0o600)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: 'C:\\Projects\\_int\\codex\\s2\\.git\\hooks\\.pre-push.sentinel-qpr8nwb2'
+__________________ test_old_hook_is_recognised_and_upgraded ___________________
+tests\unit\test_hook_pushed_refs.py:205: in test_old_hook_is_recognised_and_upgraded
+    assert is_sentinel_hook(hook)
+E   AssertionError: assert False
+E    +  where False = <function is_sentinel_hook at 0x000002703B2CD1C0>(WindowsPath('C:/Projects/_int/codex/s2/.bt/test_old_hook_is_recognised_an0/repo/.git/hooks/pre-push'))
+=========================== short test summary info ===========================
+FAILED tests/unit/test_hook_installer.py::test_install_hook_creates_sentinel_marker
+FAILED tests/unit/test_hook_installer.py::test_install_hook_idempotent - Perm...
+FAILED tests/unit/test_hook_installer.py::test_install_hook_chains_existing_hook
+FAILED tests/unit/test_hook_installer.py::test_install_hook_double_install_preserves_single_backup
+FAILED tests/unit/test_hook_installer.py::test_uninstall_restores_backup - Pe...
+FAILED tests/unit/test_hook_installer.py::test_uninstall_removes_hook_when_no_backup
+FAILED tests/unit/test_hook_installer.py::test_install_hook_appends_sentinel_names_to_gitignore
+FAILED tests/unit/test_hook_installer.py::test_install_hook_gitignore_append_idempotent
+FAILED tests/unit/test_hook_installer.py::test_install_hook_gitignore_preserves_existing_content
+FAILED tests/unit/test_hook_pushed_refs.py::test_old_hook_is_recognised_and_upgraded
+============ 10 failed, 173 passed, 9 skipped in 344.35s (0:05:44) ============

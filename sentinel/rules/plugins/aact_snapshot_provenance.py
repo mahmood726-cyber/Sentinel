@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files, path_allowed
+from sentinel.io.git_files import GitFileEnumerationError, iter_repo_files, path_allowed
 from sentinel.io.population import Population
 
 ID = "P0-aact-snapshot-provenance"
@@ -73,8 +73,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
     for p in _iter_capsules(root):
         try:
             text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # An enumerated candidate that cannot be read is an incomplete
+            # BLOCK scan, not a clean one. Abort with exit 10: warn-mode hooks
+            # can pass ordinary BLOCKs. No chaining: OS errors carry private
+            # paths.
+            raise GitFileEnumerationError(
+                f"AACT capsule candidate not inspected ({type(exc).__name__})"
+            ) from None
         if "sentinel:skip-file" in text:
             continue
         rel = p.relative_to(root).as_posix()

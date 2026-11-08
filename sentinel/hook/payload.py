@@ -16,9 +16,41 @@ Bypass: `SENTINEL_BYPASS=1 git push` skips scanning entirely and logs to
 """
 from __future__ import annotations
 
-HOOK_GENERATION = 2
+HOOK_GENERATION = 3
 
 SENTINEL_MARKER = "# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ==="
+
+# Earlier scripts this installer still owns, as sha256 of the LF-normalised
+# script. Recognition is by exact content, so without this list every hook
+# from an older release reads as a user's edited hook and install/uninstall
+# refuse it. Census of live repositories, 2026-11-07: all 52 installed hooks
+# were one of the first four below, and all were CRLF on disk.
+#
+# Whenever make_hook_script() changes, add the digests of the script it
+# replaces here, in the same commit. Each digest is tied to its source by a
+# fixture in tests/fixtures/hooks/.
+PREVIOUS_HOOK_SHA256 = frozenset({
+    # 7f3f0e5 warn (38 repositories)
+    "b23610d6d52cf0bf3a3a846f619ca70be53c9aeed54e883d7fe76545742e543b",
+    # 7f3f0e5 block (8 repositories)
+    "abb3a02821e62b50b0168a8b097a8bb73f63a58770bdeaecab81b7ebdc86e4f2",
+    # f83145f block (3 repositories)
+    "53fa825ade871dae76197a9e6cc98e7eb01f8b5b7ee840da36c103e03e155e70",
+    # abb6ddb warn (3 repositories)
+    "460538d0a6c298b8178e24f64a6c3688d681d9ffb024d70a76f6b78b04874ba1",
+    # fdf0741 block and warn (none in the census; what install-hook wrote
+    # until the scan moved to `python -P`)
+    "195cae7990a3501396af62d94be8e11de14e9d7f19f08441db840b000b9b112f",
+    "f49dcf0fdfc928e941e92b634d090736d2a855af172945a6a757f0bf7f453edb",
+    # pre-push-7a4e4db-block
+    "4108a2369507bd112f6b981d1d092c69316a82bb66176bfb904eae240e6f7b77",
+    # pre-push-7a4e4db-warn
+    "b9691506b0a80a88441b769d5d84087ab533e9bd331d0aabc42c5fb3a52a51af",
+    # pre-push-bcfbafd-block
+    "b3b85eb16bceeb1e57578ee1d8494e8878d93881a512611f8013a063674b7796",
+    # pre-push-bcfbafd-warn
+    "ba66dc2be7aac7baa2741dd1c84bc9a93a0e7e875add6dfbafa618fc3a65fa67",
+})
 
 
 def make_hook_script(mode: str = "block") -> str:
@@ -78,7 +110,8 @@ PUSH_INPUT="$(cat && printf '.')" || {{
   exit 10
 }}
 PUSH_INPUT="${{PUSH_INPUT%.}}"
-output="$(printf '%s' "$PUSH_INPUT" | python -m sentinel.hook.push "$1" 2>&1)"
+# -P prevents a repository-local sentinel/ package replacing the scanner.
+output="$(printf '%s' "$PUSH_INPUT" | python -P -m sentinel.hook.push "$1" 2>&1)"
 rc=$?
 printf '%s\\n' "$output"
 

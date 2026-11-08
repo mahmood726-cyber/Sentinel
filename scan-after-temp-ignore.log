@@ -1,0 +1,12 @@
+[Sentinel] scope: FULL TREE - 370 of 370 files (100%)
+[Sentinel] population: PUBLISHED(tracked)=357  PRESENT(+untracked-not-ignored)=370  present-only=13
+[Sentinel] rules read: PUBLISHED=5 PRESENT=26 DISK=0 no-walk=26 hybrid=0 (+7 yaml)
+[Sentinel] population declared by 31 of 64 rules; 0 still inferred from their discovery call
+[Sentinel] verdicts: BLOCK=6 WARN=1 INFO=0
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:47  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py -q --tb=shor
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:49  pattern matched: python -m pytest tests/unit/test_hook_pushed_refs.py::test_clea
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:51  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py tests/unit/t
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:55  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py tests/unit/t
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:59  pattern matched: python -m pytest tests/unit/test_hook*.py tests/unit/test_hook_
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:62  pattern matched: $hookTests = @(Get-ChildItem tests/unit/test_hook*.py | ForEach
+  [WARN] P1-unpopulated-placeholder  sentinel/hook/push.py:32  pattern matched: f"{ref}^{{commit}}").stdout.decode("ascii").strip()

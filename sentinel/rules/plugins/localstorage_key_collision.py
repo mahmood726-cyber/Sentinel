@@ -25,7 +25,11 @@ from pathlib import Path
 from typing import Iterator, List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import HTML_EXCLUDE_DIRS, iter_repo_files
+from sentinel.io.git_files import (
+    GitFileEnumerationError,
+    HTML_EXCLUDE_DIRS,
+    iter_repo_files,
+)
 from sentinel.io.population import Population
 
 
@@ -71,8 +75,14 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding='utf-8', errors='replace')
-        except OSError:
-            continue
+        except OSError as exc:
+            # An enumerated candidate that cannot be read is an incomplete
+            # BLOCK scan, not a clean one. Abort with exit 10: warn-mode hooks
+            # can pass ordinary BLOCKs. No chaining: OS errors carry private
+            # paths.
+            raise GitFileEnumerationError(
+                f"localStorage candidate not inspected ({type(exc).__name__})"
+            ) from None
         for m in KEY_RE.finditer(text):
             prefix = _canonical_prefix(m.group(0))
             # Record first occurrence of this prefix in this file

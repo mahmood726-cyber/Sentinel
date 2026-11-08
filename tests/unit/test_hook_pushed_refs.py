@@ -195,13 +195,26 @@ def test_unknown_remote_commit_is_internal_error_even_in_warn_mode(push_repo, mo
     assert "verdicts: BLOCK=0" not in output
 
 
-def test_old_hook_is_recognised_and_upgraded(push_repo):
+def test_hand_written_banner_is_not_trusted_as_a_sentinel_hook(push_repo):
     from sentinel.hook.installer import is_sentinel_hook
-    from sentinel.hook.payload import HOOK_GENERATION, SENTINEL_MARKER
+    from sentinel.hook.payload import SENTINEL_MARKER
 
     repo, _ = push_repo
     hook = repo / ".git" / "hooks" / "pre-push"
     hook.write_text(f"#!/bin/sh\n{SENTINEL_MARKER}\nexit 0\n", encoding="utf-8")
+    assert not is_sentinel_hook(hook)
+
+
+def test_old_hook_is_recognised_and_upgraded(push_repo):
+    from sentinel.hook.installer import is_sentinel_hook
+    from sentinel.hook.payload import HOOK_GENERATION
+
+    # Use the real hook main installed before this change (bcfbafd), not a
+    # hand-written banner: the installer only trusts recovered generations.
+    old = Path(__file__).parents[1] / "fixtures" / "hooks" / "pre-push-bcfbafd-warn.txt"
+    repo, _ = push_repo
+    hook = repo / ".git" / "hooks" / "pre-push"
+    hook.write_bytes(old.read_bytes())
     assert is_sentinel_hook(hook)
     install_hook(repo)
     assert f"# Sentinel hook generation: {HOOK_GENERATION}" in hook.read_text()

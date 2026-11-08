@@ -1,0 +1,285 @@
+[Sentinel] scope: FULL TREE - 1955 of 1955 files (100%)
+[Sentinel] population: PUBLISHED(tracked)=357  PRESENT(+untracked-not-ignored)=1955  present-only=1598
+[Sentinel] rules read: PUBLISHED=5 PRESENT=26 DISK=0 no-walk=26 hybrid=0 (+7 yaml)
+[Sentinel] population declared by 31 of 64 rules; 0 still inferred from their discovery call
+[Sentinel] verdicts: BLOCK=111 WARN=165 INFO=4
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path__pro0/huge_data_stress_test.py:2  pattern matched: df = pd.read_csv(r"C:\Users\user\Projects\scratch-drma\data\sim
+  [BLOCK] P0-hardcoded-local-path  .bt/test_no_marker_fires_normally0/src/bad.py:1  pattern matched: DATA = "C:/Users/user/data.csv"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path__one0/r_metafor_crossval.R:1  pattern matched: CSV_DIR <- "C:/Users/user/OneDrive - NHS/Documents/pairwise"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_docs_other_path_still_fir0/docs/architecture/overview.md:1  pattern matched: See `C:/Users/user/data/notes.md`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_flags_version_misma0/AGENTS.md:3  pattern matched: - **MyProj** (`C:/fake/myproj`, v2.1.0) is the thing.
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path_fire0/loader.py:1  pattern matched: DATA_DIR = r"D:\projects\aact\snapshot.db"
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:47  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py -q --tb=shor
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:49  pattern matched: python -m pytest tests/unit/test_hook_pushed_refs.py::test_clea
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:51  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py tests/unit/t
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:55  pattern matched: python -m pytest tests/unit/test_hook_diff_mode.py tests/unit/t
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:59  pattern matched: python -m pytest tests/unit/test_hook*.py tests/unit/test_hook_
+  [BLOCK] P0-hardcoded-local-path  REPORT.txt:62  pattern matched: $hookTests = @(Get-ChildItem tests/unit/test_hook*.py | ForEach
+  [BLOCK] P0-hardcoded-local-path  .bt/test_csv_file_is_scanned0/publication_export.csv:2  pattern matched: row1,C:/Users/user/DOAC_AF_REVIEW.html
+  [BLOCK] P0-hardcoded-local-path  .bt/test_docs_superpowers_specs_ex0/docs/superpowers/specs/2026-04-14-design.md:1  pattern matched: Example layout: `C:/Users/user/project/src/main.py`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_data_other_still_fires0/data/config/settings.py:1  pattern matched: DB = "C:/Users/user/app/db.sqlite"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_marker_two_lines_above_do0/src/bad.py:3  pattern matched: DATA = "C:/Users/user/data.csv"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_skip_marker__must_be_in_f0/sneaky.md:4  pattern matched: **Path:** C:\Users\user\secrets\data.py
+  [BLOCK] P0-hardcoded-local-path  .bt/test_verdict_schema_from_regis0/ProjectIndex/agent-records/restart-manifest.json:1  pattern matched: {"overview":{"projectCount":1},"projects":[{"name":"x","path":"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_r_script_is_scanned0/r_metafor_crossval.R:1  pattern matched: CSV_DIR <- "C:/Users/user/OneDrive - NHS/Documents/pairwise"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_skip_marker_must_be_in_fi0/sneaky.md:4  pattern matched: **Path:** C:\Users\user\data.py
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_silent_when_path_do0/AGENTS.md:1  pattern matched: - **Ghost** (`C:/does/not/exist`, v1.0.0) is the thing.
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_silent_when_no_auth0/AGENTS.md:1  pattern matched: - **Bare** (`C:/Projects/_int/codex/s2/.bt/test_check_silent_wh
+  [BLOCK] P0-hardcoded-local-path  .bt/test_no_skip_marker_still_fire0/normal.md:2  pattern matched: Source: `C:/Users/user/project.py`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_powershell_script_is_scan0/run_nightly.ps1:1  pattern matched: & "C:/Users/user/AppData/Local/Programs/Python/Python313/python
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path__d_d0/loader.py:1  pattern matched: DATA = r"D:\projects\aact\snapshot.db"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_txt_file_is_scanned0/notes.txt:1  pattern matched: data was loaded from C:/Users/user/project/data.csv
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_scans_multiple_conf0/CLAUDE.md:1  pattern matched: - **MyProj** (`C:/fake/myproj`, v2.1.0) is the thing.
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path_fire1/run.ps1:1  pattern matched: cd "c:\users\mahmood\projects"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_silent_when_no_vers0/AGENTS.md:1  pattern matched: - **MyProj** (`C:/Projects/_int/codex/s2/.bt/test_check_silent_
+  [BLOCK] P0-hardcoded-local-path  .bt/test_results_dir_does_not_over0/src/module.py:1  pattern matched: OUT = "C:/Users/user/x"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path_fire3/validator.R:1  pattern matched: CSV_DIR <- "C:/Users/user/OneDrive - NHS/Documents/pairwise"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_non_wiki_dir_still_fires0/wiki-docs/entry.md:1  pattern matched: **Path:** C:\Users\user\Projects\x
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path__rea0/README.md:2  pattern matched: python -m sentinel scan --repo C:/Projects/shifaa
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path_stil0/loader.py:1  pattern matched: DATA = r"C:\Users\mahmo\Projects\scratch\data.csv"
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path__den0/publication_export.csv:2  pattern matched: row1,C:/Users/user/DOAC_AF_REVIEW.html
+  [BLOCK] P0-hardcoded-local-path  .bt/test_shell_script_is_scanned0/deploy.sh:1  pattern matched: cd /home/deploy && ./run.sh
+  [BLOCK] P0-hardcoded-local-path  .bt/test_markdown_file_is_scanned0/README.md:1  pattern matched: Source: `C:/Users/user/SGLT2i_HF_REVIEW.html`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_dashboard_renders_html_fr0/sweep.json:1  pattern matched: {"generated_at": "2026-04-14T00:00:00+00:00", "repos_scanned": 
+  [BLOCK] P0-hardcoded-local-path  .bt/test_hardcoded_local_path_fire2/config.sh:1  pattern matched: export DATA=/Users/alice/project/data.csv
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_scans_multiple_conf0/AGENTS.md:1  pattern matched: - **MyProj** (`C:/fake/myproj`, v2.1.0) is the thing.
+  [BLOCK] P0-hardcoded-local-path  .bt/test_check_silent_when_version0/AGENTS.md:1  pattern matched: - **MyProj** (`C:/Projects/_int/codex/s2/.bt/test_check_silent_
+  [BLOCK] P0-hardcoded-local-path  .bt/test_agent_config_version_drif0/AGENTS.md:3  pattern matched: - **Overmind** (`C:/fake/overmind`, v2.1.0) is the portfolio ve
+  [BLOCK] P0-hardcoded-local-path  .bt/test_repo_scope_inactive0/memory/stale.md:1  pattern matched: at `C:\Projects\_int\codex\s2\.bt\test_repo_scope_inactive0\nop
+  [BLOCK] P0-hardcoded-local-path  .bt/test_dashboard_renders_html_fr0/dashboard.html:32  pattern matched: <tr><td><code>C:/Projects/shifaa</code></td><td class="BLOCK">1
+  [BLOCK] P0-hardcoded-local-path  .bt/test_docs_superpowers_plans_ex0/docs/superpowers/plans/2026-04-14-plan.md:1  pattern matched: Task 3: edit `C:/Users/user/project/engine.py::run()`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_offline_drive_emits_info_0/memory/offline.md:1  pattern matched: Project at `Z:\ghost\project`
+  [BLOCK] P0-hardcoded-local-path  .bt/test_all_paths_resolve_clean0/memory/note.md:1  pattern matched: Project lives at `C:\Projects\_int\codex\s2\.bt\test_all_paths_
+  [BLOCK] P0-hardcoded-local-path  .bt/test_marker_for_different_rule0/src/bad.py:1  pattern matched: DATA = "C:/Users/user/data.csv"  # sentinel:skip-line P1-some-o
+  [BLOCK] P0-placeholder-hmac  .bt/test_full_scan_does_not_touch_0/scan_target/cert.json:1  pattern matched: {"sig":"SIG_RSA_SHA256_x"}
+  [BLOCK] P0-placeholder-hmac  .bt/test_sweep_with_explicit_repos0/sweep.json:33  pattern matched: "detail": "pattern matched: {\"sig\":\"SIG_RSA_SHA256_x\"}",
+  [BLOCK] P0-placeholder-hmac  .bt/test_placeholder_hmac__scaffol0/emit.py:1  pattern matched: def fake_sign(): return "SIG_RSA_SHA256_pending_real_key"
+  [BLOCK] P0-placeholder-hmac  .bt/test_placeholder_hmac__truthce0/cert_bundle.json:3  pattern matched: "signature_placeholder": "SIG_RSA_SHA256_mock_bytes_32bytes_xxx
+  [BLOCK] P0-placeholder-hmac  .bt/test_sweep_with_explicit_repos0/bad/cert.json:1  pattern matched: {"sig":"SIG_RSA_SHA256_x"}
+  [WARN] P1-empty-dataframe-access  .bt/test_empty_df__guard_far_above0/ungoverned.py:11  pattern matched: return df.iloc[0]
+  [WARN] P1-empty-dataframe-access  .bt/test_empty_df__iloc_minus_one_0/pipeline.py:2  pattern matched: return df.iloc[-1]
+  [WARN] P1-empty-dataframe-access  .bt/test_empty_df__iloc_zero_flagg0/audit.py:4  pattern matched: return matched.iloc[0]
+  [WARN] P1-empty-dataframe-access  .bt/test_empty_df__values_zero_fla0/compute.py:2  pattern matched: return s.values[0]
+  [WARN] P1-empty-dataframe-access  .bt/test_empty_df__non_guard_if_do0/ungoverned.py:3  pattern matched: return df.iloc[0]
+  [WARN] P1-silent-failure-sentinel  .bt/test_silent_failure_sentinel__0/effect_inference.py:3  pattern matched: return "unknown_ratio"
+  [WARN] P1-silent-failure-sentinel  .bt/test_silent_failure_sentinel__1/parser.py:5  pattern matched: return "__silent__"
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder__2/notes.md:3  pattern matched: Author: REPLACE_ME
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder__2/notes.md:4  pattern matched: TBD: add methodology section
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder__2/notes.md:5  pattern matched: XXX: benchmarks here
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder__2/notes.md:6  pattern matched: Hash: __PLACEHOLDER__
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f0/page.html:1  pattern matched: <p>{{ name|upper }}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f0/page.html:2  pattern matched: <p>{{ date|format_date('YYYY-MM-DD') }}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder__0/template.html:1  pattern matched: <p>Hello {{ user|upper }}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_l1/page.html:1  pattern matched: <p>{{ form.fields.email.errors[0]|striptags|truncate(40)|escape
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f2/page.html:1  pattern matched: <p>{{- user -}}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f2/page.html:2  pattern matched: <p>{{-name-}}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f1/page.html:1  pattern matched: <p>{{ items[0] }}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_f1/page.html:2  pattern matched: <p>{{ data['key'] }}</p>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_s0/page.html:1  pattern matched: <h1>Hello {{user_name}}</h1>
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_s0/page.html:2  pattern matched: <p>Path: {{ config.api_key }}</p>
+  [WARN] P1-unpopulated-placeholder  sentinel/hook/push.py:32  pattern matched: f"{ref}^{{commit}}").stdout.decode("ascii").strip()
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_l0/notes.md:1  pattern matched: Step 1: REPLACE_ME with real value.
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_l0/notes.md:2  pattern matched: Note: __PLACEHOLDER__ here.
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_l0/notes.md:3  pattern matched: TBD: finish this.
+  [WARN] P1-unpopulated-placeholder  .bt/test_unpopulated_placeholder_l0/notes.md:4  pattern matched: XXX: hack until proper fix.
+  [WARN] P1-aact-field-semantics  .bt/test_dedups_per_field_per_line0/q.py:1  filters on AACT field 'is_us_export', which means a product EXPORTED from the US
+  [WARN] P1-aact-field-semantics  .bt/test_fires_on_python_eq_and_sq0/a.py:1  filters on AACT field 'is_fda_regulated_drug', which means a self-declared FDA-r
+  [WARN] P1-aact-field-semantics  .bt/test_fires_on_python_eq_and_sq0/b.sql:1  filters on AACT field 'is_fda_regulated_device', which means a self-declared FDA
+  [WARN] P1-aact-field-semantics  .bt/test_fires_on_real_comparison_0/use.py:2  filters on AACT field 'last_known_status', which means only populated when overa
+  [WARN] P1-aact-field-semantics  .bt/test_fires_on_real_comparison_0/use.py:1  filters on AACT field 'why_stopped', which means free text present only for term
+  [WARN] P1-aact-field-semantics  .bt/test_fires_on_us_export_filter0/q.py:1  filters on AACT field 'is_us_export', which means a product EXPORTED from the US
+  [WARN] P1-assurance-badge-integrity  .bt/test_block_opt_in0/e156-submission/assurance.json:1  assurance.json claims tier 'gold' but its own checks compute to 'none' — forged 
+  [WARN] P1-assurance-badge-integrity  .bt/test_forged_gold_flagged0/e156-submission/assurance.json:1  assurance.json claims tier 'gold' but its own checks compute to 'none' — forged 
+  [WARN] P1-assurance-badge-integrity  .bt/test_malformed_json_flagged0/assurance.json:1  assurance.json is not valid JSON: Expecting property name enclosed in double quo
+  [WARN] P0-citation-cascade  .bt/test_archive_and_snapshot_dirs0/app/refs.md:4  Reference line has author/year shape but no DOI/PMID/URL: '1. **Greenland S, Lon
+  [BLOCK] P0-citation-cascade  .bt/test_malformed_doi_not_resolut0/refs.md:1  DOI string '10.999/x' does not match the 10.<registrant>/<suffix> format. Verify
+  [BLOCK] P0-citation-cascade  .bt/test_real_malformed_doi_still_0/ref.md:1  DOI string '10.999/some-suffix' does not match the 10.<registrant>/<suffix> form
+  [WARN] P1-claim-grounding  .bt/test_archive_and_snapshot_dirs1/app/index.md:1  document states 2 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_bare_url_does_not_clear_t0/capsule.html:1  document states 2 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_explicit_equals_ratio_war0/doc.md:1  document states 1 quantitative effect claim(s) (e.g. 'HR = 2') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_naked_number_fires0/rewrite-workbook.txt:2  document states 5 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_percent_reduction_claim_w0/c.md:1  document states 1 quantitative effect claim(s) (e.g. 'by 30%') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_short_pmc_token_does_not_0/fp.md:1  document states 2 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_significant_reduction_is_0/students.html:1  document states 2 quantitative effect claim(s) (e.g. 'RR 0.8') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_spelled_out_ratio_with_nu0/a.md:1  document states 1 quantitative effect claim(s) (e.g. 'hazard ratio of 0') but ca
+  [WARN] P1-claim-grounding  .bt/test_spelled_out_ratio_with_nu0/b.md:1  document states 1 quantitative effect claim(s) (e.g. '74 hazard ratio') but carr
+  [WARN] P1-claim-grounding  .bt/test_static_html_manuscript_st0/paper.html:2  document states 2 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_supported_number_no_findi0/rewrite-workbook.txt:2  document states 6 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_ungrounded_claim_warns0/capsule.md:3  document states 3 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_uppercase_ratio_estimate_0/doc.md:1  document states 1 quantitative effect claim(s) (e.g. 'OR 1.4') but carries no re
+  [WARN] P1-claim-grounding  .bt/test_version_string_does_not_c0/v.md:1  document states 2 quantitative effect claim(s) (e.g. 'HR 0.7') but carries no re
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_all_rows_have_provenance_0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_block_opt_in_promotes_dir0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_consistent_pooled_claim_c0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_cushion_allows_small_drif0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_direction_contradiction_w0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_magnitude_mismatch_warns0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_mixed_provenance_warns_on0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_near_null_repool_uses_mag0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_no_rows_have_provenance_c0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_prose_wording_does_not_ev0/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored2/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  REML iteration block missing (no `tau2_reml` reference)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  REML is not primary (still using DL for sWR weights)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  Q-profile tau2 CI not wired (helper missing OR defined but never called)
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  qchisq lacks df=1 closed-form -- Wilson-Hilferty saturates at small df
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  HKSJ floor `max(1, q*)` missing -- HKSJ CI may narrow below DL
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  Prediction interval still uses t_{k-2} (IntHout 2016) instead of t_{k-1} (Cochra
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  Mantel-Haenszel pool not wired (method missing OR not pushed into method-sensiti
+  [WARN] P1-cochrane-v65-invariants  .bt/test_skip_marker_ignored3/x_REVIEW.html:1  ROB-ME not wired (method missing OR defined but never invoked)
+  [WARN] P1-cp1252-mojibake  .bt/test_count_reported_in_detail0/bad.md:1  cp1252-mojibake of `─` (BOX DRAWINGS LIGHT HORIZONTAL) at line 1; 3 total recove
+  [WARN] P1-cp1252-mojibake  .bt/test_fires_on_box_drawing_moji0/bad.md:2  cp1252-mojibake of `─` (BOX DRAWINGS LIGHT HORIZONTAL) at line 2; 3 total recove
+  [WARN] P1-cp1252-mojibake  .bt/test_fires_on_em_dash_mojibake0/bad.py:1  cp1252-mojibake of `—` (EM DASH) at line 1; 1 total recoverable sequence(s) in f
+  [WARN] P1-hallucinated-python-import  .bt/test_fires_on_pandas_read_exel0/bad.py:1  `from pandas import read_exel` — `read_exel` is not an attribute of `pandas` (ha
+  [WARN] P1-hallucinated-python-import  .bt/test_fires_on_typo_in_expanded0/bad.py:1  `from unittest import assertEquals` — `assertEquals` is not an attribute of `uni
+  [BLOCK] P0-hmac-compare-eq  .bt/test_fires_on_dotted_attribute0/bad.py:1  `bundle.signature == stored_sig` uses non-constant-time comparison on a crypto-s
+  [BLOCK] P0-hmac-compare-eq  .bt/test_fires_on_hmac_equality0/bad.py:1  `hmac_value == expected` uses non-constant-time comparison on a crypto-sensitive
+  [BLOCK] P0-hmac-compare-eq  .bt/test_fires_on_signature_inequa0/bad.py:1  `signature != trusted_sig` uses non-constant-time comparison on a crypto-sensiti
+  [BLOCK] P0-hmac-compare-eq  .bt/test_inaccessible_candidate_ca0/auth.py:1  `request_digest == expected_digest` uses non-constant-time comparison on a crypt
+  [BLOCK] P0-hmac-compare-eq  .bt/test_readable_insecure_compari0/auth.py:1  `request_digest == expected_digest` uses non-constant-time comparison on a crypt
+  [WARN] P1-insecure-deserialization  .bt/test_pickle_loads_fires0/bad.py:2  insecure deserialization (pickle/marshal load) — executes arbitrary code on craf
+  [WARN] P1-insecure-deserialization  .bt/test_yaml_load_unsafe_fires0/bad.py:2  insecure deserialization (yaml.load without a Safe loader) — executes arbitrary 
+  [BLOCK] P1-js-parse-check  .bt/test_broken_js_blocks0/src/bad.js  C:\Projects\_int\codex\s2\bt\test_broken_js_blocks0\src\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_fires_on_nullish_and0/bad.js  C:\Projects\_int\codex\s2\bt\test_fires_on_nullish_and0\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_fires_on_nullish_then_or0/bad.js  C:\Projects\_int\codex\s2\bt\test_fires_on_nullish_then_or0\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_fires_on_or_then_nullish0/bad.js  C:\Projects\_int\codex\s2\bt\test_fires_on_or_then_nullish0\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_inaccessible_candidate_ab0/src/bad.js  C:\Projects\_int\codex\s2\bt\test_inaccessible_candidate_ab0\src\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_mjs_and_cjs_checked0/src/bad.cjs  C:\Projects\_int\codex\s2\bt\test_mjs_and_cjs_checked0\src\badcjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_mjs_and_cjs_checked0/src/bad.mjs  C:\Projects\_int\codex\s2\bt\test_mjs_and_cjs_checked0\src\badmjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_node_execution_failure_ca0/src/bad.js  C:\Projects\_int\codex\s2\bt\test_node_execution_failure_ca0\src\badjs:2
+  [BLOCK] P1-js-parse-check  .bt/test_node_execution_failure_ca1/src/bad.js  C:\Projects\_int\codex\s2\bt\test_node_execution_failure_ca1\src\badjs:2
+  [BLOCK] P1-js-parse-check  .bt/test_node_missing_with_js_cand0/src/bad.js  C:\Projects\_int\codex\s2\bt\test_node_missing_with_js_cand0\src\badjs:2
+  [BLOCK] P1-js-parse-check  .bt/test_node_runs_normally_and_do0/src/candidate.js  C:\Projects\_int\codex\s2\bt\test_node_runs_normally_and_do0\src\candidatejs:2
+  [BLOCK] P1-js-parse-check  .bt/test_portfolio_scope_inactive3/src/bad.js  C:\Projects\_int\codex\s2\bt\test_portfolio_scope_inactive3\src\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_readable_invalid_expressi0/src/bad.js  C:\Projects\_int\codex\s2\bt\test_readable_invalid_expressi0\src\badjs:1
+  [BLOCK] P1-js-parse-check  .bt/test_single_timeout_is_retried0/src/candidate.js  C:\Projects\_int\codex\s2\bt\test_single_timeout_is_retried0\src\candidatejs:2
+  [WARN] P1-module-stdout-reassign  .bt/test_fires_on_unguarded_reassi0/bad.py:5  module-level `sys.stdout = io.TextIOWrapper(...)` without a `"pytest" not in sys
+  [BLOCK] P1-nullish-or-mixed  .bt/test_fires_on_nullish_and0/bad.js:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_fires_on_nullish_then_or0/bad.js:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_fires_on_or_then_nullish0/bad.js:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_inaccessible_candidate_ab0/src/bad.js:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_readable_invalid_expressi0/src/bad.js:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_fires_in_inline_script_bl0/page.html:2  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_inaccessible_candidate_ab1/page.html:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [BLOCK] P1-nullish-or-mixed  .bt/test_readable_invalid_expressi1/page.html:1  JavaScript forbids un-parenthesised mixing of `??` with `||` or `&&` — parse err
+  [WARN] P2-numeric-parse-or-null  .bt/test_fires_on_number_or_undefi0/bad.js:1  `Number(x) || undefined` drops 0/0.0 silently — parsed zero is falsy and falls t
+  [WARN] P2-numeric-parse-or-null  .bt/test_fires_on_parsefloat_or_nu0/bad.js:1  `parseFloat(x) || null` drops 0/0.0 silently — parsed zero is falsy and falls th
+  [WARN] P2-numeric-parse-or-null  .bt/test_fires_on_parseint_or_zero0/bad.js:1  `parseInt(x) || 0` drops 0/0.0 silently — parsed zero is falsy and falls through
+  [BLOCK] P1-py-parse-check  .bt/test_broken_py_blocks0/src/bad.py:1  invalid syntax Perhaps you forgot a comma? at line 1, col 12
+  [BLOCK] P1-py-parse-check  .bt/test_dedups_per_field_per_line0/q.py:1  invalid syntax Maybe you meant '==' or ':=' instead of '='? at line 1, col 6
+  [BLOCK] P1-py-parse-check  .bt/test_excludes_vendored_and_min0/_vendor/v.py:1  invalid syntax at line 1, col 7
+  [BLOCK] P1-py-parse-check  .bt/test_marker_beyond_scan_window0/f.py:177  invalid syntax at line 177, col 5
+  [BLOCK] P1-py-parse-check  .bt/test_marker_inline_in_string_r0/f.py:2  invalid syntax at line 2, col 5
+  [BLOCK] P1-py-parse-check  .bt/test_marker_substring_negation0/f.py:2  invalid syntax at line 2, col 5
+  [BLOCK] P1-py-parse-check  .bt/test_marker_substring_xsentine0/f.py:2  invalid syntax at line 2, col 5
+  [BLOCK] P1-py-parse-check  .bt/test_multiple_broken_multi_ver0/a.py:1  invalid syntax Perhaps you forgot a comma? at line 1, col 12
+  [BLOCK] P1-py-parse-check  .bt/test_multiple_broken_multi_ver0/b.py:1  invalid syntax Perhaps you forgot a comma? at line 1, col 12
+  [BLOCK] P1-py-parse-check  .bt/test_portfolio_scope_inactive5/bad.py:1  invalid syntax Perhaps you forgot a comma? at line 1, col 12
+  [BLOCK] P1-py-parse-check  .bt/test_quiet_on_syntax_error_fil0/broken.py:1  invalid syntax at line 1, col 9
+  [BLOCK] P1-py-parse-check  .bt/test_readable_python_syntax_er0/bad.py:1  invalid syntax at line 1, col 9
+  [BLOCK] P1-py-parse-check  .bt/test_unreadable_python_candida0/source.py:1  invalid syntax at line 1, col 9
+  [WARN] P1-regex-catastrophic-backtrack  .bt/test_fires_on_dot_star_outer0/bad.py:2  regex `prefix(\d+)*$` has nested unbounded quantifier near `(\d+)...` — catastro
+  [WARN] P1-regex-catastrophic-backtrack  .bt/test_fires_on_lazy_then_greedy0/bad.py:2  regex `(.+?)+x` has nested unbounded quantifier near `(.+?)...` — catastrophic b
+  [WARN] P1-regex-catastrophic-backtrack  .bt/test_fires_on_word_class_neste0/bad.py:2  regex `(\w+)+` has nested unbounded quantifier near `(\w+)...` — catastrophic ba
+  [WARN] P2-reuse-available  .bt/test_aact_class_and_resolver_w0/loc.py:1  `AACTLocation` already exists in the shared kit `aact-kit` (get it: install-aact
+  [WARN] P2-reuse-available  .bt/test_aact_class_and_resolver_w0/res.py:1  `resolve_aact_location` already exists in the shared kit `aact-kit` (get it: ins
+  [WARN] P2-reuse-available  .bt/test_assignment_and_arrow_form0/a.js:1  `renderFunnel` already exists in the shared kit `e156-chart-kit` (get it: instal
+  [WARN] P2-reuse-available  .bt/test_assignment_and_arrow_form0/b.js:1  `renderGOSH` already exists in the shared kit `e156-chart-kit` (get it: install-
+  [WARN] P2-reuse-available  .bt/test_handrolled_forest_with_sv0/myplot.js:1  `renderForest` already exists in the shared kit `e156-chart-kit` (get it: instal
+  [BLOCK] P1-script-close-in-template  .bt/test_fires_on_template_literal0/bad.html:2  literal `</script>` token inside an open string/template literal — the HTML pars
+  [BLOCK] P1-script-close-in-template  .bt/test_readable_bad_html_blocks0/page.html:1  literal `</script>` token inside an open string/template literal — the HTML pars
+  [BLOCK] P1-script-close-in-template  .bt/test_unreadable_html_candidate0/page.html:1  literal `</script>` token inside an open string/template literal — the HTML pars
+  [BLOCK] P1-test-module-collision  .bt/test_fires_on_root_and_subdir_0/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_fires_on_root_and_subdir_0/tests/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_quiet_on_single_occurrenc0/tests/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_quiet_on_unique_basenames0/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_quiet_when_init_present0/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_quiet_when_init_present0/tests/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [BLOCK] P1-test-module-collision  .bt/test_skip_line_marker_honored1/test_foo.py:1  test_foo.py imports as test_foo and collides with: .bt/test_fires_on_root_and_su
+  [INFO] P2-todo-past-date  .bt/test_days_overdue_in_detail0/bad.py:1  TODO(2026-09-27) is 42 day(s) overdue — scheduled cleanup deadline has passed
+  [INFO] P2-todo-past-date  .bt/test_fires_on_fixme_paren_form0/bad.py:1  FIXME(2025-12-01) is 342 day(s) overdue — scheduled cleanup deadline has passed
+  [INFO] P2-todo-past-date  .bt/test_fires_on_hack_space_form0/bad.js:1  HACK(2025-06-15) is 511 day(s) overdue — scheduled cleanup deadline has passed
+  [INFO] P2-todo-past-date  .bt/test_fires_on_overdue_todo0/bad.py:1  TODO(2024-01-01) is 1042 day(s) overdue — scheduled cleanup deadline has passed
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_dynamic_eval_still_blocks0/source.py:1  `eval(...)` called on a non-literal argument — arbitrary-code-execution sink
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_eval_exec_fires_on_dynami0/bad.py:1  `eval(...)` called on a non-literal argument — arbitrary-code-execution sink
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_eval_exec_fires_on_dynami0/bad.py:2  `exec(...)` called on a non-literal argument — arbitrary-code-execution sink
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_unreadable_dynamic_eval_c0/source.py:1  `eval(...)` called on a non-literal argument — arbitrary-code-execution sink
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_whitespace_before_paren_c0/module.py:1  `eval(...)` called on a non-literal argument — arbitrary-code-execution sink
+  [BLOCK] P0-unsafe-eval-exec  .bt/test_whitespace_before_paren_c1/module.py:1  `exec(...)` called on a non-literal argument — arbitrary-code-execution sink

@@ -29,7 +29,7 @@ def _git(repo: Path, *args: str, allowed=(0,)) -> subprocess.CompletedProcess:
 
 def _commit(repo: Path, ref: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--end-of-options",
-                f"{ref}^{{commit}}").stdout.decode("ascii").strip()
+                ref + "^{commit}").stdout.decode("ascii").strip()
 
 
 def _new_ref_base(repo: Path, remote: str, commit: str) -> str | None:
@@ -108,6 +108,7 @@ def scan_push(repo: Path, remote: str, records: str) -> int:
     for remote_ref, commit, base, paths in plans:
         print(f"[Sentinel] push: {remote_ref} {commit} vs {base or 'FULL TREE'} "
               f"({len(paths)} files)")
+        print(f"[Sentinel] scope: {len(paths)} files in pushed snapshot {commit}")
         if not paths:
             continue
         with _snapshot(repo, commit) as tree:

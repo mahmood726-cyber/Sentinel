@@ -7,11 +7,19 @@ Contracts (see M1 design spec):
 - Never clobbers the user's original hook: uninstall restores from backup.
 """
 from __future__ import annotations
+import hashlib
 import os
 import stat
+import subprocess
+import tempfile
 from pathlib import Path
 
-from sentinel.hook.payload import HOOK_SCRIPT, SENTINEL_MARKER, make_hook_script
+from sentinel.hook.payload import (
+    HOOK_SCRIPT,
+    PREVIOUS_HOOK_SHA256,
+    SENTINEL_MARKER,
+    make_hook_script,
+)
 from sentinel.io.paths import OUTPUT_FILENAMES, LEGACY_FILENAMES
 
 
@@ -22,14 +30,106 @@ class HookInstallError(Exception):
 GITIGNORE_MARKER = "# === Sentinel hook output (auto-added by install) ==="
 
 
+def _hooks_dir(repo_root: Path) -> Path:
+    """Resolve the *active* Git hook directory for regular and linked worktrees.
+
+    Git's core.hooksPath overrides .git/hooks, even for a normal checkout.
+    Always ask Git rather than assuming that the on-disk .git directory is
+    the active hooks location. Keep the old minimal .git-directory fixture
+    support used by tests which do not create a complete Git repository.
+    """
+    git_marker = repo_root / ".git"
+    if not git_marker.is_dir() and not git_marker.is_file():
+        raise HookInstallError(f"not a git repository: {repo_root}")
+
+    # Git otherwise walks past an incomplete fixture into an ancestor repo.
+    if git_marker.is_dir() and not (git_marker / "HEAD").exists():
+        hooks_dir = git_marker / "hooks"
+        if hooks_dir.exists() and not hooks_dir.is_dir():
+            raise HookInstallError("configured Git hooks path is not a directory")
+        return hooks_dir
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--git-path", "hooks"],
+            capture_output=True, text=True, encoding="utf-8", timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        raise HookInstallError("could not resolve Git hooks directory") from None
+
+    hooks_path = result.stdout.rstrip("\r\n")
+    if result.returncode == 0 and hooks_path:
+        candidate = Path(hooks_path)
+        hooks_dir = candidate if candidate.is_absolute() else repo_root / candidate
+    else:
+        raise HookInstallError("could not resolve Git hooks directory")
+
+    if hooks_dir.exists() and not hooks_dir.is_dir():
+        raise HookInstallError("configured Git hooks path is not a directory")
+    return hooks_dir
+
+
+def _is_generated_script(raw: bytes) -> bool:
+    """True only for a complete script some Sentinel release generated.
+
+    Deployed hooks are CRLF on disk (Windows checkouts of the installed
+    text), so compare with CRLF normalised and nothing else: any other
+    difference, including trailing whitespace, is somebody's edit.
+    """
+    body = raw.replace(b"\r\n", b"\n")
+    if body in (HOOK_SCRIPT.encode("utf-8"), make_hook_script("warn").encode("utf-8")):
+        return True
+    return hashlib.sha256(body).hexdigest() in PREVIOUS_HOOK_SHA256
+
+
 def is_sentinel_hook(hook_path: Path) -> bool:
+    """Only recognize scripts we actually generated, not a copied banner."""
     if not hook_path.is_file():
         return False
     try:
-        content = hook_path.read_text(encoding="utf-8", errors="replace")
+        return _is_generated_script(hook_path.read_bytes())
     except OSError:
         return False
-    return SENTINEL_MARKER in content
+
+
+def _reject_unrecognized_marker(hook_path: Path) -> None:
+    """Do not overwrite/delete a modified or marker-bearing third-party hook.
+
+    The banner is documentation, not proof that the complete hook is ours.
+    Unknown versions also require explicit human reconciliation; chaining an
+    edited Sentinel script can recurse through its own backup indefinitely.
+    """
+    if not hook_path.exists():
+        return
+    try:
+        raw = hook_path.read_bytes()
+        content = raw.decode("utf-8")
+    except (OSError, UnicodeError):
+        raise HookInstallError("cannot inspect existing pre-push hook") from None
+    if SENTINEL_MARKER in content and not _is_generated_script(raw):
+        raise HookInstallError(
+            "unrecognized or modified pre-push hook with Sentinel marker; "
+            "refusing to overwrite or remove it"
+        )
+
+
+def _reject_symlink_entries(hook: Path, backup: Path) -> None:
+    """Never follow hook/backup symlinks while installing or uninstalling.
+
+    Writing a symlinked pre-push hook can overwrite an unrelated external
+    script; a symlinked backup can also redirect restoration or reads.
+    Check the directory entries themselves, including dangling links.
+    """
+    for path in (hook, backup):
+        try:
+            linked = path.is_symlink()
+        except OSError:
+            raise HookInstallError("cannot inspect hook entry type") from None
+        if linked:
+            raise HookInstallError(
+                "symbolic link in pre-push hook or Sentinel backup; "
+                "refusing operation until explicitly reconciled"
+            )
 
 
 def ensure_sentinel_gitignored(repo_root: Path) -> None:
@@ -59,6 +159,36 @@ def ensure_sentinel_gitignored(repo_root: Path) -> None:
         pass
 
 
+def _replace_hook_atomically(
+    hook: Path, content: bytes, *, preserve_mode: int | None = None,
+) -> None:
+    """Never truncate a live pre-push executable during install or restore.
+
+    Write, flush, and mark a temporary sibling executable before the atomic
+    same-directory rename. If any step fails, leave the previous hook intact
+    and remove the unfinished temporary file. Do not silently ignore chmod
+    failures, which could otherwise install a hook Git never executes.
+    """
+    fd, name = tempfile.mkstemp(prefix=".pre-push.sentinel-", dir=hook.parent)
+    pending = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if preserve_mode is None:
+            pending.chmod(
+                pending.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
+        else:
+            # A previously installed hook might deliberately have no +x.
+            # Neither chaining nor uninstall should activate a disabled hook.
+            pending.chmod(preserve_mode)
+        os.replace(pending, hook)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 def install_hook(repo_root: Path, mode: str = "block") -> None:
     """Install the Sentinel pre-push hook.
 
@@ -71,39 +201,58 @@ def install_hook(repo_root: Path, mode: str = "block") -> None:
     (idempotently) to prevent users from accidentally committing findings
     that contain absolute local paths.
     """
-    git_dir = repo_root / ".git"
-    if not git_dir.is_dir():
-        raise HookInstallError(f"not a git repository: {repo_root}")
-    hooks_dir = git_dir / "hooks"
+    hooks_dir = _hooks_dir(repo_root)
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_symlink_entries(hook, backup)
+    _reject_unrecognized_marker(hook)
 
     if hook.exists() and not is_sentinel_hook(hook):
-        if not backup.exists():
-            backup.write_bytes(hook.read_bytes())
-            _chmod_exec(backup)
+        if backup.exists():
+            # A different tool/user replaced our installed hook while the
+            # original remains backed up. Never erase that new hook or
+            # pretend it was chained: require explicit human resolution.
+            raise HookInstallError(
+                "pre-push hook replaced while Sentinel backup exists; "
+                "refusing to overwrite modified hook"
+            )
+        # Prepare the original hook backup completely before replacing the
+        # active gate. A failed stage/chmod/rename must not leave a partial
+        # backup or allow a new hook to be installed without a valid chain.
+        try:
+            _replace_hook_atomically(
+                backup, hook.read_bytes(),
+                preserve_mode=stat.S_IMODE(hook.stat().st_mode),
+            )
+        except OSError:
+            raise HookInstallError(
+                "cannot safely prepare existing pre-push hook backup"
+            ) from None
 
-    hook.write_text(make_hook_script(mode), encoding="utf-8")
-    _chmod_exec(hook)
+    _replace_hook_atomically(hook, make_hook_script(mode).encode("utf-8"))
     ensure_sentinel_gitignored(repo_root)
 
 
 def uninstall_hook(repo_root: Path) -> None:
-    hooks_dir = repo_root / ".git" / "hooks"
+    hooks_dir = _hooks_dir(repo_root)
     hook = hooks_dir / "pre-push"
     backup = hooks_dir / "pre-push.sentinel-backup"
+    _reject_symlink_entries(hook, backup)
+    _reject_unrecognized_marker(hook)
     if backup.exists():
-        hook.write_bytes(backup.read_bytes())
-        _chmod_exec(hook)
+        if hook.exists() and not is_sentinel_hook(hook):
+            # Uninstall must not restore an old backup over a later hook
+            # installed by another tool or the repository owner.
+            raise HookInstallError(
+                "pre-push hook replaced while Sentinel backup exists; "
+                "refusing to overwrite modified hook"
+            )
+        _replace_hook_atomically(
+            hook, backup.read_bytes(),
+            preserve_mode=stat.S_IMODE(backup.stat().st_mode),
+        )
         backup.unlink()
     elif hook.exists() and is_sentinel_hook(hook):
         hook.unlink()
 
-
-def _chmod_exec(path: Path) -> None:
-    try:
-        current = path.stat().st_mode
-        path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    except OSError:
-        pass

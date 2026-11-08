@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import List
 
 from sentinel.core import RepoContext, Severity, Verdict
-from sentinel.io.git_files import iter_repo_files
+from sentinel.io.git_files import GitFileEnumerationError, iter_repo_files
 from sentinel.io.population import Population
 from sentinel.io.skip_marker import has_skip_marker, line_is_suppressed
 
@@ -116,8 +116,13 @@ def check(ctx: RepoContext) -> List[Verdict]:
             if path.stat().st_size > MAX_FILE_BYTES:
                 continue
             text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        except OSError as exc:
+            # A discovered candidate that cannot be read is an incomplete
+            # BLOCK scan. Aborting is mandatory even for warn-mode hooks;
+            # suppress the underlying OS diagnostic to protect local paths.
+            raise GitFileEnumerationError(
+                f"crypto-comparison candidate not inspected ({type(exc).__name__})"
+            ) from None
         # Cheap pre-filter: only parse files mentioning a sensitive word.
         # Using broad substring match here is fine — _is_sensitive applies
         # the strict word/suffix check per-match.
