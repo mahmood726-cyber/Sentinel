@@ -19,6 +19,7 @@ from typing import Sequence
 
 from sentinel.core import Severity, Verdict
 from sentinel.io.paths import BLOCK_MD, BLOCK_JSONL, WARN_MD, WARN_JSONL
+from sentinel.io.provenance import stamp
 from sentinel.io.rotation import rotate_if_needed
 
 
@@ -38,11 +39,18 @@ def _format_verdict(v: Verdict) -> str:
     )
 
 
-def _append_jsonl(path: Path, verdicts: Sequence[Verdict]) -> None:
+def _append_jsonl(path: Path, verdicts: Sequence[Verdict], repo_root: Path) -> None:
+    # Every finding is stamped with the commit it was raised against and with
+    # whether the file was tracked. Without those two fields a finding can only
+    # be anchored by reconstructing the commit from its timestamp, and a
+    # working-tree finding is indistinguishable from a committed one -- the two
+    # misreadings that produced 18 false "detector gaps" in the 2026-08-30
+    # historical replay. See sentinel.io.provenance.
     rotate_if_needed(path)
     with path.open("a", encoding="utf-8") as f:
         for v in verdicts:
-            f.write(json.dumps(v.to_dict(), ensure_ascii=False) + "\n")
+            record = stamp(repo_root, v.to_dict(), v.file)
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
@@ -53,7 +61,7 @@ def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
     warns = [v for v in verdicts if v.severity == Severity.WARN]
 
     if blocks:
-        _append_jsonl(repo_root / BLOCK_JSONL, blocks)
+        _append_jsonl(repo_root / BLOCK_JSONL, blocks, repo_root)
         md_path = repo_root / BLOCK_MD
         rotate_if_needed(md_path)
         if not md_path.exists():
@@ -63,7 +71,7 @@ def write_findings(repo_root: Path, verdicts: Sequence[Verdict]) -> None:
                 f.write(_format_verdict(v))
 
     if warns:
-        _append_jsonl(repo_root / WARN_JSONL, warns)
+        _append_jsonl(repo_root / WARN_JSONL, warns, repo_root)
         md_path = repo_root / WARN_MD
         rotate_if_needed(md_path)
         if not md_path.exists():
