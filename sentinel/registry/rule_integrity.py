@@ -44,7 +44,9 @@ class IntegrityReport(NamedTuple):
 
 
 def _sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+    # Hash text, not checkout bytes: core.autocrlf rewrites line endings of a
+    # mixed-ending blob, which read as drift on a clean Windows checkout.
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _iter_rule_files(rules_root: Path):
