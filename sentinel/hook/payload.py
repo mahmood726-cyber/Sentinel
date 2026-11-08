@@ -16,6 +16,8 @@ Bypass: `SENTINEL_BYPASS=1 git push` skips scanning entirely and logs to
 """
 from __future__ import annotations
 
+HOOK_GENERATION = 3
+
 SENTINEL_MARKER = "# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ==="
 
 # Earlier scripts this installer still owns, as sha256 of the LF-normalised
@@ -40,6 +42,14 @@ PREVIOUS_HOOK_SHA256 = frozenset({
     # until the scan moved to `python -P`)
     "195cae7990a3501396af62d94be8e11de14e9d7f19f08441db840b000b9b112f",
     "f49dcf0fdfc928e941e92b634d090736d2a855af172945a6a757f0bf7f453edb",
+    # pre-push-7a4e4db-block
+    "4108a2369507bd112f6b981d1d092c69316a82bb66176bfb904eae240e6f7b77",
+    # pre-push-7a4e4db-warn
+    "b9691506b0a80a88441b769d5d84087ab533e9bd331d0aabc42c5fb3a52a51af",
+    # pre-push-bcfbafd-block
+    "b3b85eb16bceeb1e57578ee1d8494e8878d93881a512611f8013a063674b7796",
+    # pre-push-bcfbafd-warn
+    "ba66dc2be7aac7baa2741dd1c84bc9a93a0e7e875add6dfbafa618fc3a65fa67",
 })
 
 
@@ -48,6 +58,7 @@ def make_hook_script(mode: str = "block") -> str:
         raise ValueError(f"mode must be 'warn' or 'block', got {mode!r}")
     return f"""#!/bin/sh
 {SENTINEL_MARKER}
+# Sentinel hook generation: {HOOK_GENERATION}
 MODE="${{SENTINEL_MODE:-{mode}}}"
 
 if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
@@ -92,37 +103,15 @@ if [ "${{SENTINEL_BYPASS:-0}}" = "1" ]; then
   exit 0
 fi
 
-# Pre-push by default scans only the diff vs the remote's HEAD —
-# typical PRs touch <10 files so this drops a 2-minute full scan to
-# ~1s. Operators who want the old whole-tree behavior can set
-# SENTINEL_DIFF_BASE=full. Set SENTINEL_DIFF_BASE=<ref> to pick a
-# specific base (e.g. origin/main, origin/master, HEAD~5).
-#
-# Auto-detection tries origin/HEAD first (the GitHub default-branch
-# pointer), then origin/main, then origin/master, then HEAD~1.
-# If nothing resolves, fall back to full-tree scan rather than skipping
-# the scan entirely — "no diff base" should never silently bypass.
-REPO_TOPLEVEL="$(git rev-parse --show-toplevel)"
-DIFF_BASE="${{SENTINEL_DIFF_BASE:-}}"
-
-if [ "$DIFF_BASE" = "full" ]; then
-  SCAN_ARGS=""
-elif [ -n "$DIFF_BASE" ]; then
-  SCAN_ARGS="--diff --base-ref $DIFF_BASE"
-else
-  # Auto-detect base ref
-  for candidate in origin/HEAD origin/main origin/master HEAD~1; do
-    if git -C "$REPO_TOPLEVEL" rev-parse --verify --quiet "$candidate" >/dev/null 2>&1; then
-      SCAN_ARGS="--diff --base-ref $candidate"
-      break
-    fi
-  done
-  SCAN_ARGS="${{SCAN_ARGS:-}}"
-fi
-
-# -P: this runs in the repository root, and a plain -m would put that first on
-# sys.path, so a sentinel/ directory in the repo would replace the scanner.
-output="$(python -P -m sentinel scan --repo "$REPO_TOPLEVEL" $SCAN_ARGS 2>&1)"
+# Preserve Git's ref records for both Sentinel and a chained user hook.
+# The trailing sentinel prevents command substitution stripping newlines.
+PUSH_INPUT="$(cat && printf '.')" || {{
+  echo "[Sentinel] INTERNAL ERROR: cannot read pre-push input. Push BLOCKED." >&2
+  exit 10
+}}
+PUSH_INPUT="${{PUSH_INPUT%.}}"
+# -P prevents a repository-local sentinel/ package replacing the scanner.
+output="$(printf '%s' "$PUSH_INPUT" | python -P -m sentinel.hook.push "$1" 2>&1)"
 rc=$?
 printf '%s\\n' "$output"
 
@@ -132,13 +121,13 @@ printf '%s\\n' "$output"
 # warn mode would silence. Require the verdicts marker as proof-of-run.
 if ! printf '%s' "$output" | grep -qE '(\\[Sentinel\\] verdicts:|"verdicts":)'; then
   echo "[Sentinel] scan did NOT produce verdicts — it CRASHED. Push BLOCKED for safety. Fix Sentinel or use SENTINEL_BYPASS=1." >&2
-  exit 1
+  exit 10
 fi
 
 # Sentinel internal error (try/except in scan CLI) — ALWAYS fail-closed.
 if [ $rc -ge 10 ]; then
   echo "[Sentinel] scan returned internal-error (exit $rc). Push BLOCKED — fix Sentinel or use SENTINEL_BYPASS=1." >&2
-  exit 1
+  exit $rc
 fi
 
 if [ "$MODE" = "warn" ] && [ "$rc" = "1" ]; then
@@ -153,7 +142,8 @@ fi
 
 hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
 if [ -x "$hook_backup" ]; then
-  exec "$hook_backup" "$@"
+  printf '%s' "$PUSH_INPUT" | "$hook_backup" "$@"
+  exit $?
 fi
 exit 0
 """

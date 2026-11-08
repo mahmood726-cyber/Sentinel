@@ -42,6 +42,13 @@ def _hooks_dir(repo_root: Path) -> Path:
     if not git_marker.is_dir() and not git_marker.is_file():
         raise HookInstallError(f"not a git repository: {repo_root}")
 
+    # Git otherwise walks past an incomplete fixture into an ancestor repo.
+    if git_marker.is_dir() and not (git_marker / "HEAD").exists():
+        hooks_dir = git_marker / "hooks"
+        if hooks_dir.exists() and not hooks_dir.is_dir():
+            raise HookInstallError("configured Git hooks path is not a directory")
+        return hooks_dir
+
     try:
         result = subprocess.run(
             ["git", "-C", str(repo_root), "rev-parse", "--git-path", "hooks"],
@@ -54,9 +61,6 @@ def _hooks_dir(repo_root: Path) -> Path:
     if result.returncode == 0 and hooks_path:
         candidate = Path(hooks_path)
         hooks_dir = candidate if candidate.is_absolute() else repo_root / candidate
-    elif git_marker.is_dir() and not (git_marker / "HEAD").exists():
-        # Compatibility with existing bare-minimum local test fixtures.
-        hooks_dir = git_marker / "hooks"
     else:
         raise HookInstallError("could not resolve Git hooks directory")
 

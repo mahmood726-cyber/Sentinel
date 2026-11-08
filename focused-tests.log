@@ -1,0 +1,22 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Projects\_int\codex\s2
+configfile: pyproject.toml
+plugins: anyio-4.13.0, hypothesis-6.155.6, base-url-2.1.0, playwright-0.8.0, timeout-2.4.0
+timeout: 900.0s
+timeout method: thread
+timeout func_only: False
+collected 10 items
+
+tests\unit\test_hook_diff_mode.py ........                               [ 80%]
+tests\unit\test_hook_module_shadow.py .F                                 [100%]
+
+================================== FAILURES ===================================
+_________ test_clean_repository_with_a_sentinel_package_still_pushes __________
+tests\unit\test_hook_module_shadow.py:68: in test_clean_repository_with_a_sentinel_package_still_pushes
+    assert "[Sentinel] scope:" in output, "the real scanner must have run"
+E   AssertionError: the real scanner must have run
+E   assert '[Sentinel] scope:' in "[Sentinel] push: refs/heads/main acc337840a9c4b3aba626332e703f7d696c15047 vs FULL TREE (4 files)\n[Sentinel] verdicts...o C:\\Projects\\_int\\codex\\s2\\.bt\\test_clean_repository_with_a_s0\\remote.git\n * [new branch]      main -> main\n"
+=========================== short test summary info ===========================
+FAILED tests/unit/test_hook_module_shadow.py::test_clean_repository_with_a_sentinel_package_still_pushes
+=================== 1 failed, 9 passed in 101.91s (0:01:41) ===================

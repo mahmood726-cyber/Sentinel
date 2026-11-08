@@ -54,3 +54,6 @@ Thumbs.db
 
 # Ignore legacy manifest keys to prevent accidental disclosure. No longer used.
 .sentinel-manifest-key
+
+# Disposable pytest fixtures when --basetemp is inside this checkout
+/.bt/

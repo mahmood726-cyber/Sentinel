@@ -25,6 +25,14 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "hooks"
 
 # (fixture named for its payload.py commit and mode, sha256 of the LF script)
 GENERATIONS = [
+    ("pre-push-bcfbafd-warn.txt",
+     "ba66dc2be7aac7baa2741dd1c84bc9a93a0e7e875add6dfbafa618fc3a65fa67"),
+    ("pre-push-bcfbafd-block.txt",
+     "b3b85eb16bceeb1e57578ee1d8494e8878d93881a512611f8013a063674b7796"),
+    ("pre-push-7a4e4db-warn.txt",
+     "b9691506b0a80a88441b769d5d84087ab533e9bd331d0aabc42c5fb3a52a51af"),
+    ("pre-push-7a4e4db-block.txt",
+     "4108a2369507bd112f6b981d1d092c69316a82bb66176bfb904eae240e6f7b77"),
     ("pre-push-7f3f0e5-warn.txt",
      "b23610d6d52cf0bf3a3a846f619ca70be53c9aeed54e883d7fe76545742e543b"),
     ("pre-push-7f3f0e5-block.txt",

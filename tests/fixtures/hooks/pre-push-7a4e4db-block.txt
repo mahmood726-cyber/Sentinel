@@ -1,0 +1,89 @@
+#!/bin/sh
+# === SENTINEL PRE-PUSH HOOK (do not edit above this line) ===
+# Sentinel hook generation: 2
+MODE="${SENTINEL_MODE:-block}"
+
+if [ "${SENTINEL_BYPASS:-0}" = "1" ]; then
+  log_path="${SENTINEL_BYPASS_LOG:-$HOME/.sentinel-logs/bypass.log}"
+  # Reject discard targets — redirecting the bypass log to /dev/null or
+  # similar would create a silent-bypass hole (an attacker could bypass
+  # and simultaneously erase the audit trail). Fail closed.
+  case "$log_path" in
+    /dev/null|/dev/zero|NUL|nul|""|/dev/stdout|/dev/stderr)
+      echo "[Sentinel] SENTINEL_BYPASS_LOG resolves to a discard target ($log_path). Push BLOCKED — pick a real file path or unset the variable." >&2
+      exit 1
+      ;;
+  esac
+  if ! mkdir -p "$(dirname "$log_path")" 2>/dev/null; then
+    echo "[Sentinel] cannot create bypass-log directory for $log_path. Push BLOCKED — fix the path or unset SENTINEL_BYPASS_LOG." >&2
+    exit 1
+  fi
+  repo="$(git rev-parse --show-toplevel 2>/dev/null || echo unknown)"
+  user="$(git config user.name 2>/dev/null || echo unknown)"
+  # Tamper-evident hash chain: each entry's trailing field is
+  # sha256(prev_chain + this_entry). Editing or deleting any past line breaks
+  # the chain for every line after it, so the user-writable log can no longer
+  # be silently rewritten to hide a bypass. `sentinel bypass-log --verify`
+  # validates the chain. Degrades to an unchained line if sha256sum is absent.
+  entry="$(printf '%s\t%s\t%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$repo" "$user")"
+  if command -v sha256sum >/dev/null 2>&1; then
+    prev_chain="$(tail -n 1 "$log_path" 2>/dev/null | awk -F'\t' 'NF>=4{print $4}')"
+    chain="$(printf '%s%s' "$prev_chain" "$entry" | sha256sum | cut -d' ' -f1)"
+    line="$(printf '%s\t%s' "$entry" "$chain")"
+  else
+    line="$entry"
+  fi
+  if ! printf '%s\n' "$line" >> "$log_path" 2>/dev/null; then
+    echo "[Sentinel] failed to append to bypass log ($log_path). Push BLOCKED — check file permissions." >&2
+    exit 1
+  fi
+  echo "[Sentinel] bypass logged to $log_path" >&2
+  hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
+  if [ -x "$hook_backup" ]; then
+    exec "$hook_backup" "$@"
+  fi
+  exit 0
+fi
+
+# Preserve Git's ref records for both Sentinel and a chained user hook.
+# The trailing sentinel prevents command substitution stripping newlines.
+PUSH_INPUT="$(cat && printf '.')" || {
+  echo "[Sentinel] INTERNAL ERROR: cannot read pre-push input. Push BLOCKED." >&2
+  exit 10
+}
+PUSH_INPUT="${PUSH_INPUT%.}"
+output="$(printf '%s' "$PUSH_INPUT" | python -m sentinel.hook.push "$1" 2>&1)"
+rc=$?
+printf '%s\n' "$output"
+
+# If Sentinel did not print a verdicts summary, scan crashed BEFORE producing
+# a verdict (ImportError, SyntaxError, broken package, wrong Python, etc.).
+# Exit code alone is unreliable — Python returns 1 for ImportError, which
+# warn mode would silence. Require the verdicts marker as proof-of-run.
+if ! printf '%s' "$output" | grep -qE '(\[Sentinel\] verdicts:|"verdicts":)'; then
+  echo "[Sentinel] scan did NOT produce verdicts — it CRASHED. Push BLOCKED for safety. Fix Sentinel or use SENTINEL_BYPASS=1." >&2
+  exit 10
+fi
+
+# Sentinel internal error (try/except in scan CLI) — ALWAYS fail-closed.
+if [ $rc -ge 10 ]; then
+  echo "[Sentinel] scan returned internal-error (exit $rc). Push BLOCKED — fix Sentinel or use SENTINEL_BYPASS=1." >&2
+  exit $rc
+fi
+
+if [ "$MODE" = "warn" ] && [ "$rc" = "1" ]; then
+  echo "[Sentinel] warn mode: findings recorded but push allowed (see STUCK_FAILURES.md)" >&2
+  rc=0
+fi
+
+if [ $rc -ne 0 ]; then
+  echo "[Sentinel] push aborted (exit $rc) — mode=$MODE. Override with SENTINEL_BYPASS=1." >&2
+  exit $rc
+fi
+
+hook_backup="$(dirname "$0")/pre-push.sentinel-backup"
+if [ -x "$hook_backup" ]; then
+  printf '%s' "$PUSH_INPUT" | "$hook_backup" "$@"
+  exit $?
+fi
+exit 0

@@ -1,0 +1,13 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Projects\_int\codex\s2
+configfile: pyproject.toml
+plugins: anyio-4.13.0, hypothesis-6.155.6, base-url-2.1.0, playwright-0.8.0, timeout-2.4.0
+timeout: 900.0s
+timeout method: thread
+timeout func_only: False
+collected 1 item
+
+tests\unit\test_hook_pushed_refs.py .                                    [100%]
+
+============================= 1 passed in 36.28s ==============================
